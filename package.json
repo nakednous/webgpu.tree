@@ -1,0 +1,54 @@
+{
+  "name": "webgpu.tree",
+  "version": "0.0.1",
+  "description": "webgpu.tree — the WebGPU twin of twgl.tree: @nakednous/tree + @nakednous/host on raw WebGPU through webgpu-utils.",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/"
+  ],
+  "scripts": {
+    "build": "rollup -c",
+    "clean": "rm -rf dist",
+    "rebuild": "npm run clean && npm run build",
+    "reset": "rm -rf node_modules dist package-lock.json && npm install",
+    "link:core": "npm link @nakednous/tree @nakednous/host",
+    "unlink:core": "npm unlink --no-save @nakednous/tree @nakednous/host && npm install @nakednous/tree @nakednous/host",
+    "prepublishOnly": "npm run build",
+    "postpublish": "npm run link:core"
+  },
+  "keywords": [
+    "webgpu",
+    "webgpu-utils",
+    "graphics",
+    "tree",
+    "shader",
+    "gizmo",
+    "picking",
+    "camera",
+    "manipulator"
+  ],
+  "author": "Jean Pierre Charalambos <nakednous@gmail.com>",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nakednous/webgpu.tree.git"
+  },
+  "peerDependencies": {
+    "webgpu-utils": "^2.1.1"
+  },
+  "dependencies": {
+    "@nakednous/tree": "^0.0.27",
+    "@nakednous/host": "^0.0.1"
+  },
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "rollup": "^4.63.1"
+  }
+}
