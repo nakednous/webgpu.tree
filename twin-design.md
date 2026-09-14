@@ -1,7 +1,7 @@
 # `webgpu.tree` — the twin (design)
 
 > Target: `webgpu.tree` 0.0.1 on `@nakednous/tree` 0.0.28+, `@nakednous/host` 0.0.1, and
-> `webgpu-utils` ^2.1.1 as a peer. The reference surface is `twgl.tree`'s
+> `webgpu-utils` ^2.1.1 as a peer. The reference surface is `webgl.tree`'s
 > (`bridge-design.md`); this doc is the **differences table** against it and nothing more.
 > Status: **stated, not built** — gated on WebGPU shipping by default on Linux stable, the
 > notebook's own gate for its compute paradigm. Names inherit the bridge's.
@@ -13,7 +13,7 @@
 The twin exports the same list, with the same signatures, where `gl` becomes the WebGPU
 context object — `{ device, context, format }` created once by `init(canvas, opts)` and
 passed first to every call, exactly as `gl` is. Per-context state lives in a registry keyed
-by `device`. A hero written against `twgl.tree` reads the same against `webgpu.tree`; what
+by `device`. A hero written against `webgl.tree` reads the same against `webgpu.tree`; what
 differs is the thin layer underneath it (webgpu-utils in place of twgl), the shading
 language of anything the hero authors (WGSL), and the conventions of the API, all listed
 below. Everything from `tree` and `host` is untouched — the split's proof.
@@ -26,7 +26,7 @@ blend and depth state." The twin realizes those two sentences.
 
 ## 2 · Differences
 
-| surface | `twgl.tree` (WebGL2 · twgl) | `webgpu.tree` (WebGPU · webgpu-utils) |
+| surface | `webgl.tree` (WebGL2 · twgl) | `webgpu.tree` (WebGPU · webgpu-utils) |
 |---|---|---|
 | context | `gl` from `canvas.getContext('webgl2')` | `{ device, context, format }` from `init(canvas)`: adapter → device, canvas context configured to the preferred format |
 | `program(vert, frag)` | twgl's `createProgramInfo`, not re-wrapped | **the twin's**: `program(ctx, wgsl, opts)` builds a render pipeline — one WGSL module with `vs` / `fs` entry points, vertex layout from the module, `opts` baking topology, cull, blend, depth. There is no thin-layer verb to leave un-wrapped: a pipeline is more than a program |

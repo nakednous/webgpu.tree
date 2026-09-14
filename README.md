@@ -1,13 +1,13 @@
 # `webgpu.tree`
 
-The WebGPU twin of `twgl.tree`: `@nakednous/tree` and `@nakednous/host` on raw WebGPU through
+The WebGPU twin of `webgl.tree`: `@nakednous/tree` and `@nakednous/host` on raw WebGPU through
 [webgpu-utils](https://github.com/greggman/webgpu-utils). The same bridge surface — gizmo
 pipe, HUD, render targets, filter passes and the pipe chain, colour-ID picking, camera
 install — realized where uniforms are fields of a buffer bound as a group, a program is a
 pipeline with baked state, and readback is asynchronous by construction.
 
 > **Status: stated, not built.** This repository reserves the name and carries
-> `twin-design.md`, the differences table against `twgl.tree`. No source has been written.
+> `twin-design.md`, the differences table against `webgl.tree`. No source has been written.
 
 ---
 

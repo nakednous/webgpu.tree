@@ -1,7 +1,7 @@
 {
   "name": "webgpu.tree",
   "version": "0.0.1",
-  "description": "webgpu.tree — the WebGPU twin of twgl.tree: @nakednous/tree + @nakednous/host on raw WebGPU through webgpu-utils.",
+  "description": "webgpu.tree — the WebGPU twin of webgl.tree: @nakednous/tree + @nakednous/host on raw WebGPU through webgpu-utils.",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.js",
