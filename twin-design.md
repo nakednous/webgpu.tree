@@ -44,12 +44,13 @@ blend and depth state." The twin realizes those two sentences.
 | `pick` | 1×1 target + `mat4Pick`, `paint(id)` → `uColor` | identical, on the twin's `readPixel` |
 | `upload` | `setTextureFromElement`, `flipY` on for images | `copyExternalImageToTexture`, no flip — WebGPU's texture space is **top-down**, the same as decoded images |
 | texture orientation | one orientation, GL's bottom-up: images flipped at upload, targets untouched | one orientation, WebGPU's top-down: nothing flipped, targets already top-down. The rule "no flip switch anywhere" holds on both; the *direction* differs, and the default pane UVs follow (`p0` → `(0, 0)`) |
-| `fullscreen` `vTexCoord` | bottom-up (`v = 0` at the bottom) | top-down (`v = 0` at the top) — coincidentally p5's `filter` convention. A filter that uses `vTexCoord.y` spatially reads differently on the two bridges; one that only samples `tex0` is unaffected |
+| `fullscreen` `vTexCoord` | bottom-up (`v = 0` at the bottom) | top-down (`v = 0` at the top) — coincidentally p5's `filter` convention. A filter that uses `vTexCoord.y` spatially reads differently on the two bridges; one that only samples `uSource` is unaffected |
 | `ndcZMin` | `WEBGL` (−1) | `WEBGPU` (0): every `cameraProj`, `mapLocation`, `mat4Pick`, `frustumCorners` call takes it; nothing else changes |
 | framebuffer y | `gl_FragCoord` y-up | `@builtin(position)` y-down; the host's viewport `[0, h, w, −h]` is the same on both (it describes pointer space, not the framebuffer) |
 | supplied programs | GLSL `flat`, `phong`, the line pipe, the pass-through | WGSL twins of the same four — the one source duplication in the stack, kept to these files |
 | HUD | ortho `P`, depth off | the same matrices; depth off is a pipeline variant |
 | `dispose` | deletes GL objects | destroys buffers / textures; pipelines are dropped |
+| packaging | ESM (twgl.js, tree, host external) + `dist/webgl.tree.umd.cjs`, global `webglTree` with `.tree` · `.host` | ESM (webgpu-utils, tree, host external) + `dist/webgpu.tree.umd.cjs`, global `webgpuTree` with `.tree` · `.host` |
 
 ---
 
