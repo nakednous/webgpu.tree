@@ -58,7 +58,9 @@ blend and depth state." The twin realizes those two sentences.
 ## 3 · What does not appear in the table
 
 Because it does not differ: the camera state and `setCamera(cam)` filling the host's view
-bag; the gizmo calls and their generators; `pipe`'s ping-pong semantics and caches; `image`
+bag; the gizmo calls and their generators; `pipe`'s ping-pong semantics and caches; `state`'s
+pair, its swap and its count — WebGPU's per-pass `loadOp` is the same "never cleared but by
+`reset()`", and the side a pass writes is the one the next pass's `beginPass` reads; `image`
 with `tint` / `mask` / `blend` (blend as a pipeline variant); the pick's `paint(id)` and the
 id codec; labels; the host entirely; the notation's realization table, row for row.
 
