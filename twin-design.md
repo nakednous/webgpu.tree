@@ -1,10 +1,12 @@
 # `webgpu.tree` — the twin (design)
 
-> Target: `webgpu.tree` 0.0.1 on `@nakednous/tree` 0.0.28+, `@nakednous/host` 0.0.1, and
-> `webgpu-utils` ^2.1.1 as a peer. The reference surface is `webgl.tree`'s
-> (`bridge-design.md`); this doc is the **differences table** against it and nothing more.
-> Status: **stated, not built** — gated on WebGPU shipping by default on Linux stable, the
-> notebook's own gate for its compute paradigm. Names inherit the bridge's.
+> Target: `webgpu.tree` 0.0.1 on `@nakednous/tree` ^0.0.34, `@nakednous/host` ^0.0.12,
+> `@nakednous/idiom` ^0.0.1, and `webgpu-utils` ^2.1.1 as a peer. The reference surface is
+> `webgl.tree`'s (`bridge-design.md`); this doc is the **differences table** against it and nothing
+> more. Status: **the core is built** (2026-10-23) — `init`, the backend behind `idiom`'s interface
+> and the composites over it: `renderTarget`, `program`, `fullscreen`, `filter`, `image`, `pipe`,
+> `releasePipe`, `state`, `setCamera`, `endFrame`. The rest of the table's surface is stated, each
+> verb its own stage. Names inherit the bridge's.
 
 ---
 
@@ -88,3 +90,23 @@ notebook column may use; the bridge does not).
   flip, each bridge on its own orientation rule. *Experiment:* the bridge gate rerun here.
 - **Availability.** WebGPU default on Linux stable Chromium — the trigger for building any
   of this.
+
+**Read 2026-10-23, with the core built.**
+
+- *The flat pass.* One frame holds a state's pass, a three-stage `pipe` (two working targets and a
+  display) and the display's own clear: the pass is begun lazily on a bind, a clear begins one at
+  once — the order `filter`, `pipe` and `state` write — and `endFrame` submits the frame's single
+  encoder. The host owns the submit through `afterFrame` (§7 #107); without a host the application
+  calls `endFrame`, which is the fallback this gate asked about.
+- *Row alignment.* Pinned by `test/readback.test.js`: a 1 × 1 copy is 256 bytes wide and answers four
+  bytes, a 3 × 2 block packs to 24 — and it runs in Chromium (the state's bands read back exactly:
+  `230 26 26 255` and `26 26 230 255`, the mean `64 128 191` after eight passes).
+- *Orientation.* The fullscreen pass's `vTexCoord` has v = 0 at the target's top row, and a target read
+  back row 0 first: the display pass drawn into a target read red at its left, blue at its right, with
+  no flip anywhere. The portal and stereo twins stay the notebook's gate.
+- *Availability.* WebGPU needs `--enable-unsafe-webgpu` on this machine's Chromium (154.0.8037.97);
+  the adapter is `google/swiftshader`, the preferred format `rgba8unorm`. Headless, that Chromium
+  **composites no WebGPU canvas** — a raw clear and a screenshot show the page's background — and a
+  `mapAsync` after the first canvas presentation fails with *"A valid external Instance reference no
+  longer exists"*, so the figure's readbacks are taken offscreen and the on-screen look is the
+  maintainer's gate.

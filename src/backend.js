@@ -1,0 +1,636 @@
+/**
+ * @file The WebGPU backend — the twenty-two members `idiom` calls, over
+ * `webgpu-utils` and the raw API.
+ * @module webgpu.tree/backend
+ * @license AGPL-3.0-only
+ *
+ * `idiom` never touches a GPU API: it calls the members below, and this file is
+ * what the twin supplies for them. It is the bridge's price, paid once — the
+ * conformance transcripts read it, and `webgl.tree`'s twgl backend is its
+ * sibling.
+ *
+ * ```
+ * targets   createTarget · destroyTarget · bindTarget · clear
+ * programs  createProgram · imageProgram · uniformsOf · samplersOf · setUniforms
+ * draws     setCamera · draw · drawInstanced
+ * buffers   createBuffer · updateBuffer
+ * picking   readPixels
+ * textures  createTexture · uploadTexture · destroyTexture · textureSize
+ * state     setViewport · setState
+ * context   dispose
+ * ```
+ *
+ * The four conventions are stated once, here, and every later verb inherits
+ * them: `ndcZMin` is `WEBGPU` (0), `uvOrientation` is `'top-down'` — nothing is
+ * flipped anywhere, because WebGPU's texture space and a decoded image's rows
+ * run the same way — `framebufferY` is `'down'`, the target's row 0 being its
+ * top, and `format` is the canvas's preferred one.
+ *
+ * Three shapes are the twin's own answer to WebGPU's model, and each is the
+ * least surprising reading of `idiom`'s contract (§7 #111):
+ *
+ * - `bindTarget` records the target; the render pass is begun lazily, on the
+ *   next draw, so the `clear` that `pipe` and `state` issue straight after a
+ *   bind still chooses the pass's `loadOp`.
+ * - a program is a *module*, its pipelines cached per state and attachment;
+ *   `draw` picks the variant, uploads the uniforms into the frame's arena and
+ *   binds one group.
+ * - `readPixels` answers a promise; a pixel read is a copy and a map.
+ *
+ * WGSL has no include, so `createProgram(ctx, frag)` compiles the twin's vertex
+ * stage *concatenated* with the caller's fragment source — one module, two
+ * entry points — unless the source brings its own `@vertex` stage. The backend
+ * interface therefore carries the twin without a change.
+ */
+
+'use strict';
+
+import { WEBGPU, mat4Mul } from '@nakednous/tree';
+import {
+  createBuffersAndAttributesFromArrays,
+  makeBindGroupLayoutDescriptors,
+  setVertexAndIndexBuffers,
+} from 'webgpu-utils';
+import { TEXTURE_USAGE } from './flags.js';
+import { declare } from './uniforms.js';
+import { BASE_STATE, createPipeline, pipelineKey, resolveState } from './pipeline.js';
+import { QUAD_LAYOUT, FLAT, entriesOf, sourceOf } from './programs.js';
+import { createArena } from './arena.js';
+import { readPixels as readback } from './readback.js';
+import {
+  bindTarget as bindFrameTarget,
+  clearTarget,
+  endFrame,
+  endPass,
+  ensurePass,
+  frameOf,
+  setViewport as setFrameViewport,
+} from './frame.js';
+
+/** The target formats a `renderTarget` `format` token resolves to. */
+export const FORMATS = Object.freeze({
+  rgba8: 'rgba8unorm',
+  rgba8unorm: 'rgba8unorm',
+  bgra8: 'bgra8unorm',
+  bgra8unorm: 'bgra8unorm',
+  rgba16: 'rgba16float',
+  rgba16float: 'rgba16float',
+  float: 'rgba16float',
+  rgba32: 'rgba32float',
+  rgba32float: 'rgba32float',
+  float32: 'rgba32float',
+});
+
+// GL's format constants, for a hero ported from webgl.tree without a rewrite:
+// UNSIGNED_BYTE, HALF_FLOAT and FLOAT are what `renderTarget`'s `format` took there.
+const GL_FORMATS = Object.freeze({ 5121: 'rgba8unorm', 5131: 'rgba16float', 5126: 'rgba32float' });
+
+/** The depth format every target's depth attachment uses. */
+export const DEPTH_FORMAT = 'depth24plus';
+
+/**
+ * Resolve a `renderTarget` format token to a WebGPU colour format.
+ * @param {{ format?:*, float?:boolean }} spec  `idiom`'s resolved target spec.
+ * @returns {string} A `GPUTextureFormat`.
+ * @example
+ * formatOf({ float: true })   // 'rgba16float'
+ */
+export function formatOf(spec) {
+  const token = spec.format;
+  if (typeof token === 'string') {
+    const key = token.toLowerCase();
+    if (FORMATS[key]) return FORMATS[key];
+    if (/(unorm|snorm|float|sint|uint)/.test(key)) return key;   // already a WebGPU format name
+  } else if (typeof token === 'number' && GL_FORMATS[token]) {
+    return GL_FORMATS[token];
+  }
+  return spec.float ? 'rgba16float' : 'rgba8unorm';
+}
+
+/** Bytes per pixel of the formats the bridge makes. @ignore */
+export function bytesPerPixel(format) {
+  const bits = /rgba(8|16|32)/.exec(format || '');
+  if (bits) return Number(bits[1]) / 2;
+  return 4;   // rgba8unorm, bgra8unorm and their kin
+}
+
+/** Log a message once per context record. @ignore */
+function warnOnce(ctx, key, message) {
+  if (!ctx.messages) ctx.messages = new Set();
+  if (ctx.messages.has(key)) return;
+  ctx.messages.add(key);
+  console.error('[webgpu.tree] ' + key + ': ' + message);
+}
+
+/** A texture record's view, made on first use. @ignore */
+function textureViewOf(tex) {
+  if (!tex) return null;
+  if (!tex.view && tex.gpu) tex.view = tex.gpu.createView();
+  return tex.view;
+}
+
+/**
+ * Create the backend of one device.
+ * @param {{ device:object, context:object, format:string, width:number, height:number }} opts
+ *        device: the GPUDevice; context: the configured GPUCanvasContext;
+ *        format: the canvas's format; width / height: its size in device pixels.
+ * @returns {object} The backend `idiom`'s context record nests.
+ */
+export function createBackend(opts) {
+  const { device, context, format } = opts;
+  const arena = opts.arena || createArena(device);
+  const resources = { buffers: new Set(), textures: new Set(), programs: new Set() };
+  let seq = 0;
+  const samplerIds = new WeakMap();
+  const samplerId = (chosen) => {
+    if (!samplerIds.has(chosen)) samplerIds.set(chosen, ++seq);
+    return samplerIds.get(chosen);
+  };
+
+  const white = () => {
+    if (resources.white) return resources.white;
+    const gpu = device.createTexture({
+      size: [1, 1],
+      format: 'rgba8unorm',
+      usage: TEXTURE_USAGE.TEXTURE_BINDING | TEXTURE_USAGE.COPY_DST,
+      label: 'webgpu.tree white',
+    });
+    device.queue.writeTexture({ texture: gpu }, new Uint8Array([255, 255, 255, 255]), { bytesPerRow: 256 }, [1, 1]);
+    resources.white = { id: ++seq, gpu, view: gpu.createView(), width: 1, height: 1, format: 'rgba8unorm' };
+    resources.textures.add(gpu);
+    return resources.white;
+  };
+
+  const sampler = () => {
+    if (resources.sampler) return resources.sampler;
+    resources.sampler = device.createSampler({
+      magFilter: 'linear',
+      minFilter: 'linear',
+      mipmapFilter: 'linear',
+      addressModeU: 'clamp-to-edge',
+      addressModeV: 'clamp-to-edge',
+      label: 'webgpu.tree default sampler',
+    });
+    return resources.sampler;
+  };
+
+  /**
+   * (Re)build a target's textures at its current size.
+   * @ignore
+   */
+  function buildTarget(ctx, target, spec) {
+    const f = frameOf(ctx);
+    if (f.pass && f.target === target) endPass(ctx);   // textures in a live pass are not destroyed under it
+    for (const gpu of target.textures) gpu.destroy();
+    target.textures = [];
+    target.attachments = [];
+    target.resolveTargets = target.samples > 1 ? [] : null;
+    target.color = null;
+    target.depth = null;
+    target.depthView = null;
+
+    const width = target.width;
+    const height = target.height;
+    const samples = target.samples;
+    const makeTexture = (descriptor, sampleCount) => {
+      const gpu = device.createTexture({
+        size: [width, height],
+        sampleCount: sampleCount === undefined ? samples : sampleCount,
+        label: 'webgpu.tree target',
+        ...descriptor,
+      });
+      target.textures.push(gpu);
+      return gpu;
+    };
+
+    if (spec.color) {
+      const count = Math.max(1, spec.names.length);
+      for (let i = 0; i < count; i++) {
+        const colorFormat = spec.perColor && spec.names[i]
+          ? formatOf({ format: spec.perColor[spec.names[i]], float: spec.float })
+          : (target.formats[i] || formatOf(spec));
+        target.formats[i] = colorFormat;
+        const sampled = makeTexture({
+          format: colorFormat,
+          usage: TEXTURE_USAGE.RENDER_ATTACHMENT | TEXTURE_USAGE.TEXTURE_BINDING | TEXTURE_USAGE.COPY_SRC | TEXTURE_USAGE.COPY_DST,
+        }, 1);
+        const sampledView = sampled.createView();
+        const record = { id: ++seq, gpu: sampled, view: sampledView, width, height, format: colorFormat };
+        resources.textures.add(sampled);
+        if (samples > 1) {
+          const msaa = makeTexture({ format: colorFormat, usage: TEXTURE_USAGE.RENDER_ATTACHMENT });
+          target.attachments.push(msaa.createView());
+          target.resolveTargets.push(sampledView);
+        } else {
+          target.attachments.push(sampledView);
+        }
+        if (i === 0) target.color = record;
+        if (spec.names[i]) target[spec.names[i]] = record;
+      }
+      target.formats.length = count;
+    }
+
+    if (spec.depth !== 'none') {
+      const sampleable = spec.depth === 'texture' && samples === 1;
+      if (spec.depth === 'texture' && samples > 1) {
+        warnOnce(ctx, 'depth-samples', 'a multisampled target resolves colour only — WebGPU has no depth resolve, so `depth: \'texture\'` with samples > 1 hands out no depth texture.');
+      }
+      const depth = makeTexture({
+        format: DEPTH_FORMAT,
+        usage: TEXTURE_USAGE.RENDER_ATTACHMENT | (sampleable ? TEXTURE_USAGE.TEXTURE_BINDING : 0),
+      });
+      target.depthView = depth.createView();
+      target.depthFormat = DEPTH_FORMAT;
+      if (sampleable) {
+        target.depth = { id: ++seq, gpu: depth, view: target.depthView, width, height, format: DEPTH_FORMAT };
+        resources.textures.add(depth);
+      }
+    } else {
+      target.depthFormat = null;
+    }
+    return target;
+  }
+
+  /**
+   * A program's pipelines are picked by state and attachment; the module and the
+   * names it declares are the program.
+   * @ignore
+   */
+  function buildProgram(ctx, code, o) {
+    const decl = declare(code);
+    const entries = entriesOf(code);
+    const vs = o.vs || entries.vertex;
+    const fs = o.fs || entries.fragment;
+    if (!vs || !fs) {
+      const missing = [vs ? null : 'a `@vertex`', fs ? null : 'a `@fragment`'].filter(Boolean);
+      console.error('[webgpu.tree] createProgram: a program needs both stages; this source has no ' + missing.join(' and no ') + ' entry.');
+      return null;
+    }
+    const program = {
+      id: ++seq,
+      code,
+      module: device.createShaderModule({ code, label: o.label }),
+      vs,
+      fs,
+      decl,
+      // not `uniforms`: `idiom`'s `passOf` reads that key as a pipe entry's bag
+      uniformNames: decl.names,
+      textures: new Map(),
+      samplers: new Map(),
+      pipelines: new Map(),
+      bindGroups: new Map(),
+      vertexLayouts: o.buffers || QUAD_LAYOUT,
+      failed: false,
+    };
+    // `idiom`'s `passOf` tells a bare program from a `{ program, uniforms }` bag by
+    // a `.program` field — the twgl programInfo's GL program, which a WebGPU
+    // program does not have. The record carries its module there, so both
+    // documented shapes of a `pipe` entry are read. The test double in `idiom`'s
+    // own suite carries one too, which is why 0.0.1's conformance does not see the
+    // shape it leans on.
+    program.program = program.module;
+    if (decl.unsupported.length) {
+      warnOnce(ctx, 'unsupported-bindings', 'the composite verbs bind no storage or external resource, and this program declares ' + decl.unsupported.join(', ') + '.');
+    }
+    if (decl.bindings.some((binding) => binding.group !== 0)) {
+      warnOnce(ctx, 'bind-groups', 'the composite verbs bind group 0 only; this program declares a resource in another group.');
+    }
+    try {
+      const descriptors = makeBindGroupLayoutDescriptors(decl.defs, { vertex: { entryPoint: vs }, fragment: { entryPoint: fs } });
+      program.layouts = descriptors.map((descriptor) => {
+        const entries = (descriptor && descriptor.entries ? descriptor.entries : []).map((entry) => {
+          if (!entry.buffer) return entry;
+          // a uniform is uploaded per draw into the frame's arena, so every
+          // uniform binding is dynamic; the bind group carries no offset
+          return { ...entry, buffer: { type: 'uniform', hasDynamicOffset: true, minBindingSize: entry.buffer.minBindingSize || 0 } };
+        });
+        return device.createBindGroupLayout({ entries });
+      });
+      if (!program.layouts.length) program.layouts = [device.createBindGroupLayout({ entries: [] })];
+      program.pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: program.layouts });
+      // the resources the pipeline's own layout has — a binding a stage declares
+      // and never uses is not in it, and a bind group entry it lacks is invalid
+      const group0 = descriptors[0] ? descriptors[0].entries : [];
+      program.bound = group0
+        .map((entry) => {
+          const declared = decl.bindings.find((binding) => binding.group === 0 && binding.binding === entry.binding);
+          return declared ? { kind: declared.kind, name: declared.name, binding: entry.binding } : null;
+        })
+        .filter(Boolean);
+    } catch (error) {
+      console.error('[webgpu.tree] createProgram: the bind group layout could not be derived — ' + (error && error.message));
+      program.failed = true;
+      return program;
+    }
+    const info = program.module.getCompilationInfo;
+    if (typeof info === 'function') {
+      program.module.getCompilationInfo().then((compiled) => {
+        for (const message of compiled.messages || []) {
+          if (message.type === 'error') {
+            console.error('[webgpu.tree] WGSL ' + message.type + ' at ' + message.lineNum + ':' + message.linePos + ' — ' + message.message);
+          }
+        }
+      }).catch(() => {});
+    }
+    return program;
+  }
+
+  const backend = {
+    ndcZMin: WEBGPU,
+    uvOrientation: 'top-down',
+    framebufferY: 'down',
+    format,
+
+    // ---------------------------------------------------------------- targets
+
+    createTarget(ctx, spec) {
+      const target = {
+        id: ++seq,
+        width: spec.width || ctx.width,
+        height: spec.height || ctx.height,
+        formats: [formatOf(spec)],
+        // WebGPU's render pipelines take a sample count of 1 or 4, so any request
+        // above one is 4 — a 2 or a 3 would be an invalid pipeline
+        samples: spec.samples > 1 ? 4 : 1,
+        textures: [],
+        attachments: [],
+        resolveTargets: null,
+        color: null,
+        depth: null,
+        depthView: null,
+        depthFormat: null,
+      };
+      target.resize = (width, height) => {
+        target.width = width;
+        target.height = height;
+        buildTarget(ctx, target, spec);
+        target.format = target.formats[0] || formatOf(spec);
+        return target;
+      };
+      target.resolve = () => {
+        const f = frameOf(ctx);
+        if (f.pass && f.target === target) endPass(ctx);   // the resolve is the pass's end
+        return target;
+      };
+      buildTarget(ctx, target, spec);
+      target.format = target.formats[0] || formatOf(spec);
+      return target;
+    },
+
+    destroyTarget(ctx, target) {
+      const f = frameOf(ctx);
+      if (f.pass && f.target === target) endPass(ctx);
+      for (const gpu of target.textures) gpu.destroy();
+      for (const texture of [target.color, target.depth]) if (texture) resources.textures.delete(texture.gpu);
+      target.textures = [];
+      target.color = null;
+      target.depth = null;
+      target.depthView = null;
+    },
+
+    bindTarget(ctx, target) {
+      const prior = frameOf(ctx).target;
+      if (target !== undefined) bindFrameTarget(ctx, target);
+      return prior === undefined ? null : prior;
+    },
+
+    clear(ctx, color) {
+      clearTarget(ctx, color);
+    },
+
+    // --------------------------------------------------------------- programs
+
+    createProgram(ctx, frag, opts) {
+      const o = opts || {};
+      const code = o.source || sourceOf(frag, o);
+      const program = buildProgram(ctx, code, o);
+      if (program) resources.programs.add(program);
+      return program;
+    },
+
+    imageProgram(ctx) {
+      if (!ctx.imageProgram) ctx.imageProgram = backend.createProgram(ctx, FLAT, { label: 'webgpu.tree flat' });
+      return ctx.imageProgram;
+    },
+
+    uniformsOf(prog) {
+      return prog && prog.uniformNames ? prog.uniformNames.slice() : [];
+    },
+
+    samplersOf(prog) {
+      return prog && prog.decl ? prog.decl.textures.slice() : [];
+    },
+
+    setUniforms(ctx, prog, values) {
+      if (!prog || !values) return;
+      prog.decl.set(values);
+      for (const name of prog.decl.textures) {
+        if (values[name] !== undefined) prog.textures.set(name, values[name]);
+      }
+      for (const name of prog.decl.samplers) {
+        if (values[name] !== undefined) prog.samplers.set(name, values[name]);
+      }
+    },
+
+    // ------------------------------------------------------------------ draws
+
+    setCamera(ctx, V, P) {
+      for (let i = 0; i < 16; i++) {
+        ctx.V[i] = V[i];
+        ctx.P[i] = P[i];
+      }
+      mat4Mul(ctx.PV, ctx.P, ctx.V);
+      if (ctx.view) ctx.view.set(ctx.P, ctx.V);
+      if (ctx.host && ctx.host.view) ctx.host.view.set(ctx.P, ctx.V);
+      return ctx.host && ctx.host.view ? ctx.host.view : ctx.view;
+    },
+
+    draw(ctx, prog, geometry) {
+      return drawProgram(ctx, prog, geometry, 1);
+    },
+
+    drawInstanced(ctx, prog, geometry, count) {
+      return drawProgram(ctx, prog, geometry, count || 1);
+    },
+
+    // ---------------------------------------------------------------- buffers
+
+    createBuffer(ctx, arrays) {
+      const buffer = createBuffersAndAttributesFromArrays(device, arrays);
+      buffer.id = ++seq;
+      buffer.arrays = arrays;
+      for (const gpu of buffer.buffers) resources.buffers.add(gpu);
+      if (buffer.indexBuffer) resources.buffers.add(buffer.indexBuffer);
+      return buffer;
+    },
+
+    updateBuffer(ctx, buffer, arrays) {
+      const rebuilt = createBuffersAndAttributesFromArrays(device, arrays);
+      for (const gpu of buffer.buffers) gpu.destroy();
+      if (buffer.indexBuffer) buffer.indexBuffer.destroy();
+      for (const gpu of rebuilt.buffers) resources.buffers.add(gpu);
+      if (rebuilt.indexBuffer) resources.buffers.add(rebuilt.indexBuffer);
+      Object.assign(buffer, rebuilt, { id: buffer.id, arrays });
+      return buffer;
+    },
+
+    // --------------------------------------------------------------- picking
+
+    readPixels(ctx, target, x, y, width, height) {
+      return readback(ctx, target, x, y, width, height);
+    },
+
+    // -------------------------------------------------------------- textures
+
+    createTexture(ctx, descriptor) {
+      const d = descriptor || {};
+      const width = d.width || 1;
+      const height = d.height || 1;
+      const textureFormat = d.format ? formatOf({ format: d.format }) : 'rgba8unorm';
+      const gpu = device.createTexture({
+        size: [width, height],
+        format: textureFormat,
+        usage: d.usage || (TEXTURE_USAGE.TEXTURE_BINDING | TEXTURE_USAGE.COPY_DST | TEXTURE_USAGE.RENDER_ATTACHMENT | TEXTURE_USAGE.COPY_SRC),
+        mipLevelCount: d.mips || 1,
+        label: d.label,
+      });
+      const texture = { id: ++seq, gpu, view: gpu.createView(), width, height, format: textureFormat };
+      resources.textures.add(gpu);
+      return texture;
+    },
+
+    uploadTexture(ctx, texture, source) {
+      if (!texture || !texture.gpu) return;
+      if (source && (ArrayBuffer.isView(source) || source instanceof ArrayBuffer)) {
+        const stride = Math.ceil((texture.width * bytesPerPixel(texture.format)) / 256) * 256;
+        device.queue.writeTexture({ texture: texture.gpu }, source, { bytesPerRow: stride, rowsPerImage: texture.height }, [texture.width, texture.height]);
+      } else {
+        // no flip: WebGPU's texture space is top-down, as a decoded image's rows are
+        device.queue.copyExternalImageToTexture({ source }, { texture: texture.gpu }, [texture.width, texture.height]);
+      }
+    },
+
+    destroyTexture(ctx, texture) {
+      if (!texture || !texture.gpu) return;
+      texture.gpu.destroy();
+      resources.textures.delete(texture.gpu);
+      texture.gpu = null;
+      texture.view = null;
+    },
+
+    textureSize(ctx, texture) {
+      return texture && texture.width ? [texture.width, texture.height] : null;
+    },
+
+    // ------------------------------------------------------------------ state
+
+    setViewport(ctx, rect) {
+      return setFrameViewport(ctx, rect);
+    },
+
+    setState(ctx, state) {
+      const prior = ctx.state || BASE_STATE;
+      if (state === undefined) return prior;
+      ctx.state = resolveState(prior, state);
+      return prior;
+    },
+
+    // ---------------------------------------------------------------- context
+
+    dispose(ctx) {
+      endFrame(ctx);
+      arena.dispose();
+      for (const gpu of resources.buffers) gpu.destroy();
+      for (const gpu of resources.textures) gpu.destroy();
+      resources.buffers.clear();
+      resources.textures.clear();
+      resources.programs.clear();
+      resources.white = null;
+      resources.sampler = null;
+      ctx.imageProgram = null;
+    },
+  };
+
+  /**
+   * Pick the pipeline the state selects, upload the uniforms into the frame's
+   * arena, bind the group and draw.
+   * @ignore
+   */
+  function drawProgram(ctx, prog, geometry, count) {
+    if (!prog || prog.failed) return null;
+    const f = frameOf(ctx);
+    const pass = ensurePass(ctx);
+    const state = ctx.state || BASE_STATE;
+    const target = f.target;
+    const shape = {
+      depth: !!(target && target.depthView),
+      depthFormat: target ? target.depthFormat : null,
+      formats: target ? target.formats : [format],
+      samples: target ? target.samples : 1,
+    };
+    const key = pipelineKey(prog.id, state, shape);
+    let pipeline = prog.pipelines.get(key);
+    if (!pipeline) {
+      try {
+        pipeline = createPipeline(ctx, prog, state, shape);
+      } catch (error) {
+        prog.failed = true;
+        console.error('[webgpu.tree] draw: a pipeline could not be made — ' + (error && error.message));
+        return null;
+      }
+      prog.pipelines.set(key, pipeline);
+    }
+
+    const bindings = bindGroupFor(ctx, prog);
+    pass.setPipeline(pipeline);
+    pass.setBindGroup(0, bindings.group, bindings.offsets);
+    if (geometry) {
+      setVertexAndIndexBuffers(pass, geometry);
+      if (geometry.indexBuffer) pass.drawIndexed(geometry.numElements, count);
+      else pass.draw(geometry.numElements, count);
+    }
+    ctx.prog = prog;
+    return prog;
+  }
+
+  /**
+   * The bind group of a program at this draw: every uniform struct written into
+   * a fresh arena slot (dynamic offsets travel with `setBindGroup`, not in the
+   * group), each texture's view and each sampler. Cached by the resources it
+   * names, so a draw that changes only its uniform values reuses its group.
+   * @ignore
+   */
+  function bindGroupFor(ctx, prog) {
+    const offsets = [];
+    const entries = [];
+    const parts = ['v' + arena.version];
+
+    for (const binding of prog.bound) {
+      if (binding.kind === 'uniform') {
+        const view = prog.decl.views.get(binding.name);
+        const slot = arena.alloc(view.arrayBuffer.byteLength);
+        device.queue.writeBuffer(slot.buffer, slot.offset, view.arrayBuffer, 0, view.arrayBuffer.byteLength);
+        entries.push({ binding: binding.binding, resource: { buffer: slot.buffer, offset: 0, size: slot.size } });
+        offsets.push(slot.offset);
+      } else if (binding.kind === 'texture') {
+        const texture = prog.textures.get(binding.name) || white();
+        parts.push('t' + texture.id);
+        entries.push({ binding: binding.binding, resource: textureViewOf(texture) });
+      } else {
+        const chosen = prog.samplers.get(binding.name) || sampler();
+        parts.push('s' + samplerId(chosen));
+        entries.push({ binding: binding.binding, resource: chosen });
+      }
+    }
+
+    const key = parts.join(',');
+    let group = prog.bindGroups.get(key);
+    if (!group) {
+      group = device.createBindGroup({ layout: prog.layouts[0], entries, label: 'webgpu.tree bind group' });
+      prog.bindGroups.set(key, group);
+    }
+    return { group, offsets };
+  }
+
+  return backend;
+}
