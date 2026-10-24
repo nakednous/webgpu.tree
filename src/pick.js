@@ -166,7 +166,7 @@ export function readPixel(ctx, target, x, y) {
  * const ctx = await init(canvas, { width: 400, height: 300 })
  * const scene = renderTarget(ctx)
  *
- * const solid = buffer(ctx, tree.platonic(tree.HEXAHEDRON, { radius: 80 }))
+ * const solid = buffer(ctx, tree.platonic(tree.HEXAHEDRON, { radius: 80 * Math.sqrt(3) / 2 }))   // twgl's cube(80)
  * const WGSL = `
  * ```wgsl
  * struct U {

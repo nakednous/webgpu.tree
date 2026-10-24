@@ -270,7 +270,7 @@ export function upload(ctx, tex, source) {
  * // +X, −X, +Y, −Y, +Z, −Z
  * const cube = cubemap(ctx, ['#ff4fd8', '#ffd166', '#ffffff', '#222222', '#4f9dff', '#222222'].map(solid))
  *
- * const hexa = tree.platonic(tree.HEXAHEDRON, { radius: 120 })
+ * const hexa = tree.platonic(tree.HEXAHEDRON, { radius: 120 * Math.sqrt(3) / 2 })   // twgl's cube(120)
  * const box = buffer(ctx, { position: hexa.position, indices: hexa.indices })
  * const WGSL = `
  * ```wgsl

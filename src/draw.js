@@ -155,7 +155,8 @@ export function uploadTransforms(ctx, prog, M) {
  * const ctx = await init(canvas, { width: 400, height: 300 })
  * const scene = renderTarget(ctx)
  *
- * const solid = buffer(ctx, tree.platonic(tree.HEXAHEDRON, { radius: 80 }))
+ * // twgl's cube(80) — the twin's `radius` is the circumradius, so a cube of side 80
+ * const solid = buffer(ctx, tree.platonic(tree.HEXAHEDRON, { radius: 80 * Math.sqrt(3) / 2 }))
  * const WGSL = `
  * ```wgsl
  * struct U {
@@ -438,7 +439,7 @@ function _named(arrays) {
  * const ctx = await init(canvas, { width: 400, height: 300 })
  * const scene = renderTarget(ctx)
  *
- * const solid = buffer(ctx, tree.platonic(tree.HEXAHEDRON, { radius: 120 }))
+ * const solid = buffer(ctx, tree.platonic(tree.HEXAHEDRON, { radius: 120 * Math.sqrt(3) / 2 }))   // a side of 120
  * const WGSL = `
  * ```wgsl
  * struct U {
@@ -512,7 +513,7 @@ export function draw(ctx, obj, M, opts) {
  * const ctx = await init(canvas, { width: 400, height: 300 })
  * const scene = renderTarget(ctx)
  *
- * const solid = buffer(ctx, tree.platonic(tree.HEXAHEDRON, { radius: 50 }))
+ * const solid = buffer(ctx, tree.platonic(tree.HEXAHEDRON, { radius: 50 * Math.sqrt(3) / 2 }))    // a side of 50
  * const WGSL = `
  * ```wgsl
  * struct U {
