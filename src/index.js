@@ -91,7 +91,8 @@ export * as host from '@nakednous/host';
  * ```wgsl
  * @fragment
  * fn fs(@location(0) vTexCoord: vec2f) -> @location(0) vec4f {
- *   return vec4f(vTexCoord, 0.5, 1.0);
+ *   // the twin's pass samples v = 0 at the top; the reference's is bottom-up
+ *   return vec4f(vTexCoord.x, 1.0 - vTexCoord.y, 0.5, 1.0);
  * }
  * ```
  * `)

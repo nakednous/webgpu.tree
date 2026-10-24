@@ -249,6 +249,7 @@ export function endFrame(ctx) {
  *   canvas.style.width = '400px'
  *   canvas.style.height = '300px'
  *   ctx = await init(canvas, { width: 400, height: 300 })
+ *   out.textContent = 'a context is running — click the canvas to dispose, the body to build one'
  *   const scene = renderTarget(ctx)
  *   const cam = tree.createCamera({ eye: [0, 107, 215] })
  *   const frame = (ms) => {
@@ -264,7 +265,8 @@ export function endFrame(ctx) {
  *     frameId = requestAnimationFrame(frame)
  *   }
  *   frameId = requestAnimationFrame(frame)
- *   canvas.addEventListener('click', () => {
+ *   canvas.addEventListener('click', (e) => {
+ *     e.stopPropagation()           // the click tears down; it does not rebuild
  *     cancelAnimationFrame(frameId)
  *     ctx.backend.bindTarget(ctx, SCREEN)
  *     dispose(ctx)                 // the layer’s targets, then the device
@@ -274,8 +276,8 @@ export function endFrame(ctx) {
  *   })
  * }
  *
- * document.addEventListener('click', async (e) => {
- *   if (ctx || e.target === canvas) return
+ * document.addEventListener('click', async () => {
+ *   if (ctx) return                 // one context at a time
  *   await start()
  * })
  * await start()

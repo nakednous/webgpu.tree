@@ -114,7 +114,7 @@ function _writeSlices(ctx, tex, pixels) {
  * @returns {object|null} The texture record `upload`, `image`, `pane` and a pass
  *          take — `{ gpu, view, width, height, layers, dimension, format }`.
  * @example
- * <caption>A 2 × 2 pixel source, row 0 at the texture’s top, stretched by the twin’s linear sampler: the edges are clamped, the inside blends.</caption>
+ * <caption>A 2 × 2 pixel source on a pane: the twin’s row 0 is the top row (the reference’s bottom-up upload would put it at the bottom), and its default sampler is linear, so the four texels blend — sampling state is a sampler’s, not a texture’s.</caption>
  * import { init, endFrame, image, renderTarget, SCREEN, setCamera, pane, texture, tree } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
