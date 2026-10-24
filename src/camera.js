@@ -42,8 +42,27 @@ const _isMat4 = (m) => m != null && typeof m === 'object' && typeof m.length ===
  *        form's projection aspect (default the canvas's).
  * @returns {object} The view bag.
  * @example
+ * <caption>A camera state circling the axes: setCamera installs V and P for every draw after it.</caption>
+ * import { init, endFrame, image, setCamera, texture, tree, axes } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
  * const cam = tree.createCamera({ eye: [0, 107, 215] })
- * setCamera(ctx, cam)
+ *
+ * function frame(ms) {
+ *   cam.eye[0] = 215 * Math.sin(ms / 1000)
+ *   cam.eye[2] = 215 * Math.cos(ms / 1000)
+ *   image(ctx, sky)
+ *   setCamera(ctx, cam)        // V, P and P · V, from the camera state
+ *   axes(ctx, { size: 100 })
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function setCamera(ctx, V, P, opts) {
   let o = opts;

@@ -152,8 +152,33 @@ export async function init(canvas, opts) {
  * @param {object} ctx  The context record.
  * @returns {object} The bag `setCamera` fills.
  * @example
- * const view = viewOf(ctx)                                   // the host's bag, or the bridge's own
- * const eye = tree.mat4MulPoint([0, 0, 0], view.mat4Eye, 0, 0, 0)   // the eye's world origin
+ * <caption>A magenta crosshair pinned to the tip of the x axis as the camera circles.</caption>
+ * import { init, endFrame, image, setCamera, texture, tree, axes, cross, viewOf, mat4Viewport } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const cam = tree.createCamera({ eye: [0, 107, 215] })
+ * const WPV = tree.mat4()
+ * const tip = tree.vec3()
+ *
+ * function frame(ms) {
+ *   cam.eye[0] = 215 * Math.sin(ms / 1000)
+ *   cam.eye[2] = 215 * Math.cos(ms / 1000)
+ *   image(ctx, sky)
+ *   setCamera(ctx, cam)
+ *   axes(ctx, { size: 100 })
+ *   // the bag viewOf answers, and the viewport matrix over it
+ *   tree.mat4Mul(WPV, mat4Viewport(ctx, tree.mat4()), viewOf(ctx).mat4PV)
+ *   tree.mat4MulPoint(tip, WPV, 100, 0, 0)
+ *   cross(ctx, { x: tip[0], y: tip[1], size: 22, color: [1, 0.31, 0.85, 1] })
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function viewOf(ctx) {
   return ctx && ctx.host && ctx.host.view ? ctx.host.view : ctx.view;
@@ -166,12 +191,23 @@ export function viewOf(ctx) {
  * @param {object} ctx  The context record.
  * @returns {boolean} Whether a command buffer was submitted.
  * @example
- * function frame() {
- *   state.pass(accum)
- *   image(ctx, state.read.color)
- *   endFrame(ctx)
+ * <caption>The frame’s submit, once a frame: without it nothing reaches the canvas.</caption>
+ * import { init, endFrame, image, texture, cross } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ *
+ * function frame(ms) {
+ *   image(ctx, sky)
+ *   cross(ctx, { x: 40 + 300 * Math.abs(Math.sin(ms / 1500)), y: 150, size: 30, color: [1, 0.82, 0.4, 1] })
+ *   endFrame(ctx)              // the frame’s command buffer, submitted
  *   requestAnimationFrame(frame)
  * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function endFrame(ctx) {
   return submitFrame(ctx);
@@ -183,7 +219,43 @@ export function endFrame(ctx) {
  * where `init` made it.
  * @param {object} ctx  The context record.
  * @example
- * dispose(ctx)
+ * <caption>Click the canvas: dispose frees the targets and the device, and a fresh context is built at once.</caption>
+ * import { init, dispose, endFrame, image, texture, setCamera, tree, axes } from 'webgpu.tree'
+ *
+ * const out = document.body.appendChild(document.createElement('pre'))
+ * out.style.cssText = 'margin:0;padding:8px;color:#d8dee9;font:12px ui-monospace,monospace'
+ * out.textContent = 'click the canvas'
+ *
+ * let ctx = null, sky = null, canvas = null, wave = 0
+ *
+ * async function start() {
+ *   canvas = document.body.insertBefore(document.createElement('canvas'), out)
+ *   canvas.style.width = '400px'
+ *   canvas.style.height = '300px'
+ *   ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ *   sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ *   const cam = tree.createCamera({ eye: [0, 107, 215] })
+ *   const id = ++wave
+ *   canvas.addEventListener('click', async () => {
+ *     if (id !== wave) return
+ *     wave += 1
+ *     dispose(ctx)               // the layer’s targets, then the device
+ *     canvas.remove()
+ *     await start()
+ *   })
+ *   function frame(ms) {
+ *     if (id !== wave) return    // the old loop stops with its context
+ *     image(ctx, sky)
+ *     setCamera(ctx, cam)
+ *     axes(ctx, { size: 100 })
+ *     endFrame(ctx)
+ *     requestAnimationFrame(frame)
+ *   }
+ *   requestAnimationFrame(frame)
+ * }
+ *
+ * await start()
+ *
  */
 export function dispose(ctx) {
   if (!ctx || ctx.disposed) return;

@@ -344,8 +344,25 @@ function _disc(a, cx, cy, cz, r, u, v) {
  * @param {{ M?:ArrayLike<number>, size?:number, bits?:number, semantic?:boolean, color?:number[],
  *           depth?:boolean, width?:number }} [opts]
  * @example
- * axes(ctx, { size: 100 })
- * axes(ctx, { M, size: 60 })
+ * <caption>The three axes and their letters, turning edge-on as the camera is installed each frame.</caption>
+ * import { init, endFrame, image, texture, setCamera, tree, axes } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const cam = tree.createCamera({ eye: [164, 136, 218] })
+ *
+ * function frame(ms) {
+ *   image(ctx, sky)
+ *   setCamera(ctx, cam)
+ *   axes(ctx, { size: 100 })
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function axes(ctx, opts) {
   const o = opts || {};
@@ -359,8 +376,25 @@ export function axes(ctx, opts) {
  * @param {object} ctx  The context record.
  * @param {{ M?:ArrayLike<number>, size?:number, subdivisions?:number, color?:number[], depth?:boolean, width?:number }} [opts]
  * @example
- * const ground = tree.mat4FromTRS(tree.mat4(), 0, 0, 0, q[0], q[1], q[2], q[3], 1, 1, 1)
- * grid(ctx, { M: ground, size: 120, subdivisions: 10 })
+ * <caption>A ground grid on the xz plane: size, subdivisions, and a model matrix when the ground is elsewhere.</caption>
+ * import { init, endFrame, image, texture, setCamera, tree, grid } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const cam = tree.createCamera({ eye: [0, 150, 260] })
+ *
+ * function frame(ms) {
+ *   image(ctx, sky)
+ *   setCamera(ctx, cam)
+ *   grid(ctx, { size: 120, subdivisions: 10 })
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function grid(ctx, opts) {
   const o = opts || {};
@@ -378,7 +412,25 @@ export function grid(ctx, opts) {
  * @param {number[]} t1  Incoming tangent.
  * @param {{ M?:ArrayLike<number>, samples?:number, color?:number[], depth?:boolean, width?:number }} [opts]
  * @example
- * hermite(ctx, [-150, 0, 0], [0, 400, 0], [150, 0, 0], [0, -400, 0], { color: [1, 0.31, 0.85, 1] })
+ * <caption>A Hermite curve through its two ends and two tangents; width, colour and depth are the options.</caption>
+ * import { init, endFrame, image, texture, setCamera, tree, hermite } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const cam = tree.createCamera({ eye: [0, 0, 320] })
+ *
+ * function frame(ms) {
+ *   image(ctx, sky)
+ *   setCamera(ctx, cam)
+ *   hermite(ctx, [-150, 0, 0], [0, 400, 0], [150, 0, 0], [0, -400, 0], { color: [1, 0.31, 0.85, 1] })
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function hermite(ctx, p0, t0, p1, t1, opts) {
   const o = opts || {};
@@ -396,7 +448,26 @@ export function hermite(ctx, p0, t0, p1, t1, opts) {
  *        camera: a camera state or a camera track at its cursor; mat4Eye / mat4Proj:
  *        a measured pose instead.
  * @example
- * viewFrustum(ctx, { camera: cam })
+ * <caption>Another camera's frustum, drawn from its state: the near and far rectangles and the four edges between.</caption>
+ * import { init, endFrame, image, texture, setCamera, tree, viewFrustum } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const cam = tree.createCamera({ eye: [164, 136, 218] })
+ * const seen = tree.createCamera({ eye: [140, 110, 90], center: [0, 0, 0], up: [0, 1, 0] })
+ *
+ * function frame(ms) {
+ *   image(ctx, sky)
+ *   setCamera(ctx, cam)
+ *   viewFrustum(ctx, { camera: seen })
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function viewFrustum(ctx, opts) {
   const o = opts || {};
@@ -457,7 +528,31 @@ function _cameraMarker(ctx, kf, i, track, o) {
  * @param {{ bits?:number, samples?:number, target?:string, tangentScale?:number, centerSize?:number,
  *           marker?:function|null, aspect?:number, color?:number[], depth?:boolean, width?:number }} [opts]
  * @example
- * trackPath(ctx, track, { bits: tree.PATH | tree.CONTROLS, color: [1, 0.82, 0.4, 1] })
+ * <caption>A pose track path with its control points: the samples joined, each keyframe marked.</caption>
+ * import { init, endFrame, image, texture, setCamera, tree, trackPath } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const cam = tree.createCamera({ eye: [164, 136, 218] })
+ * const track = new tree.PoseTrack()
+ * track.add([
+ *   { pos: [-150, 0, 0], rot: [0, 0, 0, 1] },
+ *   { pos: [0, 100, 50], rot: [0, 0, 0, 1] },
+ *   { pos: [150, 0, 0], rot: [0, 0, 0, 1] },
+ * ])
+ *
+ * function frame(ms) {
+ *   image(ctx, sky)
+ *   setCamera(ctx, cam)
+ *   trackPath(ctx, track, { bits: tree.PATH | tree.CONTROLS, color: [1, 0.82, 0.4, 1] })
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function trackPath(ctx, track, opts) {
   const o = opts || {};
@@ -491,7 +586,26 @@ export function trackPath(ctx, track, opts) {
  * @param {object} helm  A PoseHelm.
  * @param {{ M?:ArrayLike<number>, size?:number, bits?:number, depth?:boolean, width?:number }} [opts]
  * @example
- * helmRig(ctx, helm, { size: 100 })
+ * <caption>A helm rig: the three translation arrows and the three rotation rings, at its size.</caption>
+ * import { init, endFrame, image, texture, setCamera, tree, helmRig } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const cam = tree.createCamera({ eye: [164, 136, 218] })
+ * const helm = new tree.PoseHelm()
+ *
+ * function frame(ms) {
+ *   image(ctx, sky)
+ *   setCamera(ctx, cam)
+ *   helmRig(ctx, helm, { size: 60 })
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function helmRig(ctx, helm, opts) {
   const o = opts || {};
@@ -576,7 +690,27 @@ function _rigHud(ctx, helm, o) {
  * @param {object} h  A host handle.
  * @param {{ bits?:number, size?:number, color?:number[], dotColor?:number[], depth?:boolean, width?:number }} [opts]
  * @example
- * handleLocus(ctx, handle, { bits: tree.HANDLE | tree.AIM | tree.LOCUS })
+ * <caption>A handle and its locus: the dot at its anchor, and the aim and locus marks its bits select.</caption>
+ * import { init, endFrame, image, texture, setCamera, tree, handleLocus, host } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const cam = tree.createCamera({ eye: [164, 136, 218] })
+ * const h = host.createHost(canvas).handle({ constraint: tree.SPHERE, anchor: [0, 0, 0], radius: 100 })
+ *
+ * function frame(ms) {
+ *   image(ctx, sky)
+ *   setCamera(ctx, cam)
+ *   h.update()
+ *   handleLocus(ctx, h, { bits: tree.HANDLE | tree.AIM | tree.LOCUS })
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function handleLocus(ctx, h, opts) {
   const o = opts || {};
@@ -615,7 +749,26 @@ const PANE_UVS = [0, 0, 1, 0, 1, 1, 0, 1];
  * @param {number[]} p3
  * @param {{ M?:ArrayLike<number>, color?:number[], texture?:object, uvs?:number[], depth?:boolean }} [opts]
  * @example
- * pane(ctx, [-40, 40, 0], [40, 40, 0], [40, -40, 0], [-40, -40, 0], { texture: tex })
+ * <caption>A textured quad in world space, its uv origin at p0; the texture is top-down, so the image sits upright.</caption>
+ * import { init, endFrame, image, texture, setCamera, tree, pane } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const cam = tree.createCamera({ eye: [0, 0, 260] })
+ * const tex = texture(ctx, { data: new Uint8Array([255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255]), width: 2, height: 2 })
+ *
+ * function frame(ms) {
+ *   image(ctx, sky)
+ *   setCamera(ctx, cam)
+ *   pane(ctx, [-60, 60, 0], [60, 60, 0], [60, -60, 0], [-60, -60, 0], { texture: tex })
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function pane(ctx, p0, p1, p2, p3, opts) {
   const o = opts || {};
@@ -647,9 +800,28 @@ export function pane(ctx, p0, p1, p2, p3, opts) {
  * `endHUD`. The screen-space gizmos and `image` are the usual contents.
  * @param {object} ctx  The context record.
  * @example
- * beginHUD(ctx)
- * cross(ctx, { x: 40, y: 40, size: 30, color: [1, 0.31, 0.85, 1] })
- * endHUD(ctx)
+ * <caption>Between beginHUD and endHUD the coordinates are the pointer’s: logical pixels, y down.</caption>
+ * import { init, endFrame, image, texture, setCamera, tree, beginHUD, cross, bullsEye, endHUD } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const cam = tree.createCamera({ eye: [164, 136, 218] })
+ *
+ * function frame(ms) {
+ *   image(ctx, sky)
+ *   setCamera(ctx, cam)
+ *   beginHUD(ctx)
+ *   cross(ctx, { x: 120, y: 90, size: 50, color: [1, 0.82, 0.4, 1] })
+ *   bullsEye(ctx, { x: 280, y: 210, size: 70, color: [1, 0.31, 0.85, 1] })
+ *   endHUD(ctx)
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function beginHUD(ctx) {
   if (!ctx || ctx.hud) return;
@@ -663,9 +835,27 @@ export function beginHUD(ctx) {
  * End HUD mode: the camera and the depth test come back.
  * @param {object} ctx  The context record.
  * @example
- * beginHUD(ctx)
- * bullsEye(ctx, { x: 120, y: 90, size: 60, color: [1, 0.31, 0.85, 1] })
- * endHUD(ctx)   // the installed camera and the depth state again
+ * <caption>endHUD puts the camera and the depth state back: the next frame draws in world space again.</caption>
+ * import { init, endFrame, image, texture, setCamera, tree, beginHUD, bullsEye, endHUD } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const cam = tree.createCamera({ eye: [164, 136, 218] })
+ *
+ * function frame(ms) {
+ *   image(ctx, sky)
+ *   setCamera(ctx, cam)
+ *   beginHUD(ctx)
+ *   bullsEye(ctx, { x: 200, y: 150, size: 90, color: [1, 0.31, 0.85, 1] })
+ *   endHUD(ctx)
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function endHUD(ctx) {
   if (!ctx || !ctx.hud) return;
@@ -687,7 +877,25 @@ function _inHud(ctx, drawFn) {
  * @param {object} ctx  The context record.
  * @param {{ x?:number, y?:number, size?:number, color?:number[], width?:number }} [opts]
  * @example
- * cross(ctx, { x: 200, y: 150, size: 40, color: [1, 0.31, 0.85, 1] })
+ * <caption>A crosshair at a screen position that moves: x and y are logical pixels, y down.</caption>
+ * import { init, endFrame, image, texture, setCamera, tree, cross } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const cam = tree.createCamera({ eye: [164, 136, 218] })
+ *
+ * function frame(ms) {
+ *   image(ctx, sky)
+ *   setCamera(ctx, cam)
+ *   cross(ctx, { x: 40 + 300 * Math.abs(Math.sin(ms / 1200)), y: 150, size: 40, color: [1, 0.31, 0.85, 1] })
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function cross(ctx, opts) {
   const o = opts || {};
@@ -702,7 +910,25 @@ export function cross(ctx, opts) {
  * @param {object} ctx  The context record.
  * @param {{ x?:number, y?:number, size?:number, shape?:number, detail?:number, color?:number[], width?:number }} [opts]
  * @example
- * bullsEye(ctx, { x: 120, y: 150, size: 100, shape: tree.CIRCLE, color: [1, 0.31, 0.85, 1] })
+ * <caption>A bulls-eye: a CIRCLE or the cornered SQUARE of size, with the central cross.</caption>
+ * import { init, endFrame, image, texture, setCamera, tree, bullsEye } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const cam = tree.createCamera({ eye: [164, 136, 218] })
+ *
+ * function frame(ms) {
+ *   image(ctx, sky)
+ *   setCamera(ctx, cam)
+ *   bullsEye(ctx, { x: 200, y: 150, size: 110, shape: tree.CIRCLE, color: [1, 0.82, 0.4, 1] })
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function bullsEye(ctx, opts) {
   const o = opts || {};

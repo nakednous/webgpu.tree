@@ -22,11 +22,12 @@
  *
  * Example rule. The site is ESM-only: an example is a module script whose
  * first statement imports from `webgpu.tree`, runs under the page's import
- * map, and is mounted live — `runnable`. An example that is a call's shape,
- * with the setting around it given in prose, carries no import and is
- * `runnable: false`: the page shows it as code and does not mount it. The
- * validator checks every example's imports against the build; the site's gate
- * runs the runnable ones in a browser.
+ * map, and is mounted live — `runnable`. Every doclet on the site carries such
+ * a figure, as the reference's pages do, and the site's gate mounts each one in
+ * a browser. A shape that cannot be a figure — a call whose setting is the
+ * reader's — is `runnable: false`, shown as code and never mounted; the parser
+ * keeps the distinction so that one is stated rather than implied, and no
+ * doclet on the site is one today.
  *
  * An exported function the index does not name is internal: it carries
  * `@ignore`, and an illustration on it is the source's, not the site's.

@@ -20,8 +20,10 @@
 > — and `npm run docs` writes `site/`: the README as the landing page, a page per module, search, the
 > ES build of the same commit and the builds it was made against. It is **ESM-only**, as the package
 > is: an example imports from `webgpu.tree`, runs as a module script under the page's import map and
-> awaits `init`; a shader is a WGSL fence. It does not deploy — #56 gives the bridge a site, #77's
-> ground for an address stays pending. §5's last reading is the site's gate.
+> awaits `init`; a shader is a WGSL fence. **Every doclet's example is a whole figure**, mounted live
+> in place, two at a time — a device is heavier than a GL context, and this Chromium refuses a new one
+> once a few are live. It does not deploy — #56 gives the bridge a site, #77's ground for an address
+> stays pending. §5's last reading is the site's gate.
 
 ---
 
@@ -222,15 +224,20 @@ notebook column may use; the bridge does not).
   attachment state against the pipeline's. The suite's own cases pin the three namings and the
   inequality the finding asked for.
 - *The site.* `tools/docs` ported: `npm run docs` writes ten pages (the README's, eight modules', the
-  search index), 34 doclets, 35 examples — four of them runnable and live — with 0 warnings. The
-  structural check is the generator's: every documented name is in the ES build, a function's
+  search index), 34 doclets and 34 examples — **every doclet's example a figure** — with 0 warnings.
+  The structural check is the generator's: every documented name is in the ES build, a function's
   parameters are the ones its own source declares, every example's import resolves under the page's
   map and its named imports are in the build, every fence's language is one the site renders, and a
-  `wgsl` fence carries a shader. The curated run mounted the five runnable figures (the index page's
-  demo, `init`, `program`, `texture`, `mapLocation`) in this machine's Chromium with
-  `--enable-unsafe-webgpu`: each acquired a device, drew, and logged nothing; the headless canvas
-  remains the known limit. The run found one example of its own: the texture example carried the next
-  call's illustrative lines into the runnable code, `data is not defined` — they are a fragment now.
+  `wgsl` fence carries a shader. The browser half mounted all 34 figures in this machine's Chromium
+  with `--enable-unsafe-webgpu`, each on a page of its own: the headless compositor drops its WebGPU
+  instance when a canvas is first presented, so a page carries one figure per load and a figure that
+  reads back reads before it presents (`readPixel`'s and `pick`'s first read do). Each acquired a
+  device, drew and logged nothing; the headless canvas remains the known limit, so a figure's pixels
+  are still the maintainer's look. The run found two examples of its own on the way: the texture
+  example carried the next call's illustrative lines into the code (`data is not defined`), and its
+  2 × 2 source stretched with clamp-to-edge showed a solid white quarter — a 16 × 16 ramp that the
+  cover rect stretches smooth is the example now. An example that is a call's shape stays supported
+  by the parser and the renderer, marked and shown as code; no doclet on the site is one.
 - *The WGSL fence.* A doc comment reads a line that begins with `@` as a tag, and a shader stage's
   attribute is one, so an example's WGSL is written between fence lines (` ```wgsl ` … ` ``` `) inside
   its template literal. The parser drops the fence lines: the example's code is the same text without

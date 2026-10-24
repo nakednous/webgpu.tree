@@ -146,9 +146,52 @@ export function uploadTransforms(ctx, prog, M) {
  * @param {object} [uniforms]  Values by name, as the program's uniform members.
  * @returns {object|null} prog, or null where there is none.
  * @example
- * const prog = program(ctx, wgsl)
- * bind(ctx, prog, { uColor: [0.9, 0.4, 0.1, 1] })
- * draw(ctx, box, M)
+ * <caption>Bind a program, then draw: the program is the next draw’s, its declared transforms the draw’s.</caption>
+ * import { init, endFrame, bind, buffer, draw, image, program, setCamera, texture, tree } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const mesh = buffer(ctx, { position: { numComponents: 3, data: [-80, -60, 0, 80, -60, 0, 0, 80, 0] } })
+ *
+ * const WGSL = `
+ * ```wgsl
+ * struct U {
+ *   uModelViewProjectionMatrix: mat4x4f,
+ * };
+ * @group(0) @binding(0) var<uniform> u: U;
+ *
+ * struct VOut {
+ *   @builtin(position) position: vec4f,
+ * };
+ *
+ * @vertex
+ * fn vs(@location(0) aPosition: vec3f) -> VOut {
+ *   var out: VOut;
+ *   out.position = u.uModelViewProjectionMatrix * vec4f(aPosition, 1.0);
+ *   return out;
+ * }
+ *
+ * @fragment
+ * fn fs() -> @location(0) vec4f {
+ *   return vec4f(1.0, 0.31, 0.85, 1.0);
+ * }
+ * ```
+ * `
+ * const prog = program(ctx, WGSL, { buffers: mesh.bufferLayouts })   // the layout the pipeline bakes
+ * setCamera(ctx, tree.createCamera({ eye: [0, 0, 260] }))
+ *
+ * function frame() {
+ *   image(ctx, sky)
+ *   bind(ctx, prog)          // the program the next draw uses
+ *   draw(ctx, mesh)
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function bind(ctx, prog, uniforms) {
   if (!ctx || !ctx.backend) return null;
@@ -202,8 +245,55 @@ const _isAttribute = (a) => a != null && (_isNumbers(a) || _isNumbers(a.data));
  * @returns {object|null} The geometry `draw` takes: `buffers`, `bufferLayouts`,
  *          `numElements`, and the `indexBuffer` / `indexFormat` where indexed.
  * @example
- * const solid = buffer(ctx, tree.platonic(tree.HEXAHEDRON, { radius: 50 }))
- * const prog = program(ctx, wgsl, { buffers: solid.bufferLayouts })
+ * <caption>A mesh’s arrays shape becomes the geometry: attributes in key order, the layout the pipeline bakes.</caption>
+ * import { init, endFrame, bind, buffer, draw, image, program, setCamera, texture, tree } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const mesh = buffer(ctx, {
+ *   position: { numComponents: 3, data: [-80, -60, 0, 80, -60, 0, 0, 80, 0] },
+ *   indices: { numComponents: 3, data: [0, 1, 2] },   // an indexed geometry draws with drawIndexed
+ * })
+ *
+ * const WGSL = `
+ * ```wgsl
+ * struct U {
+ *   uModelViewProjectionMatrix: mat4x4f,
+ * };
+ * @group(0) @binding(0) var<uniform> u: U;
+ *
+ * struct VOut {
+ *   @builtin(position) position: vec4f,
+ * };
+ *
+ * @vertex
+ * fn vs(@location(0) aPosition: vec3f) -> VOut {
+ *   var out: VOut;
+ *   out.position = u.uModelViewProjectionMatrix * vec4f(aPosition, 1.0);
+ *   return out;
+ * }
+ *
+ * @fragment
+ * fn fs() -> @location(0) vec4f {
+ *   return vec4f(1.0, 0.31, 0.85, 1.0);
+ * }
+ * ```
+ * `
+ * const prog = program(ctx, WGSL, { buffers: mesh.bufferLayouts })
+ * setCamera(ctx, tree.createCamera({ eye: [0, 0, 260] }))
+ *
+ * function frame() {
+ *   image(ctx, sky)
+ *   bind(ctx, prog)
+ *   draw(ctx, mesh)
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function buffer(ctx, arrays) {
   if (!ctx || !ctx.backend) return null;
@@ -220,7 +310,55 @@ export function buffer(ctx, arrays) {
  * @param {object} arrays  The arrays shape, as `buffer` takes it.
  * @returns {object|null} geometry.
  * @example
- * updateBuffer(ctx, grid, { ...gridMatrices, position: { numComponents: 3, data } })
+ * <caption>Vertices edited each frame, re-sent in place: the same shape, a count that may change.</caption>
+ * import { init, endFrame, bind, buffer, draw, image, program, setCamera, texture, tree, updateBuffer } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const mesh = buffer(ctx, { position: { numComponents: 3, data: [-80, -60, 0, 80, -60, 0, 0, 80, 0] } })
+ *
+ * const WGSL = `
+ * ```wgsl
+ * struct U {
+ *   uModelViewProjectionMatrix: mat4x4f,
+ * };
+ * @group(0) @binding(0) var<uniform> u: U;
+ *
+ * struct VOut {
+ *   @builtin(position) position: vec4f,
+ * };
+ *
+ * @vertex
+ * fn vs(@location(0) aPosition: vec3f) -> VOut {
+ *   var out: VOut;
+ *   out.position = u.uModelViewProjectionMatrix * vec4f(aPosition, 1.0);
+ *   return out;
+ * }
+ *
+ * @fragment
+ * fn fs() -> @location(0) vec4f {
+ *   return vec4f(1.0, 0.31, 0.85, 1.0);
+ * }
+ * ```
+ * `
+ * const prog = program(ctx, WGSL, { buffers: mesh.bufferLayouts })
+ * setCamera(ctx, tree.createCamera({ eye: [0, 0, 260] }))
+ *
+ * function frame(ms) {
+ *   const tip = 80 + 40 * Math.sin(ms / 700)
+ *   const position = new Float32Array([-80, -60, 0, 80, -60, 0, 0, tip, 0])
+ *   updateBuffer(ctx, mesh, { position: { numComponents: 3, data: position } })
+ *   image(ctx, sky)
+ *   bind(ctx, prog)
+ *   draw(ctx, mesh)
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function updateBuffer(ctx, geometry, arrays) {
   if (!ctx || !ctx.backend) return null;
@@ -254,10 +392,53 @@ function _named(arrays) {
  * @param {{ count?:number, offset?:number }} [opts]  A partial draw: `count`
  *        vertices (or indices) from `offset`, WebGPU's units.
  * @example
- * const cam = tree.createCamera({ eye: [76, 102, 204] })
- * setCamera(ctx, cam)
- * bind(ctx, prog, { uColor: [1, 0.31, 0.85] })
- * draw(ctx, box, tree.mat4FromTRS(M, -80, 0, 0, 0, 0, 0, 1, 1, 1, 1))
+ * <caption>One geometry, three model matrices: draw takes M, and the declared transforms follow it.</caption>
+ * import { init, endFrame, bind, buffer, draw, image, program, setCamera, texture, tree } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const mesh = buffer(ctx, { position: { numComponents: 3, data: [-80, -60, 0, 80, -60, 0, 0, 80, 0] } })
+ *
+ * const WGSL = `
+ * ```wgsl
+ * struct U {
+ *   uModelViewProjectionMatrix: mat4x4f,
+ * };
+ * @group(0) @binding(0) var<uniform> u: U;
+ *
+ * struct VOut {
+ *   @builtin(position) position: vec4f,
+ * };
+ *
+ * @vertex
+ * fn vs(@location(0) aPosition: vec3f) -> VOut {
+ *   var out: VOut;
+ *   out.position = u.uModelViewProjectionMatrix * vec4f(aPosition, 1.0);
+ *   return out;
+ * }
+ *
+ * @fragment
+ * fn fs() -> @location(0) vec4f {
+ *   return vec4f(1.0, 0.31, 0.85, 1.0);
+ * }
+ * ```
+ * `
+ * const prog = program(ctx, WGSL, { buffers: mesh.bufferLayouts })
+ * const M = tree.mat4()
+ * setCamera(ctx, tree.createCamera({ eye: [0, 0, 340] }))
+ *
+ * function frame() {
+ *   image(ctx, sky)
+ *   bind(ctx, prog)
+ *   for (let i = -1; i <= 1; i++) draw(ctx, mesh, tree.mat4FromTRS(M, i * 90, 0, 0, 0, 0, 0, 1, 1, 1, 1))
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function draw(ctx, obj, M, opts) {
   if (M != null && !_isMat4(M)) { opts = M; M = null; }   // draw(ctx, obj, opts)
@@ -272,8 +453,54 @@ export function draw(ctx, obj, M, opts) {
  * @param {ArrayLike<number>|object} [M]  A model mat4, or an `opts` object.
  * @param {{ count?:number, offset?:number }} [opts]
  * @example
- * bind(ctx, prog, { uTint: 1 })
- * drawInstanced(ctx, box, 24, M)   // the vertex stage reads @builtin(instance_index)
+ * <caption>Three instances of one geometry, the vertex stage reading @builtin(instance_index).</caption>
+ * import { init, endFrame, bind, buffer, drawInstanced, image, program, setCamera, texture, tree } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const mesh = buffer(ctx, { position: { numComponents: 3, data: [-80, -60, 0, 80, -60, 0, 0, 80, 0] } })
+ *
+ * const WGSL = `
+ * ```wgsl
+ * struct U {
+ *   uModelViewProjectionMatrix: mat4x4f,
+ * };
+ * @group(0) @binding(0) var<uniform> u: U;
+ *
+ * struct VOut {
+ *   @builtin(position) position: vec4f,
+ * };
+ *
+ * @vertex
+ * fn vs(@location(0) aPosition: vec3f, @builtin(instance_index) i: u32) -> VOut {
+ *   var out: VOut;
+ *   let offset = vec3f((f32(i) - 1.0) * 90.0, 0.0, 0.0);
+ *   out.position = u.uModelViewProjectionMatrix * vec4f(aPosition + offset, 1.0);
+ *   return out;
+ * }
+ *
+ * @fragment
+ * fn fs() -> @location(0) vec4f {
+ *   return vec4f(1.0, 0.82, 0.4, 1.0);
+ * }
+ * ```
+ * `
+ *
+ * const prog = program(ctx, WGSL, { buffers: mesh.bufferLayouts })
+ * setCamera(ctx, tree.createCamera({ eye: [0, 0, 340] }))
+ *
+ * function frame() {
+ *   image(ctx, sky)
+ *   bind(ctx, prog)
+ *   drawInstanced(ctx, mesh, 3)
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function drawInstanced(ctx, obj, n, M, opts) {
   if (M != null && !_isMat4(M)) { opts = M; M = null; }

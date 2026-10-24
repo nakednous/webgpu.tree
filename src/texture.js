@@ -114,25 +114,25 @@ function _writeSlices(ctx, tex, pixels) {
  * @returns {object|null} The texture record `upload`, `image`, `pane` and a pass
  *          take — `{ gpu, view, width, height, layers, dimension, format }`.
  * @example
- * <caption>A pixel source, row 0 at the texture's top, shown on the canvas</caption>
+ * <caption>A 16 × 16 ramp, row 0 at the texture’s top, drawn as a cover rect.</caption>
  * import { init, endFrame, image, texture } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
  * canvas.style.width = '400px'
  * canvas.style.height = '300px'
- * const ctx = await init(canvas, { width: 400, height: 300 })
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
  *
- * const tex = texture(ctx, {
- *   data: new Uint8Array([255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255]),
- *   width: 2,
- *   height: 2,
- * })
- * image(ctx, tex)   // a cover rect: red green / blue white, top row first
+ * // row 0 is the texture’s top row: red rises to the right, green down, blue flat
+ * const size = 16
+ * const data = new Uint8Array(size * size * 4)
+ * for (let i = 0; i < size * size; i++) {
+ *   const x = i % size, y = (i - x) / size
+ *   data.set([x * 17, y * 17, 160, 255], i * 4)
+ * }
+ * const tex = texture(ctx, { data, width: size, height: size })
+ * image(ctx, tex)          // a cover rect: the ramp’s row 0 at the canvas’s top
  * endFrame(ctx)
- * @example
- * const volume = texture(ctx, { data, width: 32, height: 32, depth: 16 }, { format: 'r8unorm' })
- * const array = texture(ctx, { data, width: 16, height: 16, layers: 4 })
- * const chain = texture(ctx, { data, width: 64, height: 64 }, { mips: true })
+ *
  */
 export function texture(ctx, source, opts) {
   if (!ctx || !ctx.backend) return null;
@@ -178,7 +178,32 @@ export function texture(ctx, source, opts) {
  * @param {object} source  An element, a bitmap, or `{ data, width, height }`.
  * @returns {object|null} tex.
  * @example
- * upload(ctx, videoTex, video)   // per frame; the rows stay top-down
+ * <caption>A source refreshed every frame: upload writes the same shape back, slice by slice for a volume.</caption>
+ * import { init, endFrame, image, texture, upload } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ *
+ * const size = 16
+ * const pixels = new Uint8Array(size * size * 4)
+ * const tex = texture(ctx, { data: pixels, width: size, height: size })
+ * let t = 0
+ *
+ * function frame() {
+ *   t += 1
+ *   for (let i = 0; i < size * size; i++) {
+ *     const x = i % size, y = (i - x) / size
+ *     pixels.set([(x * 17 + t * 3) % 256, y * 17, 160, 255], i * 4)
+ *   }
+ *   upload(ctx, tex, { data: pixels, width: size, height: size })   // the same shape, refreshed
+ *   image(ctx, tex)
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function upload(ctx, tex, source) {
   if (!ctx || !ctx.backend) return null;
@@ -201,7 +226,43 @@ export function upload(ctx, tex, source) {
  *        The options `texture` takes; `mips` chains face by face.
  * @returns {object|null} The texture record, its view a cube.
  * @example
- * const env = cubemap(ctx, [px, nx, py, ny, pz, nz], { mips: true })
+ * <caption>Six 2 × 2 faces sampled by direction: each face’s colour where the direction falls.</caption>
+ * import { init, endFrame, cubemap, filter, program } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ *
+ * const face = (r, g, b) => ({
+ *   data: new Uint8Array([r, g, b, 255, r, g, b, 255, r, g, b, 255, r, g, b, 255]),
+ *   width: 2,
+ *   height: 2,
+ * })
+ * // the cube’s face order: +X −X +Y −Y +Z −Z
+ * const env = cubemap(ctx, [face(255, 0, 0), face(0, 255, 0), face(0, 0, 255),
+ *   face(255, 255, 0), face(0, 255, 255), face(255, 0, 255)])
+ *
+ * const sky = program(ctx, `
+ * ```wgsl
+ * @group(0) @binding(0) var uEnv: texture_cube<f32>;
+ * @group(0) @binding(1) var uSampler: sampler;
+ *
+ * @fragment
+ * fn fs(@location(0) vTexCoord: vec2f) -> @location(0) vec4f {
+ *   let d = normalize(vec3f(vTexCoord * 2.0 - 1.0, -1.0));
+ *   return textureSample(uEnv, uSampler, d);
+ * }
+ * ```
+ * `)
+ *
+ * function frame() {
+ *   filter(ctx, sky, { uEnv: env })   // the bag’s texture wins; the twin’s sampler binds the rest
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function cubemap(ctx, faces, opts) {
   if (!ctx || !ctx.backend) return null;

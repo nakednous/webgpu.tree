@@ -45,13 +45,22 @@ site/                index.html, one page per module, search.json
 
 It is **ESM-only**, as the package is: an example imports from `webgpu.tree`, runs under the page's
 import map (`webgpu-utils` to the pinned CDN module, the stack's packages to the site's own copies of
-the same commit) and awaits `init`; a shader is a WGSL fence. Examples that are a call's shape rather
-than a whole figure are marked `fragment` and shown as code — they are not mounted.
+the same commit) and awaits `init`; a shader is a WGSL fence. **Every doclet's example is a whole
+figure** and runs in place — the page mounts it in an editor and a live stage, two at a time (a WebGPU
+device is heavier than a GL context), and the rest wait their turn as the page scrolls.
 Serve it locally, from the repository root:
 
 ```
 python3 -m http.server 8000     # then open http://127.0.0.1:8000/site/
 ```
+
+Its gate is two halves. `npm run docs` is the structural one — every documented name and a function's
+parameters against the build, every example's imports resolved, every fence's language — and it fails
+on an error. The other half mounts **every figure** in this machine's Chromium with
+`--enable-unsafe-webgpu`, one figure to a page load: the headless compositor drops its WebGPU instance
+when a canvas is first presented, so a page carries one figure per load, a figure that reads back
+reads before it presents, and a figure passes when it acquires a device, draws and logs nothing. The
+browser's look is the maintainer's gate.
 
 It is **not deployed**: the repositories' GitHub home, and the sites' deployment, is §7 #77's pending
 ground, and #56's "the `*.tree` bridges only" gives this bridge a site, not an address.

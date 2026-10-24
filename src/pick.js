@@ -93,7 +93,42 @@ function pickTargetOf(ctx) {
  * @param {number} y  Pixel row in the target, from the top.
  * @returns {Promise<Uint8Array>} The four bytes, RGBA, a frame or more late.
  * @example
- * readPixel(ctx, target, 0, 0).then((px) => console.log(px[0], px[1], px[2]))
+ * <caption>The state’s read side shown, and a pixel of it read back once a second.</caption>
+ * import { init, endFrame, image, program, readPixel, state } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ *
+ * const field = state(ctx, { width: 200, height: 150 })
+ * const bands = program(ctx, `
+ * ```wgsl
+ * @fragment
+ * fn fs(@location(0) vTexCoord: vec2f) -> @location(0) vec4f {
+ *   return mix(vec4f(0.9, 0.1, 0.1, 1.0), vec4f(0.1, 0.1, 0.9, 1.0), step(0.5, vTexCoord.x));
+ * }
+ * ```
+ * `)
+ *
+ * const out = document.body.appendChild(document.createElement('div'))
+ * out.style.cssText = 'position:absolute;left:8px;top:8px;color:#d8dee9;font:12px ui-monospace,monospace'
+ * let count = 0
+ *
+ * function frame() {
+ *   field.pass(bands)
+ *   // read before the canvas is presented: a read ends the frame it finds
+ *   if (count++ === 0) {
+ *     readPixel(ctx, field.read, 100, 75).then((px) => {   // the target’s own pixels, row 0 at the top
+ *       out.textContent = 'the centre pixel: ' + px[0] + ' ' + px[1] + ' ' + px[2]
+ *     })
+ *   }
+ *   image(ctx, field.read.color)
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function readPixel(ctx, target, x, y) {
   if (!ctx || !ctx.backend) return Promise.resolve(new Uint8Array(4));
@@ -122,9 +157,102 @@ export function readPixel(ctx, target, x, y) {
  *        cached 1 × 1.
  * @returns {Promise<number>} The id under the pixel, 0 for a miss.
  * @example
- * pick(ctx, mx, my, (paint) => {
- *   for (const c of cubes) { paint(c.id); draw(ctx, box, c.M) }
- * }, { program: idProgram }).then((id) => { picked = id })
+ * <caption>Click a triangle: pick draws the ids into a 1 × 1 target and answers the one under the pointer.</caption>
+ * import { init, endFrame, bind, buffer, cross, draw, image, pick, program, setCamera, texture, tree } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const mesh = buffer(ctx, { position: { numComponents: 3, data: [-80, -60, 0, 80, -60, 0, 0, 80, 0] } })
+ *
+ * const WGSL = `
+ * ```wgsl
+ * struct U {
+ *   uModelViewProjectionMatrix: mat4x4f,
+ * };
+ * @group(0) @binding(0) var<uniform> u: U;
+ *
+ * struct VOut {
+ *   @builtin(position) position: vec4f,
+ * };
+ *
+ * @vertex
+ * fn vs(@location(0) aPosition: vec3f) -> VOut {
+ *   var out: VOut;
+ *   out.position = u.uModelViewProjectionMatrix * vec4f(aPosition, 1.0);
+ *   return out;
+ * }
+ *
+ * @fragment
+ * fn fs() -> @location(0) vec4f {
+ *   return vec4f(1.0, 0.31, 0.85, 1.0);
+ * }
+ * ```
+ * `
+ * const ID = `
+ * ```wgsl
+ * struct U {
+ *   uModelViewProjectionMatrix: mat4x4f,
+ *   uColor: vec4f,
+ * };
+ * @group(0) @binding(0) var<uniform> u: U;
+ *
+ * struct VOut {
+ *   @builtin(position) position: vec4f,
+ * };
+ *
+ * @vertex
+ * fn vs(@location(0) aPosition: vec3f) -> VOut {
+ *   var out: VOut;
+ *   out.position = u.uModelViewProjectionMatrix * vec4f(aPosition, 1.0);
+ *   return out;
+ * }
+ *
+ * @fragment
+ * fn fs() -> @location(0) vec4f {
+ *   return u.uColor;
+ * }
+ * ```
+ * `
+ * const prog = program(ctx, WGSL, { buffers: mesh.bufferLayouts })
+ * const idProg = program(ctx, ID, { buffers: mesh.bufferLayouts })
+ * setCamera(ctx, tree.createCamera({ eye: [0, 0, 340] }))
+ * const left = tree.mat4FromTRS(tree.mat4(), -100, 0, 0, 0, 0, 0, 1, 1, 1, 1)
+ * const right = tree.mat4FromTRS(tree.mat4(), 100, 0, 0, 0, 0, 0, 1, 1, 1, 1)
+ *
+ * const out = document.body.appendChild(document.createElement('div'))
+ * out.style.cssText = 'position:absolute;left:8px;top:8px;color:#d8dee9;font:12px ui-monospace,monospace'
+ * let px = 95, py = 160, hit = 0, first = true
+ * const drawIds = (paint) => {         // paint(id) before each object’s draw
+ *   paint(1)
+ *   draw(ctx, mesh, left)
+ *   paint(2)
+ *   draw(ctx, mesh, right)
+ * }
+ * canvas.addEventListener('pointermove', (e) => { px = e.offsetX; py = e.offsetY })
+ * canvas.addEventListener('pointerdown', () => {
+ *   pick(ctx, px, py, drawIds, { program: idProg }).then((id) => { hit = id })
+ * })
+ *
+ * function frame() {
+ *   // the first pick runs before the canvas is presented: a read ends the frame it finds
+ *   if (first) {
+ *     first = false
+ *     pick(ctx, px, py, drawIds, { program: idProg }).then((id) => { hit = id })
+ *   }
+ *   image(ctx, sky)
+ *   bind(ctx, prog)
+ *   draw(ctx, mesh, left)
+ *   draw(ctx, mesh, right)
+ *   cross(ctx, { x: px, y: py, size: 14, color: [1, 0.82, 0.4, 1] })
+ *   out.textContent = 'pick: ' + (hit || 'click a triangle')
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  */
 export function pick(ctx, x, y, drawFn, opts) {
   if (!ctx || !ctx.backend) return Promise.resolve(0);

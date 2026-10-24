@@ -25,6 +25,9 @@
  *   the viewport and unmounts it once far off-screen; at most LIVE_MAX are
  *   live at once, least recently neared out first. Unmounting loses the frame
  *   and with it the WebGPU device, which the context's dispose owns otherwise.
+ *   LIVE_MAX is two: this Chromium refuses a new device once a few are live, so
+ *   a figure beside the one being read is the ceiling — a page's figures are
+ *   read one at a time.
  */
 
 (function () {
@@ -34,7 +37,7 @@
   const figures = document.querySelectorAll('figure.example[data-mode="module"]');
   if (!cfg || !figures.length) return;
 
-  const LIVE_MAX = 8;
+  const LIVE_MAX = 2;   // a device is heavier than a GL context; two live figures at a time
   const NEAR     = '300px 0px';   // mount when the figure is within this margin of the viewport
   const FAR      = '1500px 0px';  // unmount once it is beyond this margin
   const STAGE_BG = '#0a0a0e';     // fixed stage — never the page theme
