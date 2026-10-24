@@ -22,7 +22,7 @@ state, and readback is asynchronous by construction.
 > it either. `twin-design.md` is the differences table against `webgl.tree`.
 >
 > Pins `@nakednous/tree` ^0.0.34, `@nakednous/host` ^0.0.12, `@nakednous/idiom` ^0.0.2;
-> `webgpu-utils` ^2.1.1 is a peer. Gates: `npm test` (118 cases, against the recording device in
+> `webgpu-utils` ^2.1.1 is a peer. Gates: `npm test` (119 cases, against the recording device in
 > `test/gpu.js`), `npm run build`, and `npm run docs` (the API site below, 0 warnings — every
 > documented name and a function's parameters checked against the build, and every example's imports
 > resolved). The browser is the maintainer's gate: the geometry path, the uploaded texture, a scene's

@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 
 import {
   init, setCamera, tree, renderTarget, program, endFrame,
-  axes, grid, hermite, viewFrustum, trackPath, handleLocus, cross, bullsEye, beginHUD, endHUD,
+  axes, grid, hermite, viewFrustum, trackPath, handleLocus, cross, bullsEye, beginHUD, endHUD, pane,
 } from '../src/index.js';
 import { LINE_COLOR_LAYOUT, LINE_LAYOUT, TRIS_LAYOUT, WIDE_COLOR_LAYOUT, WIDE_LAYOUT } from '../src/programs.js';
 import { canvasViewport } from '../src/space.js';
@@ -76,6 +76,20 @@ test('a line list at one device pixel: the arrays\' count is the draw\'s count',
   assert.equal(drawCall[1], 4);                              // two segments, four vertices
   assert.equal(drawCall[2], 1);                              // one instance
   assert.equal(allOf(calls, 'pass.drawIndexed').length, 0);  // no quads
+  // and the pipeline it drew through is a line list — WebGPU bakes the topology
+  assert.equal(pipelineOf(calls, allOf(calls, 'createRenderPipeline').length - 1).primitive.topology, 'line-list');
+  assert.equal(ctx.state.topology, 'triangle-list');         // the pipe's state, restored
+});
+
+test('the pipe bakes the topology its geometry is: a line list for lines, triangles for the quads', async () => {
+  const { ctx, calls } = await setup();
+  grid(ctx, { size: 50 });                                  // one device pixel: the line list
+  assert.equal(pipelineOf(calls, 0).primitive.topology, 'line-list');
+  assert.equal(ctx.state.topology, 'triangle-list');        // the state is the pipe's, and comes back
+  grid(ctx, { size: 50, width: 3 });                        // past one: the expanded quads
+  assert.equal(pipelineOf(calls, 1).primitive.topology, 'triangle-list');
+  pane(ctx, [-10, 10, 0], [10, 10, 0], [10, -10, 0], [-10, -10, 0]);   // a filled quad, likewise
+  assert.equal(pipelineOf(calls, 2).primitive.topology, 'triangle-list');
 });
 
 test('a width past one device pixel goes through the expand: four vertices and six indices a segment', async () => {
@@ -95,6 +109,7 @@ test('a width past one device pixel goes through the expand: four vertices and s
   assert.equal(drawCall[1], 12);                             // six indices a segment
   assert.deepEqual(slot.geometry.bufferLayouts, WIDE_LAYOUT);
   assert.deepEqual(pipelineOf(calls, 0).vertex.buffers, WIDE_LAYOUT);
+  assert.equal(pipelineOf(calls, 0).primitive.topology, 'triangle-list');   // the quads, not the line list
 });
 
 test('the wide program gets the pass\'s viewport and the width in device pixels', async () => {
@@ -152,6 +167,7 @@ test('a gizmo restores the program and the state it found', async () => {
   grid(ctx, { size: 50, depth: false });
   assert.equal(ctx.prog, prior);
   assert.equal(ctx.state.depth, depth);
+  assert.equal(ctx.state.topology, 'triangle-list');   // the line list's topology is the pipe's, not the state's
 });
 
 test('the frustum draws its twelve edges and a viewer\'s axes; a track its path and a marker a keyframe', async () => {
@@ -188,6 +204,7 @@ test('a handle\'s locus draws its constraint and, at HANDLE, a disc through the 
   assert.deepEqual(ctx.gizmoPool.slots.tris.slots[0].geometry.bufferLayouts, TRIS_LAYOUT);
   const trisDraw = lastOf(calls, 'pass.draw');
   assert.equal(trisDraw[1], 48);
+  assert.equal(pipelineOf(calls, allOf(calls, 'createRenderPipeline').length - 1).primitive.topology, 'triangle-list');
   // the quads program's MVP is the installed camera's, installed by the draw
   const floats = allOf(calls, 'queue.writeBuffer')
     .map((call) => Array.from(new Float32Array(Uint8Array.from(call[4]).buffer)))

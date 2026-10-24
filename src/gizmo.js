@@ -273,7 +273,10 @@ function _drawLines(ctx, g, M, color, depth, width) {
   const kind = wide ? (colored ? 'wideColor' : 'wide') : (colored ? 'lineColor' : 'line');
   const prog = wide ? _wideProgram(ctx, colored) : _lineProgram(ctx, colored);
   if (!prog) return;
-  const priorState = ctx.backend.setState(ctx, { depth: depth !== false });
+  const priorState = ctx.backend.setState(ctx, {
+    depth: depth !== false,
+    topology: wide ? 'triangle-list' : 'line-list',   // the pipeline bakes the topology
+  });
   const priorProg = ctx.prog;
   bind(ctx, prog, { uPV: ctx.PV, uModel: M || IDENTITY, uColor: color || WHITE, uUseColor: colored ? 1 : 0 });
   if (wide) {
@@ -301,7 +304,7 @@ function _drawTris(ctx, g, M, color, depth) {
   if (!count) return;
   const prog = _trisProgram(ctx);
   if (!prog) return;
-  const priorState = ctx.backend.setState(ctx, { depth: depth !== false });
+  const priorState = ctx.backend.setState(ctx, { depth: depth !== false, topology: 'triangle-list' });
   const priorProg = ctx.prog;
   const slot = _slot(ctx, 'tris', count);
   ctx.device.queue.writeBuffer(slot.geometry.buffers[0], 0, g.arrays.position.data, 0, 3 * count);
@@ -778,7 +781,7 @@ export function pane(ctx, p0, p1, p2, p3, opts) {
   if (!count) return;
   const prog = _paneProgram(ctx);
   if (!prog) return;
-  const priorState = ctx.backend.setState(ctx, { depth: o.depth !== false });
+  const priorState = ctx.backend.setState(ctx, { depth: o.depth !== false, topology: 'triangle-list' });
   const priorProg = ctx.prog;
   const slot = _slot(ctx, 'pane', count);
   ctx.device.queue.writeBuffer(slot.geometry.buffers[0], 0, g.arrays.position.data, 0, 3 * count);

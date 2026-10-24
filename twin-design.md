@@ -238,6 +238,14 @@ notebook column may use; the bridge does not).
   2 × 2 source stretched with clamp-to-edge showed a solid white quarter — a 16 × 16 ramp that the
   cover rect stretches smooth is the example now. An example that is a call's shape stays supported
   by the parser and the renderer, marked and shown as code; no doclet on the site is one.
+- *The line pipe's topology.* The site's first figures showed the axes as a filled gradient triangle
+  with a stray arm. WebGPU bakes the topology into the pipeline and the pipe never stated its own, so
+  every gizmo's line list went through a `triangle-list` pipeline built from the ambient state; the
+  offscreen proofs of S7 read single pixels and were satisfied by the fragments a triangle covers. The
+  pipe now sets `line-list` with the depth it already saves and restores — and `triangle-list` for the
+  expanded quads, the handle's dot and the pane. A readback of a HUD cross from a target counts 119 lit
+  pixels (a line's worth, two 121-pixel arms) and 154 for the axes, where the triangles had covered
+  thousands.
 - *The WGSL fence.* A doc comment reads a line that begins with `@` as a tag, and a shader stage's
   attribute is one, so an example's WGSL is written between fence lines (` ```wgsl ` … ` ``` `) inside
   its template literal. The parser drops the fence lines: the example's code is the same text without
