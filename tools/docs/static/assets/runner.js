@@ -21,13 +21,13 @@
  *   messages stay in the browser's console.
  * - Run reassembles the iframe from the box; Reset restores the source text.
  *   Edits are page-local — nothing persists.
- * - Lifecycle: an IntersectionObserver mounts an iframe as its figure nears
- *   the viewport and unmounts it once far off-screen; at most LIVE_MAX are
- *   live at once, least recently neared out first. Unmounting loses the frame
- *   and with it the WebGPU device, which the context's dispose owns otherwise.
- *   LIVE_MAX is two: this Chromium refuses a new device once a few are live, so
- *   a figure beside the one being read is the ceiling — a page's figures are
- *   read one at a time.
+ * - Lifecycle: an IntersectionObserver mounts a figure's iframe as it nears the
+ *   viewport and **hides** it once far off-screen — the frame and its WebGPU
+ *   device stay, because a device made after an earlier one was destroyed
+ *   renders nothing here (a re-mounted figure came back blank on scroll-up).
+ *   A hidden iframe's requestAnimationFrame is throttled, so a page of figures
+ *   costs the one being looked at; a figure is mounted once and shown again
+ *   when it returns.
  */
 
 (function () {
@@ -37,9 +37,8 @@
   const figures = document.querySelectorAll('figure.example[data-mode="module"]');
   if (!cfg || !figures.length) return;
 
-  const LIVE_MAX = 2;   // a device is heavier than a GL context; two live figures at a time
   const NEAR     = '300px 0px';   // mount when the figure is within this margin of the viewport
-  const FAR      = '1500px 0px';  // unmount once it is beyond this margin
+  const FAR      = '1500px 0px';  // hide once it is beyond this margin
   const STAGE_BG = '#0a0a0e';     // fixed stage — never the page theme
 
   const attr = (s) => String(s).replace(/"/g, '&quot;');
@@ -87,46 +86,39 @@ ${code.replace(/<\/(script)/gi, '<\\/$1')}
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   const runners = new Map();   // figure → runner
-  const live    = [];          // mounted runners, least recently neared first
 
   const code = (r) => (r.editor ? r.editor.getValue() : r.textarea.value);
 
-  function unmount(r) {
-    if (!r.frame) return;
-    r.frame.remove();
-    r.frame = null;
-    const i = live.indexOf(r);
-    if (i >= 0) live.splice(i, 1);
-  }
-
   function mount(r) {
-    unmount(r);
-    while (live.length >= LIVE_MAX) unmount(live[0]);
+    if (r.frame) { r.frame.style.display = ''; return; }
     const f = document.createElement('iframe');
     f.className = 'sketch';
     f.title     = r.title;
     f.srcdoc = srcdoc(code(r));
     r.stage.replaceChildren(f);
     r.frame = f;
-    live.push(r);
   }
 
-  function touch(r) {
-    const i = live.indexOf(r);
-    if (i >= 0) live.push(...live.splice(i, 1));
+  function hide(r) {
+    if (r.frame) r.frame.style.display = 'none';   // the device and its loop stay
+  }
+
+  function run(r) {
+    // Run rebuilds the frame from the box: the one way a device is made again
+    if (r.frame) { r.frame.remove(); r.frame = null; }
+    mount(r);
   }
 
   const near = new IntersectionObserver((entries) => {
     for (const e of entries) {
       if (!e.isIntersecting) continue;
-      const r = runners.get(e.target);
-      r.frame ? touch(r) : mount(r);
+      mount(runners.get(e.target));
     }
   }, { rootMargin: NEAR });
 
   const far = new IntersectionObserver((entries) => {
     for (const e of entries) {
-      if (!e.isIntersecting) unmount(runners.get(e.target));
+      if (!e.isIntersecting) hide(runners.get(e.target));
     }
   }, { rootMargin: FAR });
 
@@ -144,7 +136,7 @@ ${code.replace(/<\/(script)/gi, '<\\/$1')}
       editor: null,
       frame:  null,
     };
-    const run   = () => mount(r);
+    const run   = () => run(r);
     const reset = () => (r.editor ? r.editor.setValue(r.source) : (textarea.value = r.source));
 
     r.editor = editorOf(textarea, run);

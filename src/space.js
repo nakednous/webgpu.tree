@@ -139,31 +139,67 @@ function _dispatch(view, from, to) {
  * @param {string|Float32Array|number[]} to  A space name, or the frame to read it into.
  * @returns {number[]|null} out, or null when `to` is a singular frame.
  * @example
- * <caption>The tip of the spinning x axis, mapped from world to logical pixels: the white cross stays on it.</caption>
- * import { init, endFrame, image, setCamera, texture, tree, axes, cross, mapLocation } from 'webgpu.tree'
+ * <caption>The tip of the spinning x axis, mapped from world space to logical pixels: the white cross drawn there stays on it.</caption>
+ * import { init, endFrame, image, renderTarget, SCREEN, setCamera, axes, beginHUD, endHUD, cross, mapLocation, tree } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
  * canvas.style.width = '400px'
  * canvas.style.height = '300px'
- * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
- * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const ctx = await init(canvas, { width: 400, height: 300 })
+ * const scene = renderTarget(ctx)
  * const cam = tree.createCamera({ eye: [180, 150, 300] })
- * const M = tree.mat4(), q = tree.quat(), tip = tree.vec3(), screen = tree.vec3()
+ * const M = tree.mat4(), q = tree.quat(), screen = tree.vec3()
+ * const tip = tree.vec3()
  *
  * function frame(ms) {
+ *   ctx.backend.bindTarget(ctx, scene)
+ *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
  *   tree.qFromAxisAngle(q, 0, 1, 0, ms / 1000)
  *   tree.mat4FromTRS(M, 0, 0, 0, q[0], q[1], q[2], q[3], 1, 1, 1)
  *   tree.mat4MulPoint(tip, M, 100, 0, 0)
- *   image(ctx, sky)
  *   setCamera(ctx, cam)
  *   axes(ctx, { M, size: 100 })
- *   // through the installed camera, the point as a logical pixel
  *   mapLocation(ctx, screen, tip[0], tip[1], tip[2], tree.WORLD, tree.SCREEN)
- *   cross(ctx, { x: screen[0], y: screen[1], size: 22, color: [1, 1, 1, 1] })
+ *   beginHUD(ctx)
+ *   cross(ctx, { x: screen[0], y: screen[1], size: 24, color: [1, 1, 1, 1] })
+ *   endHUD(ctx)
+ *   ctx.backend.bindTarget(ctx, SCREEN)
+ *   image(ctx, scene.color)
  *   endFrame(ctx)
  *   requestAnimationFrame(frame)
  * }
  * requestAnimationFrame(frame)
+ *
+ * @example
+ * <caption>The same tip given in the object’s own frame — the frame matrix as from maps it straight to logical pixels, camera and all.</caption>
+ * import { init, endFrame, image, renderTarget, SCREEN, setCamera, axes, beginHUD, endHUD, cross, mapLocation, tree } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300 })
+ * const scene = renderTarget(ctx)
+ * const cam = tree.createCamera({ eye: [180, 150, 300] })
+ * const M = tree.mat4(), q = tree.quat(), screen = tree.vec3()
+ *
+ * function frame(ms) {
+ *   ctx.backend.bindTarget(ctx, scene)
+ *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   tree.qFromAxisAngle(q, 0, 1, 0, ms / 1000)
+ *   tree.mat4FromTRS(M, 0, 0, 0, q[0], q[1], q[2], q[3], 1, 1, 1)
+ *   setCamera(ctx, cam)
+ *   axes(ctx, { M, size: 100 })
+ *   mapLocation(ctx, screen, 100, 0, 0, M, tree.SCREEN)
+ *   beginHUD(ctx)
+ *   cross(ctx, { x: screen[0], y: screen[1], size: 24, color: [1, 1, 1, 1] })
+ *   endHUD(ctx)
+ *   ctx.backend.bindTarget(ctx, SCREEN)
+ *   image(ctx, scene.color)
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
  *
  */
 export function mapLocation(ctx, out, x, y, z, from, to) {
@@ -183,30 +219,37 @@ export function mapLocation(ctx, out, x, y, z, from, to) {
  * @param {string|Float32Array|number[]} to
  * @returns {number[]|null} out, or null when `to` is a singular frame.
  * @example
- * <caption>The spinning x axis’s direction, mapped world → screen: the cross rides 80 pixels along it.</caption>
- * import { init, endFrame, image, setCamera, texture, tree, axes, cross, mapDirection } from 'webgpu.tree'
+ * <caption>The spinning x axis’s direction, mapped from world space to the screen: the white cross, placed 80 pixels from the center along it, rides over the red axis.</caption>
+ * import { init, endFrame, image, renderTarget, SCREEN, setCamera, axes, beginHUD, endHUD, cross, mapDirection, tree } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
  * canvas.style.width = '400px'
  * canvas.style.height = '300px'
- * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
- * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const ctx = await init(canvas, { width: 400, height: 300 })
+ * const scene = renderTarget(ctx)
  * const cam = tree.createCamera({ eye: [0, 150, 300] })
- * const M = tree.mat4(), q = tree.quat(), d = tree.vec3()
+ * const M = tree.mat4(), q = tree.quat(), d = tree.vec3(), onScreen = tree.vec3()
  *
  * function frame(ms) {
+ *   ctx.backend.bindTarget(ctx, scene)
+ *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
  *   tree.qFromAxisAngle(q, 0, 1, 0, ms / 1000)
  *   tree.mat4FromTRS(M, 0, 0, 0, q[0], q[1], q[2], q[3], 1, 1, 1)
- *   image(ctx, sky)
+ *   tree.mat4MulDir(d, M, 1, 0, 0)
  *   setCamera(ctx, cam)
  *   axes(ctx, { M, size: 120 })
- *   mapDirection(ctx, d, 1, 0, 0, tree.WORLD, tree.SCREEN)   // translation ignored
- *   const n = Math.hypot(d[0], d[1]) || 1
- *   cross(ctx, { x: 200 + (80 * d[0]) / n, y: 150 + (80 * d[1]) / n, size: 20, color: [1, 1, 1, 1] })
+ *   mapDirection(ctx, onScreen, d[0], d[1], d[2], tree.WORLD, tree.SCREEN)
+ *   const len = Math.hypot(onScreen[0], onScreen[1]) || 1
+ *   beginHUD(ctx)
+ *   cross(ctx, { x: 200 + (80 * onScreen[0]) / len, y: 150 + (80 * onScreen[1]) / len, size: 24, color: [1, 1, 1, 1] })
+ *   endHUD(ctx)
+ *   ctx.backend.bindTarget(ctx, SCREEN)
+ *   image(ctx, scene.color)
  *   endFrame(ctx)
  *   requestAnimationFrame(frame)
  * }
  * requestAnimationFrame(frame)
+ *
  *
  */
 export function mapDirection(ctx, out, dx, dy, dz, from, to) {
@@ -224,35 +267,37 @@ export function mapDirection(ctx, out, dx, dy, dz, from, to) {
  * @param {number} sy  Screen-space y, logical pixels, down.
  * @returns {number[]|null} outD, or null when the camera is degenerate.
  * @example
- * <caption>Move the pointer: the ray under it, cut at y = 0, puts small axes right under the pointer.</caption>
- * import { init, endFrame, image, setCamera, texture, tree, axes, grid, unproject } from 'webgpu.tree'
+ * <caption>Move the pointer: the ray under its offset, cut where it meets the ground (y = 0), puts the small axes on the grid right under the pointer.</caption>
+ * import { init, endFrame, image, renderTarget, SCREEN, setCamera, axes, grid, unproject, tree } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
  * canvas.style.width = '400px'
  * canvas.style.height = '300px'
- * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
- * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const ctx = await init(canvas, { width: 400, height: 300 })
+ * const scene = renderTarget(ctx)
+ * const ground = tree.mat4FromTRS(tree.mat4(), 0, 0, 0, ...tree.qFromAxisAngle(tree.quat(), 1, 0, 0, -Math.PI / 2), 1, 1, 1)
  * const cam = tree.createCamera({ eye: [0, 150, 300] })
- * const ground = tree.mat4FromTRS(tree.mat4(), 0, 0, 0,
- *   ...tree.qFromAxisAngle(tree.quat(), 1, 0, 0, -Math.PI / 2), 1, 1, 1)
- * const origin = tree.vec3(), dir = tree.vec3(), at = tree.vec3(), M = tree.mat4()
+ * const origin = tree.vec3(), dir = tree.vec3(), M = tree.mat4()
  * let px = 200, py = 150
  * canvas.addEventListener('pointermove', (e) => { px = e.offsetX; py = e.offsetY })
  *
- * function frame() {
- *   image(ctx, sky)
+ * function frame(ms) {
+ *   ctx.backend.bindTarget(ctx, scene)
+ *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
  *   setCamera(ctx, cam)
- *   grid(ctx, { M: ground, size: 240, subdivisions: 12 })
- *   unproject(ctx, origin, dir, px, py)     // a near-plane origin and a unit direction
- *   const t = -origin[1] / dir[1]           // where the ray meets the ground
- *   if (t > 0 && Number.isFinite(t)) {
- *     at[0] = origin[0] + t * dir[0]; at[1] = 0; at[2] = origin[2] + t * dir[2]
- *     axes(ctx, { M: tree.mat4FromTRS(M, at[0], 0, at[2], 0, 0, 0, 1, 1, 1, 1), size: 20 })
+ *   grid(ctx, { M: ground, size: 150, subdivisions: 15, color: [1, 1, 1, 1] })
+ *   if (unproject(ctx, origin, dir, px, py) && dir[1] < 0) {
+ *     const s = -origin[1] / dir[1]
+ *     axes(ctx, { M: tree.mat4FromTRS(M, origin[0] + s * dir[0], 0, origin[2] + s * dir[2],
+ *       0, 0, 0, 1, 1, 1, 1), size: 20 })
  *   }
+ *   ctx.backend.bindTarget(ctx, SCREEN)
+ *   image(ctx, scene.color)
  *   endFrame(ctx)
  *   requestAnimationFrame(frame)
  * }
  * requestAnimationFrame(frame)
+ *
  *
  */
 export function unproject(ctx, outO, outD, sx, sy) {
@@ -269,13 +314,13 @@ export function unproject(ctx, outO, outD, sx, sy) {
  * @param {number} y  Screen-space y, logical pixels, down.
  * @returns {number[]} out
  * @example
- * <caption>Move the pointer: an amber disc follows it, the shader comparing @builtin(position) with the pointer.</caption>
- * import { init, endFrame, filter, fragCoord, program } from 'webgpu.tree'
+ * <caption>Move the pointer: an amber disc 40 device pixels in radius follows it — the fragment shader compares its own @builtin(position) with uMouse, the pointer’s.</caption>
+ * import { init, endFrame, filter, fragCoord, program, tree } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
  * canvas.style.width = '400px'
  * canvas.style.height = '300px'
- * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const ctx = await init(canvas, { width: 400, height: 300 })
  *
  * const spot = program(ctx, `
  * ```wgsl
@@ -291,17 +336,17 @@ export function unproject(ctx, outO, outD, sx, sy) {
  * }
  * ```
  * `)
- *
- * const uMouse = [0, 0]
- * fragCoord(ctx, uMouse, 200, 150)
- * canvas.addEventListener('pointermove', (e) => fragCoord(ctx, uMouse, e.offsetX, e.offsetY))
+ * const uniforms = { uMouse: tree.vec2() }
+ * fragCoord(ctx, uniforms.uMouse, 200, 150)
+ * canvas.addEventListener('pointermove', (e) => fragCoord(ctx, uniforms.uMouse, e.offsetX, e.offsetY))
  *
  * function frame() {
- *   filter(ctx, spot, { uMouse })     // window space: device pixels, top-left
+ *   filter(ctx, spot, uniforms)
  *   endFrame(ctx)
  *   requestAnimationFrame(frame)
  * }
  * requestAnimationFrame(frame)
+ *
  *
  */
 export function fragCoord(ctx, out, x, y) {
@@ -317,29 +362,33 @@ export function fragCoord(ctx, out, x, y) {
  * @param {number} eyeZ  The eye-space z of the depth measured.
  * @returns {number} World units per logical pixel.
  * @example
- * <caption>The eye dollies from 200 to 600 over a grid whose cells are 20 units: the cross sized 20 ÷ pixelRatio spans one cell.</caption>
- * import { init, endFrame, image, setCamera, texture, tree, grid, cross, beginHUD, endHUD, pixelRatio } from 'webgpu.tree'
+ * <caption>The eye dollies between 200 and 600 from the grid, whose cells are 20 units: a white cross sized 20 ÷ pixelRatio pixels spans exactly one cell at every distance.</caption>
+ * import { init, endFrame, image, renderTarget, SCREEN, setCamera, grid, beginHUD, endHUD, cross, pixelRatio, tree } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
  * canvas.style.width = '400px'
  * canvas.style.height = '300px'
- * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
- * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const ctx = await init(canvas, { width: 400, height: 300 })
+ * const scene = renderTarget(ctx)
  * const cam = tree.createCamera({ eye: [0, 0, 400] })
  *
  * function frame(ms) {
+ *   ctx.backend.bindTarget(ctx, scene)
+ *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
  *   const d = 400 + 200 * Math.sin(ms / 1000)
  *   cam.eye[2] = d
- *   image(ctx, sky)
  *   setCamera(ctx, cam)
- *   grid(ctx, { size: 200, subdivisions: 10, color: [1, 1, 1, 1] })
+ *   grid(ctx, { size: 100, subdivisions: 10, color: [1, 1, 1, 1] })
  *   beginHUD(ctx)
  *   cross(ctx, { x: 200, y: 150, size: 20 / pixelRatio(ctx, -d), color: [1, 0.82, 0.4, 1] })
  *   endHUD(ctx)
+ *   ctx.backend.bindTarget(ctx, SCREEN)
+ *   image(ctx, scene.color)
  *   endFrame(ctx)
  *   requestAnimationFrame(frame)
  * }
  * requestAnimationFrame(frame)
+ *
  *
  */
 export function pixelRatio(ctx, eyeZ) {
@@ -353,30 +402,36 @@ export function pixelRatio(ctx, eyeZ) {
  * @param {Float32Array|number[]} out
  * @returns {Float32Array|number[]} out
  * @example
- * <caption>W · P · V takes the spinning x axis’s tip straight to logical pixels, where the white cross sits.</caption>
- * import { init, endFrame, image, setCamera, texture, tree, axes, cross, mat4Viewport, viewOf } from 'webgpu.tree'
+ * <caption>W · P · V takes the spinning x axis’s tip straight to logical pixels, where the white cross is drawn over it.</caption>
+ * import { init, endFrame, image, renderTarget, SCREEN, setCamera, axes, beginHUD, endHUD, cross, mat4Viewport, viewOf, tree } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
  * canvas.style.width = '400px'
  * canvas.style.height = '300px'
- * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
- * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const ctx = await init(canvas, { width: 400, height: 300 })
+ * const scene = renderTarget(ctx)
  * const cam = tree.createCamera({ eye: [180, 150, 300] })
- * const WPV = tree.mat4(), tip = tree.vec3(), q = tree.quat(), M = tree.mat4()
+ * const M = tree.mat4(), W = tree.mat4(), WPV = tree.mat4(), q = tree.quat(), tip = tree.vec3()
  *
  * function frame(ms) {
+ *   ctx.backend.bindTarget(ctx, scene)
+ *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
  *   tree.qFromAxisAngle(q, 0, 1, 0, ms / 1000)
  *   tree.mat4FromTRS(M, 0, 0, 0, q[0], q[1], q[2], q[3], 1, 1, 1)
- *   image(ctx, sky)
  *   setCamera(ctx, cam)
  *   axes(ctx, { M, size: 100 })
- *   tree.mat4Mul(WPV, mat4Viewport(ctx, tree.mat4()), viewOf(ctx).mat4PV)
- *   tree.mat4MulPoint(tip, WPV, 100, 0, 0)
- *   cross(ctx, { x: tip[0], y: tip[1], size: 22, color: [1, 1, 1, 1] })
+ *   tree.mat4Mul(WPV, mat4Viewport(ctx, W), viewOf(ctx).mat4PV)
+ *   tree.mat4MulPoint(tip, tree.mat4Mul(WPV, WPV, M), 100, 0, 0)
+ *   beginHUD(ctx)
+ *   cross(ctx, { x: tip[0], y: tip[1], size: 24, color: [1, 1, 1, 1] })
+ *   endHUD(ctx)
+ *   ctx.backend.bindTarget(ctx, SCREEN)
+ *   image(ctx, scene.color)
  *   endFrame(ctx)
  *   requestAnimationFrame(frame)
  * }
  * requestAnimationFrame(frame)
+ *
  *
  */
 export function mat4Viewport(ctx, out) {

@@ -93,41 +93,41 @@ function pickTargetOf(ctx) {
  * @param {number} y  Pixel row in the target, from the top.
  * @returns {Promise<Uint8Array>} The four bytes, RGBA, a frame or more late.
  * @example
- * <caption>The state’s read side shown, and a pixel of it read back once a second.</caption>
- * import { init, endFrame, image, program, readPixel, state } from 'webgpu.tree'
+ * <caption>The centre pixel read back: 255 79 216 while the magenta square passes over it, 19 141 117 otherwise.</caption>
+ * import { init, endFrame, image, pane, readPixel, renderTarget, SCREEN, setCamera, tree } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
  * canvas.style.width = '400px'
  * canvas.style.height = '300px'
- * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
- *
- * const field = state(ctx, { width: 200, height: 150 })
- * const bands = program(ctx, `
- * ```wgsl
- * @fragment
- * fn fs(@location(0) vTexCoord: vec2f) -> @location(0) vec4f {
- *   return mix(vec4f(0.9, 0.1, 0.1, 1.0), vec4f(0.1, 0.1, 0.9, 1.0), step(0.5, vTexCoord.x));
- * }
- * ```
- * `)
+ * const ctx = await init(canvas, { width: 400, height: 300 })
+ * const scene = renderTarget(ctx)
  *
  * const out = document.body.appendChild(document.createElement('div'))
- * out.style.cssText = 'position:absolute;left:8px;top:8px;color:#d8dee9;font:12px ui-monospace,monospace'
- * let count = 0
+ * out.style.cssText = 'position:absolute;left:8px;top:8px;color:#d8dee9;font:13px ui-monospace,monospace'
+ * const centre = [Math.round(scene.width / 2), Math.round(scene.height / 2)]   // the target’s centre, its own pixels
+ * const cam = tree.createCamera({ eye: [0, 0, 280] })
+ * let pending = false
  *
- * function frame() {
- *   field.pass(bands)
- *   // read before the canvas is presented: a read ends the frame it finds
- *   if (count++ === 0) {
- *     readPixel(ctx, field.read, 100, 75).then((px) => {   // the target’s own pixels, row 0 at the top
- *       out.textContent = 'the centre pixel: ' + px[0] + ' ' + px[1] + ' ' + px[2]
+ * function frame(ms) {
+ *   const x = 150 * Math.sin(ms / 1000)
+ *   ctx.backend.bindTarget(ctx, scene)
+ *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   setCamera(ctx, cam)
+ *   pane(ctx, [x - 30, 30, 0], [x + 30, 30, 0], [x + 30, -30, 0], [x - 30, -30, 0], { color: [1, 79 / 255, 216 / 255, 1] })
+ *   if (!pending) {
+ *     pending = true
+ *     readPixel(ctx, scene, centre[0], centre[1]).then((px) => {
+ *       out.textContent = 'centre ' + px.slice(0, 3).join(' ')
+ *       pending = false
  *     })
  *   }
- *   image(ctx, field.read.color)
+ *   ctx.backend.bindTarget(ctx, SCREEN)
+ *   image(ctx, scene.color)
  *   endFrame(ctx)
  *   requestAnimationFrame(frame)
  * }
  * requestAnimationFrame(frame)
+ *
  *
  */
 export function readPixel(ctx, target, x, y) {
@@ -157,40 +157,46 @@ export function readPixel(ctx, target, x, y) {
  *        cached 1 × 1.
  * @returns {Promise<number>} The id under the pixel, 0 for a miss.
  * @example
- * <caption>Click a triangle: pick draws the ids into a 1 × 1 target and answers the one under the pointer.</caption>
- * import { init, endFrame, bind, buffer, cross, draw, image, pick, program, setCamera, texture, tree } from 'webgpu.tree'
+ * <caption>Hover a cube: the one under the pointer turns magenta.</caption>
+ * import { init, endFrame, bind, buffer, draw, image, pick, program, renderTarget, SCREEN, setCamera, tree } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
  * canvas.style.width = '400px'
  * canvas.style.height = '300px'
- * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
- * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
- * const mesh = buffer(ctx, { position: { numComponents: 3, data: [-80, -60, 0, 80, -60, 0, 0, 80, 0] } })
+ * const ctx = await init(canvas, { width: 400, height: 300 })
+ * const scene = renderTarget(ctx)
  *
+ * const solid = buffer(ctx, tree.platonic(tree.HEXAHEDRON, { radius: 80 }))
  * const WGSL = `
  * ```wgsl
  * struct U {
  *   uModelViewProjectionMatrix: mat4x4f,
+ *   uNormalMatrix: mat3x3f,
+ *   uColor: vec3f,
  * };
  * @group(0) @binding(0) var<uniform> u: U;
  *
  * struct VOut {
  *   @builtin(position) position: vec4f,
+ *   @location(0) normal: vec3f,
  * };
  *
  * @vertex
- * fn vs(@location(0) aPosition: vec3f) -> VOut {
+ * fn vs(@location(0) aPosition: vec3f, @location(1) aNormal: vec3f) -> VOut {
  *   var out: VOut;
  *   out.position = u.uModelViewProjectionMatrix * vec4f(aPosition, 1.0);
+ *   out.normal = u.uNormalMatrix * aNormal;
  *   return out;
  * }
  *
  * @fragment
- * fn fs() -> @location(0) vec4f {
- *   return vec4f(1.0, 0.31, 0.85, 1.0);
+ * fn fs(@location(0) normal: vec3f) -> @location(0) vec4f {
+ *   let d = max(dot(normalize(normal), normalize(vec3f(0.4, 0.6, 1.0))), 0.0);
+ *   return vec4f(u.uColor * (0.3 + 0.7 * d), 1.0);
  * }
  * ```
  * `
+ * const prog = program(ctx, WGSL, { buffers: solid.bufferLayouts })
  * const ID = `
  * ```wgsl
  * struct U {
@@ -199,15 +205,9 @@ export function readPixel(ctx, target, x, y) {
  * };
  * @group(0) @binding(0) var<uniform> u: U;
  *
- * struct VOut {
- *   @builtin(position) position: vec4f,
- * };
- *
  * @vertex
- * fn vs(@location(0) aPosition: vec3f) -> VOut {
- *   var out: VOut;
- *   out.position = u.uModelViewProjectionMatrix * vec4f(aPosition, 1.0);
- *   return out;
+ * fn vs(@location(0) aPosition: vec3f, @location(1) aNormal: vec3f) -> @builtin(position) vec4f {
+ *   return u.uModelViewProjectionMatrix * vec4f(aPosition, 1.0);
  * }
  *
  * @fragment
@@ -216,42 +216,38 @@ export function readPixel(ctx, target, x, y) {
  * }
  * ```
  * `
- * const prog = program(ctx, WGSL, { buffers: mesh.bufferLayouts })
- * const idProg = program(ctx, ID, { buffers: mesh.bufferLayouts })
- * setCamera(ctx, tree.createCamera({ eye: [0, 0, 340] }))
- * const left = tree.mat4FromTRS(tree.mat4(), -100, 0, 0, 0, 0, 0, 1, 1, 1, 1)
- * const right = tree.mat4FromTRS(tree.mat4(), 100, 0, 0, 0, 0, 0, 1, 1, 1, 1)
+ * const idProg = program(ctx, ID, { buffers: solid.bufferLayouts })
+ * const cubes = [-120, 0, 120].map((x, i) => ({ id: i + 1, M: tree.mat4FromTRS(tree.mat4(), x, 0, 0, 0, 0, 0, 1, 1, 1, 1) }))
+ * const cam = tree.createCamera({ eye: [99, 131, 263] })
  *
- * const out = document.body.appendChild(document.createElement('div'))
- * out.style.cssText = 'position:absolute;left:8px;top:8px;color:#d8dee9;font:12px ui-monospace,monospace'
- * let px = 95, py = 160, hit = 0, first = true
- * const drawIds = (paint) => {         // paint(id) before each object’s draw
- *   paint(1)
- *   draw(ctx, mesh, left)
- *   paint(2)
- *   draw(ctx, mesh, right)
+ * let mx = -1, my = -1, picked = 0, pending = false
+ * canvas.addEventListener('pointermove', (e) => { mx = e.offsetX; my = e.offsetY })
+ * canvas.addEventListener('pointerleave', () => { mx = -1; my = -1; picked = 0 })
+ *
+ * function ask() {
+ *   if (pending) return
+ *   pending = true
+ *   pick(ctx, mx, my, (paint) => {
+ *     for (const c of cubes) { paint(c.id); draw(ctx, solid, c.M) }
+ *   }, { program: idProg }).then((id) => { picked = id; pending = false })
  * }
- * canvas.addEventListener('pointermove', (e) => { px = e.offsetX; py = e.offsetY })
- * canvas.addEventListener('pointerdown', () => {
- *   pick(ctx, px, py, drawIds, { program: idProg }).then((id) => { hit = id })
- * })
  *
  * function frame() {
- *   // the first pick runs before the canvas is presented: a read ends the frame it finds
- *   if (first) {
- *     first = false
- *     pick(ctx, px, py, drawIds, { program: idProg }).then((id) => { hit = id })
+ *   if (mx >= 0) ask()
+ *   ctx.backend.bindTarget(ctx, scene)
+ *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   setCamera(ctx, cam)
+ *   for (const c of cubes) {
+ *     bind(ctx, prog, { uColor: c.id === picked ? [1, 0.31, 0.85] : [1, 0.82, 0.4] })
+ *     draw(ctx, solid, c.M)
  *   }
- *   image(ctx, sky)
- *   bind(ctx, prog)
- *   draw(ctx, mesh, left)
- *   draw(ctx, mesh, right)
- *   cross(ctx, { x: px, y: py, size: 14, color: [1, 0.82, 0.4, 1] })
- *   out.textContent = 'pick: ' + (hit || 'click a triangle')
+ *   ctx.backend.bindTarget(ctx, SCREEN)
+ *   image(ctx, scene.color)
  *   endFrame(ctx)
  *   requestAnimationFrame(frame)
  * }
  * requestAnimationFrame(frame)
+ *
  *
  */
 export function pick(ctx, x, y, drawFn, opts) {

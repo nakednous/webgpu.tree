@@ -39,6 +39,7 @@ The package has a reference site of its own, generated from this source by its o
 ```
 site/                index.html, one page per module, search.json
                      assets/{runner.js,search.js,style.css}, favicons
+                     models/torus.obj  ← the mesh `buffer`'s figure loads
                      webgpu.tree.js  ← dist/index.js, the ESM build of the same commit
                      tree.js · host.js · idiom.js  ← the builds it was made against
 ```
@@ -46,8 +47,13 @@ site/                index.html, one page per module, search.json
 It is **ESM-only**, as the package is: an example imports from `webgpu.tree`, runs under the page's
 import map (`webgpu-utils` to the pinned CDN module, the stack's packages to the site's own copies of
 the same commit) and awaits `init`; a shader is a WGSL fence. **Every doclet's example is a whole
-figure** and runs in place — the page mounts it in an editor and a live stage, two at a time (a WebGPU
-device is heavier than a GL context), and the rest wait their turn as the page scrolls.
+figure**, and each is the reference's figure of the same doclet translated to the twin — the same
+camera, the same scene, the same caption — so the two sites can be read side by side. A figure mounts
+once as it nears the viewport and is hidden when it leaves it; a hidden iframe's animation is
+throttled, and the WebGPU device stays, because a device made after an earlier one was destroyed
+renders nothing in this Chromium. A figure that draws geometry binds its target with
+`ctx.backend.bindTarget` and clears it with `ctx.backend.clear` — the layer's member, the twin's flat
+bind (§7 #110), where the reference calls twgl's `bindFramebufferInfo` and `gl.clear`.
 Serve it locally, from the repository root:
 
 ```

@@ -42,26 +42,53 @@ const _isMat4 = (m) => m != null && typeof m === 'object' && typeof m.length ===
  *        form's projection aspect (default the canvas's).
  * @returns {object} The view bag.
  * @example
- * <caption>A camera state circling the axes: setCamera installs V and P for every draw after it.</caption>
- * import { init, endFrame, image, setCamera, texture, tree, axes } from 'webgpu.tree'
+ * <caption>The matrix form: an orthographic view and projection built by hand.</caption>
+ * import { init, endFrame, image, renderTarget, SCREEN, setCamera, axes, tree } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
  * canvas.style.width = '400px'
  * canvas.style.height = '300px'
- * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
- * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
+ * const ctx = await init(canvas, { width: 400, height: 300 })
+ * const scene = renderTarget(ctx)
+ *
+ * const cam = tree.createCamera({ eye: [300, 250, 400], halfHeight: 115 })
+ * const V = tree.cameraView(tree.mat4(), cam)
+ * const P = tree.cameraProj(tree.mat4(), cam, 400 / 300)
+ *
+ * ctx.backend.bindTarget(ctx, scene)
+ * ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ * setCamera(ctx, V, P)
+ * axes(ctx, { size: 100 })
+ * ctx.backend.bindTarget(ctx, SCREEN)
+ * image(ctx, scene.color)
+ * endFrame(ctx)
+ *
+ * @example
+ * <caption>A camera state circling the axes, one turn every 6.3 seconds.</caption>
+ * import { init, endFrame, image, renderTarget, SCREEN, setCamera, axes, tree } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300 })
+ * const scene = renderTarget(ctx)
  * const cam = tree.createCamera({ eye: [0, 107, 215] })
  *
  * function frame(ms) {
- *   cam.eye[0] = 215 * Math.sin(ms / 1000)
- *   cam.eye[2] = 215 * Math.cos(ms / 1000)
- *   image(ctx, sky)
- *   setCamera(ctx, cam)        // V, P and P · V, from the camera state
+ *   const t = ms / 1000
+ *   cam.eye[0] = 215 * Math.sin(t)
+ *   cam.eye[2] = 215 * Math.cos(t)
+ *   ctx.backend.bindTarget(ctx, scene)
+ *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   setCamera(ctx, cam)
  *   axes(ctx, { size: 100 })
+ *   ctx.backend.bindTarget(ctx, SCREEN)
+ *   image(ctx, scene.color)
  *   endFrame(ctx)
  *   requestAnimationFrame(frame)
  * }
  * requestAnimationFrame(frame)
+ *
  *
  */
 export function setCamera(ctx, V, P, opts) {

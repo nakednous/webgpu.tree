@@ -114,24 +114,28 @@ function _writeSlices(ctx, tex, pixels) {
  * @returns {object|null} The texture record `upload`, `image`, `pane` and a pass
  *          take — `{ gpu, view, width, height, layers, dimension, format }`.
  * @example
- * <caption>A 16 × 16 ramp, row 0 at the texture’s top, drawn as a cover rect.</caption>
- * import { init, endFrame, image, texture } from 'webgpu.tree'
+ * <caption>A 2 × 2 pixel source, row 0 at the texture’s top, stretched by the twin’s linear sampler: the edges are clamped, the inside blends.</caption>
+ * import { init, endFrame, image, renderTarget, SCREEN, setCamera, pane, texture, tree } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
  * canvas.style.width = '400px'
  * canvas.style.height = '300px'
- * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const ctx = await init(canvas, { width: 400, height: 300 })
+ * const scene = renderTarget(ctx)
  *
- * // row 0 is the texture’s top row: red rises to the right, green down, blue flat
- * const size = 16
- * const data = new Uint8Array(size * size * 4)
- * for (let i = 0; i < size * size; i++) {
- *   const x = i % size, y = (i - x) / size
- *   data.set([x * 17, y * 17, 160, 255], i * 4)
- * }
- * const tex = texture(ctx, { data, width: size, height: size })
- * image(ctx, tex)          // a cover rect: the ramp’s row 0 at the canvas’s top
+ * const magenta = [255, 79, 216, 255]
+ * const yellow = [255, 209, 102, 255]
+ * const data = new Uint8Array([...magenta, ...yellow, ...yellow, ...magenta])
+ * const tex = texture(ctx, { data, width: 2, height: 2 })
+ *
+ * ctx.backend.bindTarget(ctx, scene)
+ * ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ * setCamera(ctx, tree.createCamera({ eye: [0, 0, 205] }))
+ * pane(ctx, [-100, 100, 0], [100, 100, 0], [100, -100, 0], [-100, -100, 0], { texture: tex })
+ * ctx.backend.bindTarget(ctx, SCREEN)
+ * image(ctx, scene.color)
  * endFrame(ctx)
+ *
  *
  */
 export function texture(ctx, source, opts) {
@@ -178,31 +182,40 @@ export function texture(ctx, source, opts) {
  * @param {object} source  An element, a bitmap, or `{ data, width, height }`.
  * @returns {object|null} tex.
  * @example
- * <caption>A source refreshed every frame: upload writes the same shape back, slice by slice for a volume.</caption>
- * import { init, endFrame, image, texture, upload } from 'webgpu.tree'
+ * <caption>A 2D canvas redrawn every frame: the magenta bar sweeps left to right under a yellow strip along the top.</caption>
+ * import { init, endFrame, image, renderTarget, SCREEN, setCamera, texture, upload, pane, tree } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
  * canvas.style.width = '400px'
  * canvas.style.height = '300px'
- * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const ctx = await init(canvas, { width: 400, height: 300 })
+ * const scene = renderTarget(ctx)
+ * const board = document.createElement('canvas')
+ * board.width = 256
+ * board.height = 256
+ * const g = board.getContext('2d')
+ * const tex = texture(ctx, board)
+ * const cam = tree.createCamera({ eye: [0, 0, 205] })
  *
- * const size = 16
- * const pixels = new Uint8Array(size * size * 4)
- * const tex = texture(ctx, { data: pixels, width: size, height: size })
- * let t = 0
- *
- * function frame() {
- *   t += 1
- *   for (let i = 0; i < size * size; i++) {
- *     const x = i % size, y = (i - x) / size
- *     pixels.set([(x * 17 + t * 3) % 256, y * 17, 160, 255], i * 4)
- *   }
- *   upload(ctx, tex, { data: pixels, width: size, height: size })   // the same shape, refreshed
- *   image(ctx, tex)
+ * function frame(ms) {
+ *   ctx.backend.bindTarget(ctx, scene)
+ *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   g.fillStyle = '#222'
+ *   g.fillRect(0, 0, 256, 256)
+ *   g.fillStyle = '#ff4fd8'
+ *   g.fillRect((ms / 10) % 256, 0, 32, 256)
+ *   g.fillStyle = '#ffd166'
+ *   g.fillRect(0, 0, 256, 32)
+ *   upload(ctx, tex, board)
+ *   setCamera(ctx, cam)
+ *   pane(ctx, [-100, 100, 0], [100, 100, 0], [100, -100, 0], [-100, -100, 0], { texture: tex })
+ *   ctx.backend.bindTarget(ctx, SCREEN)
+ *   image(ctx, scene.color)
  *   endFrame(ctx)
  *   requestAnimationFrame(frame)
  * }
  * requestAnimationFrame(frame)
+ *
  *
  */
 export function upload(ctx, tex, source) {
@@ -226,42 +239,64 @@ export function upload(ctx, tex, source) {
  *        The options `texture` takes; `mips` chains face by face.
  * @returns {object|null} The texture record, its view a cube.
  * @example
- * <caption>Six 2 × 2 faces sampled by direction: each face’s colour where the direction falls.</caption>
- * import { init, endFrame, cubemap, filter, program } from 'webgpu.tree'
+ * <caption>A cube sampling a cube map by direction: +X magenta on the right, +Y white on top, +Z blue in front.</caption>
+ * import { init, endFrame, renderTarget, SCREEN, setCamera, bind, buffer, cubemap, draw, image, program, tree } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
  * canvas.style.width = '400px'
  * canvas.style.height = '300px'
- * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
+ * const ctx = await init(canvas, { width: 400, height: 300 })
+ * const scene = renderTarget(ctx)
  *
- * const face = (r, g, b) => ({
- *   data: new Uint8Array([r, g, b, 255, r, g, b, 255, r, g, b, 255, r, g, b, 255]),
- *   width: 2,
- *   height: 2,
- * })
- * // the cube’s face order: +X −X +Y −Y +Z −Z
- * const env = cubemap(ctx, [face(255, 0, 0), face(0, 255, 0), face(0, 0, 255),
- *   face(255, 255, 0), face(0, 255, 255), face(255, 0, 255)])
+ * const solid = (color) => {
+ *   const c = document.createElement('canvas')
+ *   c.width = c.height = 16
+ *   const g = c.getContext('2d')
+ *   g.fillStyle = color
+ *   g.fillRect(0, 0, 16, 16)
+ *   return c
+ * }
+ * // +X, −X, +Y, −Y, +Z, −Z
+ * const cube = cubemap(ctx, ['#ff4fd8', '#ffd166', '#ffffff', '#222222', '#4f9dff', '#222222'].map(solid))
  *
- * const sky = program(ctx, `
+ * const hexa = tree.platonic(tree.HEXAHEDRON, { radius: 100 })
+ * const box = buffer(ctx, { position: hexa.position, indices: hexa.indices })
+ * const WGSL = `
  * ```wgsl
- * @group(0) @binding(0) var uEnv: texture_cube<f32>;
- * @group(0) @binding(1) var uSampler: sampler;
+ * @group(0) @binding(0) var<uniform> uModelViewProjectionMatrix: mat4x4f;
+ * @group(0) @binding(1) var uCube: texture_cube<f32>;
+ * @group(0) @binding(2) var uSampler: sampler;
+ *
+ * struct VOut {
+ *   @builtin(position) position: vec4f,
+ *   @location(0) dir: vec3f,
+ * };
+ *
+ * @vertex
+ * fn vs(@location(0) aPosition: vec3f) -> VOut {
+ *   var out: VOut;
+ *   out.position = uModelViewProjectionMatrix * vec4f(aPosition, 1.0);
+ *   out.dir = aPosition;
+ *   return out;
+ * }
  *
  * @fragment
- * fn fs(@location(0) vTexCoord: vec2f) -> @location(0) vec4f {
- *   let d = normalize(vec3f(vTexCoord * 2.0 - 1.0, -1.0));
- *   return textureSample(uEnv, uSampler, d);
+ * fn fs(@location(0) dir: vec3f) -> @location(0) vec4f {
+ *   return textureSample(uCube, uSampler, normalize(dir));
  * }
  * ```
- * `)
+ * `
+ * const prog = program(ctx, WGSL, { buffers: box.bufferLayouts })
+ * setCamera(ctx, tree.createCamera({ eye: [0, 0, 300] }))
  *
- * function frame() {
- *   filter(ctx, sky, { uEnv: env })   // the bag’s texture wins; the twin’s sampler binds the rest
- *   endFrame(ctx)
- *   requestAnimationFrame(frame)
- * }
- * requestAnimationFrame(frame)
+ * ctx.backend.bindTarget(ctx, scene)
+ * ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ * bind(ctx, prog, { uModelViewProjectionMatrix: ctx.PV, uCube: cube })
+ * draw(ctx, box)
+ * ctx.backend.bindTarget(ctx, SCREEN)
+ * image(ctx, scene.color)
+ * endFrame(ctx)
+ *
  *
  */
 export function cubemap(ctx, faces, opts) {

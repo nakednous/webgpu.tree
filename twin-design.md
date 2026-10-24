@@ -20,9 +20,9 @@
 > — and `npm run docs` writes `site/`: the README as the landing page, a page per module, search, the
 > ES build of the same commit and the builds it was made against. It is **ESM-only**, as the package
 > is: an example imports from `webgpu.tree`, runs as a module script under the page's import map and
-> awaits `init`; a shader is a WGSL fence. **Every doclet's example is a whole figure**, mounted live
-> in place, two at a time — a device is heavier than a GL context, and this Chromium refuses a new one
-> once a few are live. It does not deploy — #56 gives the bridge a site, #77's ground for an address
+> awaits `init`; a shader is a WGSL fence. **Every doclet's example is the reference's figure
+> translated** — the same camera, scene and caption, so the two sites read side by side — mounted once
+> as it nears the viewport and hidden (not torn down) when it leaves it. It does not deploy — #56 gives the bridge a site, #77's ground for an address
 > stays pending. §5's last reading is the site's gate.
 
 ---
@@ -214,6 +214,25 @@ notebook column may use; the bridge does not).
   `255 255 0`, +Z `0 255 255`, −Z `255 0 255` — the face order the sources went in by.
 
 **Read 2026-10-24, with the pipeline key's depth and the API site.**
+
+- *The figures are the reference's.* Every doclet's example was rewritten as the reference's figure
+  for the same doclet, translated: `createCanvas(400, 300)` is a canvas, `await init` and the device
+  ratio `createCanvas` takes; `gl.clear` is `ctx.backend.clear` on a target and `image` of it (a
+  WebGPU canvas has no depth attachment, so a 3D scene states its own target, where the reference
+  draws into the drawing buffer); the GLSL programs are WGSL twins of the same shaders (a lit cube,
+  the id program, the cube map's direction sample, the disc that follows the pointer). The figures
+  were read back from their targets: the lit cube's centre `145 45 123`, the cube map's front face
+  `79 157 255` (+Z blue), the pane's band `255 209 102` over `255 79 216` — upright. Two figures the
+  first pass got wrong were the *example's*, not the function's: `viewFrustum`'s second camera had the
+  default near 1 / far 1000, so its frustum was a fan of rays off-screen, and the raw-pixel texture
+  was 2 × 2 stretched with clamp-to-edge, whose outer quarter is a solid colour. The reference's own
+  framings replaced both (a near-30 / far-200 frustum; a 2 × 2 source on a pane, as the reference
+  shows it).
+- *The runner's lifecycle.* A re-mounted figure came back blank on scroll-up: the headless
+  compositor's instance drop is not the whole story — a WebGPU device made after an earlier one was
+  destroyed renders nothing here. A figure is therefore mounted once and hidden when far; a hidden
+  iframe's animation is throttled, so the page costs the figure being looked at, and no device is
+  made twice.
 
 - *The depth key.* `pipelineKey`'s depth field names the pass's depth — the compare where the state
   asks for the test (`z:less`), the pass's format where it does not (`z:off:depth24plus`), `z:-` for a

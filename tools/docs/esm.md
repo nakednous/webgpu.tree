@@ -27,24 +27,28 @@ example awaits it, and an example's first line is its import. A shader is WGSL, 
 no include: `program(ctx, wgsl, opts)` compiles the twin's vertex stage concatenated with the
 caller's fragment source, one module with two entry points.
 
-<!-- caption: A fullscreen pass a frame, and the submit at the frame's end — the twin's shortest frame. -->
+<!-- caption: A camera state circling the axes, one turn every 6.3 seconds — as a module. -->
 ```js
-import { init, endFrame, filter, program } from 'webgpu.tree'
+import { init, endFrame, image, renderTarget, SCREEN, setCamera, axes, tree } from 'webgpu.tree'
 
 const canvas = document.body.appendChild(document.createElement('canvas'))
 canvas.style.width = '400px'
 canvas.style.height = '300px'
 const ctx = await init(canvas, { width: 400, height: 300 })
+const scene = renderTarget(ctx)
+const cam = tree.createCamera({ eye: [0, 107, 215] })
 
-const gradient = program(ctx, `
-@fragment
-fn fs(@location(0) vTexCoord: vec2f) -> @location(0) vec4f {
-  return vec4f(vTexCoord, 0.5, 1.0);
-}`)
-
-function frame() {
-  filter(ctx, gradient)     // a pass over the bound target, the canvas
-  endFrame(ctx)             // the frame's command buffer, submitted
+function frame(ms) {
+  const t = ms / 1000
+  cam.eye[0] = 215 * Math.sin(t)
+  cam.eye[2] = 215 * Math.cos(t)
+  ctx.backend.bindTarget(ctx, scene)
+  ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+  setCamera(ctx, cam)
+  axes(ctx, { size: 100 })
+  ctx.backend.bindTarget(ctx, SCREEN)
+  image(ctx, scene.color)
+  endFrame(ctx)
   requestAnimationFrame(frame)
 }
 requestAnimationFrame(frame)

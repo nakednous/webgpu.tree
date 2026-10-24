@@ -146,51 +146,58 @@ export function uploadTransforms(ctx, prog, M) {
  * @param {object} [uniforms]  Values by name, as the program's uniform members.
  * @returns {object|null} prog, or null where there is none.
  * @example
- * <caption>Bind a program, then draw: the program is the next draw’s, its declared transforms the draw’s.</caption>
- * import { init, endFrame, bind, buffer, draw, image, program, setCamera, texture, tree } from 'webgpu.tree'
+ * <caption>One program bound twice: a magenta cube on the left, a yellow one on the right.</caption>
+ * import { init, endFrame, image, renderTarget, SCREEN, setCamera, bind, buffer, draw, program, tree } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
  * canvas.style.width = '400px'
  * canvas.style.height = '300px'
- * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
- * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
- * const mesh = buffer(ctx, { position: { numComponents: 3, data: [-80, -60, 0, 80, -60, 0, 0, 80, 0] } })
+ * const ctx = await init(canvas, { width: 400, height: 300 })
+ * const scene = renderTarget(ctx)
  *
+ * const solid = buffer(ctx, tree.platonic(tree.HEXAHEDRON, { radius: 80 }))
  * const WGSL = `
  * ```wgsl
  * struct U {
  *   uModelViewProjectionMatrix: mat4x4f,
+ *   uNormalMatrix: mat3x3f,
+ *   uColor: vec3f,
  * };
  * @group(0) @binding(0) var<uniform> u: U;
  *
  * struct VOut {
  *   @builtin(position) position: vec4f,
+ *   @location(0) normal: vec3f,
  * };
  *
  * @vertex
- * fn vs(@location(0) aPosition: vec3f) -> VOut {
+ * fn vs(@location(0) aPosition: vec3f, @location(1) aNormal: vec3f) -> VOut {
  *   var out: VOut;
  *   out.position = u.uModelViewProjectionMatrix * vec4f(aPosition, 1.0);
+ *   out.normal = u.uNormalMatrix * aNormal;
  *   return out;
  * }
  *
  * @fragment
- * fn fs() -> @location(0) vec4f {
- *   return vec4f(1.0, 0.31, 0.85, 1.0);
+ * fn fs(@location(0) normal: vec3f) -> @location(0) vec4f {
+ *   let d = max(dot(normalize(normal), normalize(vec3f(0.4, 0.6, 1.0))), 0.0);
+ *   return vec4f(u.uColor * (0.3 + 0.7 * d), 1.0);
  * }
  * ```
  * `
- * const prog = program(ctx, WGSL, { buffers: mesh.bufferLayouts })   // the layout the pipeline bakes
- * setCamera(ctx, tree.createCamera({ eye: [0, 0, 260] }))
+ * const prog = program(ctx, WGSL, { buffers: solid.bufferLayouts })
+ * setCamera(ctx, tree.createCamera({ eye: [76, 102, 204] }))
  *
- * function frame() {
- *   image(ctx, sky)
- *   bind(ctx, prog)          // the program the next draw uses
- *   draw(ctx, mesh)
- *   endFrame(ctx)
- *   requestAnimationFrame(frame)
- * }
- * requestAnimationFrame(frame)
+ * ctx.backend.bindTarget(ctx, scene)
+ * ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ * bind(ctx, prog, { uColor: [1, 0.31, 0.85] })
+ * draw(ctx, solid, tree.mat4FromTRS(tree.mat4(), -80, 0, 0, 0, 0, 0, 1, 1, 1, 1))
+ * bind(ctx, prog, { uColor: [1, 0.82, 0.4] })
+ * draw(ctx, solid, tree.mat4FromTRS(tree.mat4(), 80, 0, 0, 0, 0, 0, 1, 1, 1, 1))
+ * ctx.backend.bindTarget(ctx, SCREEN)
+ * image(ctx, scene.color)
+ * endFrame(ctx)
+ *
  *
  */
 export function bind(ctx, prog, uniforms) {
@@ -245,54 +252,67 @@ const _isAttribute = (a) => a != null && (_isNumbers(a) || _isNumbers(a.data));
  * @returns {object|null} The geometry `draw` takes: `buffers`, `bufferLayouts`,
  *          `numElements`, and the `indexBuffer` / `indexFormat` where indexed.
  * @example
- * <caption>A mesh’s arrays shape becomes the geometry: attributes in key order, the layout the pipeline bakes.</caption>
- * import { init, endFrame, bind, buffer, draw, image, program, setCamera, texture, tree } from 'webgpu.tree'
+ * <caption>A model file: host.loadMesh reads models/torus.obj into a mesh, and the yellow torus tumbles about X, lit by the file’s normals.</caption>
+ * import { init, endFrame, image, renderTarget, SCREEN, setCamera, bind, buffer, draw, host, program, tree } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
  * canvas.style.width = '400px'
  * canvas.style.height = '300px'
- * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
- * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
- * const mesh = buffer(ctx, {
- *   position: { numComponents: 3, data: [-80, -60, 0, 80, -60, 0, 0, 80, 0] },
- *   indices: { numComponents: 3, data: [0, 1, 2] },   // an indexed geometry draws with drawIndexed
- * })
+ * const ctx = await init(canvas, { width: 400, height: 300 })
+ * const scene = renderTarget(ctx)
  *
+ * // a mesh is { position, normal, texcoord, indices } with its bounds; buffer names aPosition, aNormal, aTexCoord
+ * const mesh = await host.loadMesh('models/torus.obj')
+ * const torus = buffer(ctx, mesh)
  * const WGSL = `
  * ```wgsl
  * struct U {
  *   uModelViewProjectionMatrix: mat4x4f,
+ *   uNormalMatrix: mat3x3f,
+ *   uColor: vec3f,
  * };
  * @group(0) @binding(0) var<uniform> u: U;
  *
  * struct VOut {
  *   @builtin(position) position: vec4f,
+ *   @location(0) normal: vec3f,
  * };
  *
  * @vertex
- * fn vs(@location(0) aPosition: vec3f) -> VOut {
+ * fn vs(@location(0) aPosition: vec3f, @location(1) aNormal: vec3f) -> VOut {
  *   var out: VOut;
  *   out.position = u.uModelViewProjectionMatrix * vec4f(aPosition, 1.0);
+ *   out.normal = u.uNormalMatrix * aNormal;
  *   return out;
  * }
  *
  * @fragment
- * fn fs() -> @location(0) vec4f {
- *   return vec4f(1.0, 0.31, 0.85, 1.0);
+ * fn fs(@location(0) normal: vec3f) -> @location(0) vec4f {
+ *   let d = max(dot(normalize(normal), normalize(vec3f(0.4, 0.6, 1.0))), 0.0);
+ *   return vec4f(u.uColor * (0.3 + 0.7 * d), 1.0);
  * }
  * ```
  * `
- * const prog = program(ctx, WGSL, { buffers: mesh.bufferLayouts })
- * setCamera(ctx, tree.createCamera({ eye: [0, 0, 260] }))
+ * const prog = program(ctx, WGSL, { buffers: torus.bufferLayouts })
+ * const cam = tree.createCamera({ eye: [0, 160, 192] })
+ * const M = tree.mat4()
+ * const q = tree.quat()
  *
- * function frame() {
- *   image(ctx, sky)
- *   bind(ctx, prog)
- *   draw(ctx, mesh)
+ * function frame(ms) {
+ *   ctx.backend.bindTarget(ctx, scene)
+ *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   setCamera(ctx, cam)
+ *   tree.qFromAxisAngle(q, 1, 0, 0, ms / 1400)
+ *   tree.mat4FromTRS(M, 0, 0, 0, q[0], q[1], q[2], q[3], 1, 1, 1)
+ *   bind(ctx, prog, { uColor: [1, 0.82, 0.4] })
+ *   draw(ctx, torus, M)
+ *   ctx.backend.bindTarget(ctx, SCREEN)
+ *   image(ctx, scene.color)
  *   endFrame(ctx)
  *   requestAnimationFrame(frame)
  * }
  * requestAnimationFrame(frame)
+ *
  *
  */
 export function buffer(ctx, arrays) {
@@ -311,53 +331,70 @@ export function buffer(ctx, arrays) {
  * @returns {object|null} geometry.
  * @example
  * <caption>Vertices edited each frame, re-sent in place: the same shape, a count that may change.</caption>
- * import { init, endFrame, bind, buffer, draw, image, program, setCamera, texture, tree, updateBuffer } from 'webgpu.tree'
+ * import { init, endFrame, image, renderTarget, SCREEN, setCamera, bind, buffer, draw, program, tree, updateBuffer } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
  * canvas.style.width = '400px'
  * canvas.style.height = '300px'
- * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
- * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
- * const mesh = buffer(ctx, { position: { numComponents: 3, data: [-80, -60, 0, 80, -60, 0, 0, 80, 0] } })
+ * const ctx = await init(canvas, { width: 400, height: 300 })
+ * const scene = renderTarget(ctx)
  *
+ * // a 12 × 12 grid of vertices, indexed into quads
+ * const N = 12
+ * const position = new Float32Array(N * N * 3)
+ * const indices = new Uint16Array((N - 1) * (N - 1) * 6)
+ * let k = 0
+ * for (let i = 0; i < N; i++) {
+ *   for (let j = 0; j < N; j++) {
+ *     const v = i * N + j
+ *     position.set([(j / (N - 1) - 0.5) * 180, 0, (i / (N - 1) - 0.5) * 180], v * 3)
+ *     if (i < N - 1 && j < N - 1) {
+ *       indices.set([v, v + 1, v + N, v + 1, v + N + 1, v + N], k)
+ *       k += 6
+ *     }
+ *   }
+ * }
+ * const mesh = buffer(ctx, { position: { numComponents: 3, data: position }, indices: { numComponents: 3, data: indices } })
  * const WGSL = `
  * ```wgsl
  * struct U {
  *   uModelViewProjectionMatrix: mat4x4f,
+ *   uColor: vec4f,
  * };
  * @group(0) @binding(0) var<uniform> u: U;
  *
- * struct VOut {
- *   @builtin(position) position: vec4f,
- * };
- *
  * @vertex
- * fn vs(@location(0) aPosition: vec3f) -> VOut {
- *   var out: VOut;
- *   out.position = u.uModelViewProjectionMatrix * vec4f(aPosition, 1.0);
- *   return out;
+ * fn vs(@location(0) aPosition: vec3f) -> @builtin(position) vec4f {
+ *   return u.uModelViewProjectionMatrix * vec4f(aPosition, 1.0);
  * }
  *
  * @fragment
  * fn fs() -> @location(0) vec4f {
- *   return vec4f(1.0, 0.31, 0.85, 1.0);
+ *   return u.uColor;
  * }
  * ```
  * `
  * const prog = program(ctx, WGSL, { buffers: mesh.bufferLayouts })
- * setCamera(ctx, tree.createCamera({ eye: [0, 0, 260] }))
+ * setCamera(ctx, tree.createCamera({ eye: [0, 220, 260] }))
+ * const wave = new Float32Array(position)
  *
  * function frame(ms) {
- *   const tip = 80 + 40 * Math.sin(ms / 700)
- *   const position = new Float32Array([-80, -60, 0, 80, -60, 0, 0, tip, 0])
- *   updateBuffer(ctx, mesh, { position: { numComponents: 3, data: position } })
- *   image(ctx, sky)
- *   bind(ctx, prog)
+ *   for (let i = 0; i < N * N; i++) {
+ *     const x = wave[i * 3], z = wave[i * 3 + 2]
+ *     position[i * 3 + 1] = 18 * Math.sin(x / 24 + ms / 700) * Math.cos(z / 24)
+ *   }
+ *   updateBuffer(ctx, mesh, { position: { numComponents: 3, data: position }, indices: { numComponents: 3, data: indices } })
+ *   ctx.backend.bindTarget(ctx, scene)
+ *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   bind(ctx, prog, { uColor: [1, 0.82, 0.4, 1] })
  *   draw(ctx, mesh)
+ *   ctx.backend.bindTarget(ctx, SCREEN)
+ *   image(ctx, scene.color)
  *   endFrame(ctx)
  *   requestAnimationFrame(frame)
  * }
  * requestAnimationFrame(frame)
+ *
  *
  */
 export function updateBuffer(ctx, geometry, arrays) {
@@ -392,52 +429,65 @@ function _named(arrays) {
  * @param {{ count?:number, offset?:number }} [opts]  A partial draw: `count`
  *        vertices (or indices) from `offset`, WebGPU's units.
  * @example
- * <caption>One geometry, three model matrices: draw takes M, and the declared transforms follow it.</caption>
- * import { init, endFrame, bind, buffer, draw, image, program, setCamera, texture, tree } from 'webgpu.tree'
+ * <caption>A magenta cube turning about the vertical axis through its model matrix.</caption>
+ * import { init, endFrame, image, renderTarget, SCREEN, setCamera, bind, buffer, draw, program, tree } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
  * canvas.style.width = '400px'
  * canvas.style.height = '300px'
- * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
- * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
- * const mesh = buffer(ctx, { position: { numComponents: 3, data: [-80, -60, 0, 80, -60, 0, 0, 80, 0] } })
+ * const ctx = await init(canvas, { width: 400, height: 300 })
+ * const scene = renderTarget(ctx)
  *
+ * const solid = buffer(ctx, tree.platonic(tree.HEXAHEDRON, { radius: 120 }))
  * const WGSL = `
  * ```wgsl
  * struct U {
  *   uModelViewProjectionMatrix: mat4x4f,
+ *   uNormalMatrix: mat3x3f,
+ *   uColor: vec3f,
  * };
  * @group(0) @binding(0) var<uniform> u: U;
  *
  * struct VOut {
  *   @builtin(position) position: vec4f,
+ *   @location(0) normal: vec3f,
  * };
  *
  * @vertex
- * fn vs(@location(0) aPosition: vec3f) -> VOut {
+ * fn vs(@location(0) aPosition: vec3f, @location(1) aNormal: vec3f) -> VOut {
  *   var out: VOut;
  *   out.position = u.uModelViewProjectionMatrix * vec4f(aPosition, 1.0);
+ *   out.normal = u.uNormalMatrix * aNormal;
  *   return out;
  * }
  *
  * @fragment
- * fn fs() -> @location(0) vec4f {
- *   return vec4f(1.0, 0.31, 0.85, 1.0);
+ * fn fs(@location(0) normal: vec3f) -> @location(0) vec4f {
+ *   let d = max(dot(normalize(normal), normalize(vec3f(0.4, 0.6, 1.0))), 0.0);
+ *   return vec4f(u.uColor * (0.3 + 0.7 * d), 1.0);
  * }
  * ```
  * `
- * const prog = program(ctx, WGSL, { buffers: mesh.bufferLayouts })
+ * const prog = program(ctx, WGSL, { buffers: solid.bufferLayouts })
+ * const cam = tree.createCamera({ eye: [76, 102, 204] })
  * const M = tree.mat4()
- * setCamera(ctx, tree.createCamera({ eye: [0, 0, 340] }))
+ * const q = tree.quat()
  *
- * function frame() {
- *   image(ctx, sky)
- *   bind(ctx, prog)
- *   for (let i = -1; i <= 1; i++) draw(ctx, mesh, tree.mat4FromTRS(M, i * 90, 0, 0, 0, 0, 0, 1, 1, 1, 1))
+ * function frame(ms) {
+ *   ctx.backend.bindTarget(ctx, scene)
+ *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   setCamera(ctx, cam)
+ *   tree.qFromAxisAngle(q, 0, 1, 0, ms / 1000)
+ *   tree.mat4FromTRS(M, 0, 0, 0, q[0], q[1], q[2], q[3], 1, 1, 1)
+ *   bind(ctx, prog, { uColor: [1, 0.31, 0.85] })
+ *   draw(ctx, solid, M)
+ *   ctx.backend.bindTarget(ctx, SCREEN)
+ *   image(ctx, scene.color)
  *   endFrame(ctx)
  *   requestAnimationFrame(frame)
  * }
  * requestAnimationFrame(frame)
+ *
  *
  */
 export function draw(ctx, obj, M, opts) {
@@ -453,53 +503,58 @@ export function draw(ctx, obj, M, opts) {
  * @param {ArrayLike<number>|object} [M]  A model mat4, or an `opts` object.
  * @param {{ count?:number, offset?:number }} [opts]
  * @example
- * <caption>Three instances of one geometry, the vertex stage reading @builtin(instance_index).</caption>
- * import { init, endFrame, bind, buffer, drawInstanced, image, program, setCamera, texture, tree } from 'webgpu.tree'
+ * <caption>Five yellow cubes in a row from one call; the vertex stage spaces them by @builtin(instance_index).</caption>
+ * import { init, endFrame, image, renderTarget, SCREEN, setCamera, bind, buffer, drawInstanced, program, tree } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
  * canvas.style.width = '400px'
  * canvas.style.height = '300px'
- * const ctx = await init(canvas, { width: 400, height: 300, density: 1 })
- * const sky = texture(ctx, { data: new Uint8Array([19, 141, 117, 255]), width: 1, height: 1 })
- * const mesh = buffer(ctx, { position: { numComponents: 3, data: [-80, -60, 0, 80, -60, 0, 0, 80, 0] } })
+ * const ctx = await init(canvas, { width: 400, height: 300 })
+ * const scene = renderTarget(ctx)
  *
+ * const solid = buffer(ctx, tree.platonic(tree.HEXAHEDRON, { radius: 50 }))
  * const WGSL = `
  * ```wgsl
  * struct U {
  *   uModelViewProjectionMatrix: mat4x4f,
+ *   uNormalMatrix: mat3x3f,
+ *   uColor: vec3f,
  * };
  * @group(0) @binding(0) var<uniform> u: U;
  *
  * struct VOut {
  *   @builtin(position) position: vec4f,
+ *   @location(0) normal: vec3f,
  * };
  *
  * @vertex
- * fn vs(@location(0) aPosition: vec3f, @builtin(instance_index) i: u32) -> VOut {
+ * fn vs(@location(0) aPosition: vec3f, @location(1) aNormal: vec3f,
+ *       @builtin(instance_index) i: u32) -> VOut {
  *   var out: VOut;
- *   let offset = vec3f((f32(i) - 1.0) * 90.0, 0.0, 0.0);
- *   out.position = u.uModelViewProjectionMatrix * vec4f(aPosition + offset, 1.0);
+ *   let offset = vec4f((f32(i) - 2.0) * 70.0, 0.0, 0.0, 0.0);
+ *   out.position = u.uModelViewProjectionMatrix * (vec4f(aPosition, 1.0) + offset);
+ *   out.normal = u.uNormalMatrix * aNormal;
  *   return out;
  * }
  *
  * @fragment
- * fn fs() -> @location(0) vec4f {
- *   return vec4f(1.0, 0.82, 0.4, 1.0);
+ * fn fs(@location(0) normal: vec3f) -> @location(0) vec4f {
+ *   let d = max(dot(normalize(normal), normalize(vec3f(0.4, 0.6, 1.0))), 0.0);
+ *   return vec4f(u.uColor * (0.3 + 0.7 * d), 1.0);
  * }
  * ```
  * `
+ * const prog = program(ctx, WGSL, { buffers: solid.bufferLayouts })
  *
- * const prog = program(ctx, WGSL, { buffers: mesh.bufferLayouts })
- * setCamera(ctx, tree.createCamera({ eye: [0, 0, 340] }))
+ * ctx.backend.bindTarget(ctx, scene)
+ * ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ * setCamera(ctx, tree.createCamera({ eye: [99, 131, 263] }))
+ * bind(ctx, prog, { uColor: [1, 0.82, 0.4] })
+ * drawInstanced(ctx, solid, 5)
+ * ctx.backend.bindTarget(ctx, SCREEN)
+ * image(ctx, scene.color)
+ * endFrame(ctx)
  *
- * function frame() {
- *   image(ctx, sky)
- *   bind(ctx, prog)
- *   drawInstanced(ctx, mesh, 3)
- *   endFrame(ctx)
- *   requestAnimationFrame(frame)
- * }
- * requestAnimationFrame(frame)
  *
  */
 export function drawInstanced(ctx, obj, n, M, opts) {
