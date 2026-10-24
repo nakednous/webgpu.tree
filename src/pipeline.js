@@ -19,8 +19,10 @@
  * `pipelineKey` is a pure function of its arguments: the same program, state and
  * attachment give the same pipeline, and one field differing gives another.
  * The depth *state* is the test and the write; the depth *attachment* is the
- * pass's — a pipeline set on a pass that has one must declare the field, so a
- * depth-off state draws with `compare: 'always'` and no write rather than none.
+ * pass's, and it is part of the key on its own — a pipeline set on a pass that
+ * has a depth attachment must declare the field, so a depth-off state draws
+ * there with `compare: 'always'` and no write, a different pipeline from the
+ * one the same state draws with on the canvas, which has no attachment at all.
  */
 
 'use strict';
@@ -79,23 +81,34 @@ export function writeMaskOf(mask) {
 
 /**
  * The key a pipeline variant is cached under: every field a render pipeline
- * bakes and the attachment it draws into. The depth field is the *effective*
- * one — a state that asks for depth in a pass with no depth attachment gets a
- * pipeline without it, since WebGPU refuses the other way round.
+ * bakes and the attachment it draws into. The depth field names the pass's
+ * depth, because the attachment is what the pipeline must declare: the
+ * compare where the state asks for the test (`z:less`), the pass's format
+ * where it does not (`z:off:depth24plus`), and `z:-` for a pass with no depth
+ * attachment, where the field is absent altogether. A state that asks for
+ * depth in a depth-less pass therefore keys as a pass with none — WebGPU
+ * refuses the other way round — and two passes that differ only in their
+ * depth attachment never share a pipeline.
  * @param {string|number} id  The program's id.
  * @param {object} state  The state in effect.
- * @param {{ depth:boolean, formats:string[], samples:number }} pass  What the pass
- *        draws into: a depth attachment at all, the colour attachments' formats,
- *        the sample count.
+ * @param {{ depth:boolean, depthFormat:string|null, formats:string[], samples:number }} pass
+ *        What the pass draws into: a depth attachment at all, the colour
+ *        attachments' formats, the sample count.
  * @returns {string} The key.
  * @example
- * pipelineKey(1, BASE_STATE, { depth: false, formats: ['rgba8unorm'], samples: 1 })
+ * pipelineKey(1, BASE_STATE, { depth: false, depthFormat: null, formats: ['rgba8unorm'], samples: 1 })
+ * // '1|z:-|b:-|m:-|c:none|t:triangle-list|f:rgba8unorm|s:1'
  */
 export function pipelineKey(id, state, pass) {
   const depth = state.depth && pass.depth;
+  // the pass's own depth presence is part of the key, not only the test: a
+  // pipeline set on a pass that HAS a depth attachment must declare it, so a
+  // state that asks for no test still needs a different pipeline there than on
+  // a pass without one (the canvas)
+  const z = pass.depth ? (depth ? 'z:' + state.depthCompare : 'z:off:' + pass.depthFormat) : 'z:-';
   return [
     id,
-    depth ? 'z:' + state.depthCompare : 'z:-',
+    z,
     'b:' + (state.blend || '-'),
     'm:' + (state.mask ? state.mask.map((bit) => (bit ? 1 : 0)).join('') : '-'),
     'c:' + state.cull,

@@ -77,6 +77,29 @@ test('fragCoord scales to device pixels and does not flip: window space is top-l
   assert.equal(canvas.clientWidth, 160);
 });
 
+test('init sizes the buffer by the density, and that ratio is the canvas scale', async () => {
+  const { device } = createDevice();
+  const { canvas, context } = createCanvas({ width: 320, height: 240 });
+  canvas.clientWidth = 400;                       // the CSS size the application writes
+  canvas.clientHeight = 300;
+  const gpu = createGpu({ device });
+  const ctx = await init(canvas, {
+    gpu, device, context, format: 'rgba8unorm', width: 400, height: 300, density: 2,
+  });
+  // the drawing buffer is the logical size times the density, and the context is that buffer
+  assert.deepEqual([canvas.width, canvas.height], [800, 600]);
+  assert.deepEqual([ctx.width, ctx.height], [800, 600]);
+  // the device ratio is the buffer's width over the canvas's logical width
+  assert.equal(canvasScale(ctx), 2);
+  assert.deepEqual(canvasViewport(ctx), [0, 300, 400, -300]);
+  // and it is what the window-space crossing and the HUD's world scale read
+  const cam = tree.createCamera({ eye: [0, 0, 300], center: [0, 0, 0], up: [0, 1, 0], fov: Math.PI / 4, near: 1, far: 1000 });
+  setCamera(ctx, cam);
+  assert.deepEqual(fragCoord(ctx, [0, 0], 10, 20), [20, 40]);
+  assert.ok(near(pixelRatio(ctx, -300), 2 * 300 * Math.tan(Math.PI / 8) / 300));
+  assert.deepEqual(tree.mat4MulPoint([0, 0, 0], mat4Viewport(ctx, new Float32Array(16)), 1, -1, 0), [400, 300, 0]);
+});
+
 test('pixelRatio is the projection\'s world height over the logical height', async () => {
   const { ctx } = await setup();
   const ratio = pixelRatio(ctx, -300);

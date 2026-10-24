@@ -41,6 +41,24 @@ test('a state that asks for depth in a depth-less pass keys as a pass with none'
   assert.equal(key(BASE_STATE, PASS), key({ ...BASE_STATE, depth: false }, PASS));
 });
 
+test('the depth field names the pass\'s depth: the compare, the pass\'s format with the test off, or none', () => {
+  assert.match(key(BASE_STATE, DEPTH_PASS), /\|z:less\|/);
+  assert.match(key({ ...BASE_STATE, depth: false }, DEPTH_PASS), /\|z:off:depth24plus\|/);
+  assert.match(key(BASE_STATE, PASS), /\|z:-\|/);
+  assert.match(key({ ...BASE_STATE, depth: false }, PASS), /\|z:-\|/);
+  // the compare is a pipeline field only where the test is on
+  assert.equal(
+    key({ ...BASE_STATE, depth: false }, DEPTH_PASS),
+    key({ ...BASE_STATE, depth: false, depthCompare: 'less-equal' }, DEPTH_PASS),
+  );
+});
+
+test('a depth-off state on a pass that has a depth attachment never shares the canvas\'s pipeline', () => {
+  const off = { ...BASE_STATE, depth: false };
+  assert.notEqual(key(off, PASS), key(off, DEPTH_PASS));
+  assert.notEqual(key(BASE_STATE, DEPTH_PASS), key(off, DEPTH_PASS));
+});
+
 test('resolveState keeps what a partial state does not name, and asks only for nothing', () => {
   const next = resolveState(BASE_STATE, { depth: false });
   assert.equal(next.depth, false);

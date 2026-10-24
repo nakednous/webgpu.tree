@@ -60,12 +60,12 @@ test('the four conventions are the twin\'s', () => {
   assert.equal(backend.format, 'rgba8unorm');
 });
 
-test('every member is a function of the backend, and the twenty-two are the interface\'s', () => {
+test('every member is a function of the backend, and the twenty-three are the interface\'s', () => {
   const members = [
     'createTarget', 'destroyTarget', 'bindTarget', 'clear',
     'createProgram', 'imageProgram', 'uniformsOf', 'samplersOf', 'setUniforms',
     'setCamera', 'draw', 'drawInstanced',
-    'createBuffer', 'updateBuffer',
+    'createBuffer', 'updateBuffer', 'writeBuffer',
     'readPixels',
     'createTexture', 'uploadTexture', 'destroyTexture', 'textureSize',
     'setViewport', 'setState',
@@ -73,7 +73,7 @@ test('every member is a function of the backend, and the twenty-two are the inte
   ];
   const { backend } = backendOf();
   for (const name of members) assert.equal(typeof backend[name], 'function', name);
-  assert.equal(members.length, 22);
+  assert.equal(members.length, 23);
 });
 
 test('the package exports the bridge surface', () => {

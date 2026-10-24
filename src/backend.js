@@ -1,5 +1,5 @@
 /**
- * @file The WebGPU backend — the twenty-two members `idiom` calls, over
+ * @file The WebGPU backend — the twenty-three members `idiom` calls, over
  * `webgpu-utils` and the raw API.
  * @module webgpu.tree/backend
  * @license AGPL-3.0-only
@@ -13,7 +13,7 @@
  * targets   createTarget · destroyTarget · bindTarget · clear
  * programs  createProgram · imageProgram · uniformsOf · samplersOf · setUniforms
  * draws     setCamera · draw · drawInstanced
- * buffers   createBuffer · updateBuffer
+ * buffers   createBuffer · updateBuffer · writeBuffer
  * picking   readPixels
  * textures  createTexture · uploadTexture · destroyTexture · textureSize
  * state     setViewport · setState
@@ -47,8 +47,10 @@
 
 import { WEBGPU, mat4Mul } from '@nakednous/tree';
 import {
+  createBufferLayoutsFromArrays,
   createBuffersAndAttributesFromArrays,
   makeBindGroupLayoutDescriptors,
+  makeTypedArrayFromArrayUnion,
   setVertexAndIndexBuffers,
 } from 'webgpu-utils';
 import { TEXTURE_USAGE } from './flags.js';
@@ -473,6 +475,36 @@ export function createBackend(opts) {
       for (const gpu of rebuilt.buffers) resources.buffers.add(gpu);
       if (rebuilt.indexBuffer) resources.buffers.add(rebuilt.indexBuffer);
       Object.assign(buffer, rebuilt, { id: buffer.id, arrays });
+      return buffer;
+    },
+
+    // The in-place write `idiom`'s draw policy calls for a stream (#113): the
+    // geometry is non-interleaved — one buffer an attribute — so a frame's update
+    // is one `queue.writeBuffer` per attribute, ordered with submissions rather
+    // than inside a command buffer. The shape is the geometry's: a different set
+    // of attributes, or one of another width, is a rebuild (`updateBuffer`), and
+    // says so instead of writing bytes under a layout the pipeline baked.
+    writeBuffer(ctx, buffer, arrays) {
+      const layouts = buffer.bufferLayouts || [];
+      if (!layouts.length || layouts.some((layout) => layout.attributes.length !== 1)) {
+        console.error('[webgpu.tree] writeBuffer: the geometry is interleaved — the in-place write is for a stream, so rebuild it with updateBuffer.');
+        return buffer;
+      }
+      const { typedArrays } = createBufferLayoutsFromArrays(arrays);
+      const sameShape = typedArrays.length === layouts.length &&
+        typedArrays.every((t, i) => t.stride * t.data.BYTES_PER_ELEMENT === layouts[i].arrayStride &&
+          t.data.byteLength <= buffer.buffers[i].size);
+      if (!sameShape) {
+        console.error('[webgpu.tree] writeBuffer: the arrays shape or size differs from the geometry — rebuild it with updateBuffer.');
+        return buffer;
+      }
+      for (let i = 0; i < buffer.buffers.length; i++) {
+        device.queue.writeBuffer(buffer.buffers[i], 0, typedArrays[i].data);
+      }
+      if (buffer.indexBuffer && arrays.indices !== undefined) {
+        device.queue.writeBuffer(buffer.indexBuffer, 0, makeTypedArrayFromArrayUnion(arrays.indices, 'indices'));
+      }
+      buffer.arrays = arrays;
       return buffer;
     },
 

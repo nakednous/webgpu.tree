@@ -11,8 +11,27 @@ import assert from 'node:assert/strict';
 import { createBufferLayoutsFromArrays } from 'webgpu-utils';
 
 import { init, buffer, updateBuffer, program, bind, draw, drawInstanced, renderTarget } from '../src/index.js';
+import { BUFFER_USAGE } from '../src/flags.js';
 import { QUAD_LAYOUT } from '../src/programs.js';
 import { createCanvas, createDevice, createGpu, allOf, lastOf, namesOf } from './gpu.js';
+
+/** The creation options of a stream geometry — the gizmo pipe's own. @ignore */
+const STREAM = { interleave: false, usage: BUFFER_USAGE.COPY_DST };
+
+/** The messages a call logs. @ignore */
+function logged(fn) {
+  const seen = [];
+  const original = console.error;
+  console.error = (...args) => seen.push(args.join(' '));
+  try {
+    fn();
+  } finally {
+    console.error = original;
+  }
+  return seen;
+}
+
+const floatsOf = (call) => Array.from(new Float32Array(Uint8Array.from(call[4]).buffer));
 
 async function setup() {
   const { device, calls, world } = createDevice();
@@ -108,6 +127,72 @@ test('updateBuffer rebuilds the same record and frees the old buffers', async ()
   assert.notEqual(geo.buffers[0].id, before);
   assert.ok(allOf(calls, 'buffer.destroy').some((call) => call[1] === before));
   assert.equal(geo.numElements, 3);
+});
+
+test('writeBuffer rewrites a stream geometry in place: one queue write an attribute, nothing rebuilt', async () => {
+  const { ctx, calls } = await setup();
+  const geo = ctx.backend.createBuffer(ctx, {
+    aPosition: { numComponents: 3, data: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]) },
+    aColor: { numComponents: 4, data: new Float32Array(12).fill(1) },
+    indices: { numComponents: 3, data: new Uint16Array([0, 1, 2]) },
+  }, STREAM);
+  // non-interleaved: one buffer an attribute, the layout the pipeline bakes
+  assert.deepEqual(geo.bufferLayouts.map((layout) => layout.attributes.length), [1, 1]);
+  assert.equal(geo.buffers.length, 2);
+  const ids = geo.buffers.map((gpuBuffer) => gpuBuffer.id);
+  const built = allOf(calls, 'createBuffer').length;
+  const before = allOf(calls, 'queue.writeBuffer').length;
+
+  const next = {
+    aPosition: { numComponents: 3, data: new Float32Array([2, 3, 4, 5, 6, 7, 8, 9, 10]) },
+    aColor: { numComponents: 4, data: new Float32Array(12).fill(0.5) },
+    indices: { numComponents: 3, data: new Uint16Array([2, 1, 0]) },
+  };
+  ctx.backend.writeBuffer(ctx, geo, next);
+
+  const writes = allOf(calls, 'queue.writeBuffer').slice(before);
+  assert.deepEqual(writes.map((call) => call[1]), [...ids, geo.indexBuffer.id]);
+  assert.deepEqual(writes.map((call) => call[2]), [0, 0, 0]);            // each from the buffer's start
+  assert.deepEqual(writes.map((call) => call[3]), [36, 48, 6]);          // 9 floats, 12 floats, 3 uint16
+  assert.deepEqual(floatsOf(writes[0]), [2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  assert.deepEqual(floatsOf(writes[1]), new Array(12).fill(0.5));
+  assert.deepEqual(Array.from(new Uint16Array(Uint8Array.from(writes[2][4]).buffer)), [2, 1, 0]);
+
+  // the record is the same one: the buffers, the id and the layout are untouched
+  assert.deepEqual(geo.buffers.map((gpuBuffer) => gpuBuffer.id), ids);
+  assert.equal(geo.arrays, next);
+  assert.equal(allOf(calls, 'createBuffer').length, built);
+  assert.equal(allOf(calls, 'buffer.destroy').length, 0);
+});
+
+test('writeBuffer refuses an interleaved geometry, another shape and outgrowing arrays', async () => {
+  const { ctx, calls } = await setup();
+  const interleaved = buffer(ctx, triangle());           // one buffer, three attributes
+  const before = allOf(calls, 'queue.writeBuffer').length;
+  const refused = logged(() => ctx.backend.writeBuffer(ctx, interleaved, triangle()));
+  assert.equal(refused.length, 1);
+  assert.match(refused[0], /interleaved/);
+  assert.equal(allOf(calls, 'queue.writeBuffer').length, before);
+
+  const stream = ctx.backend.createBuffer(ctx, {
+    aPosition: { numComponents: 3, data: new Float32Array(9) },
+    aColor: { numComponents: 4, data: new Float32Array(12) },
+  }, STREAM);
+  const shape = logged(() => ctx.backend.writeBuffer(ctx, stream, {
+    aPosition: { numComponents: 4, data: new Float32Array(12) },   // another width
+    aColor: { numComponents: 4, data: new Float32Array(12) },
+  }));
+  assert.match(shape[0], /differs/);
+  const grown = logged(() => ctx.backend.writeBuffer(ctx, stream, {
+    aPosition: { numComponents: 3, data: new Float32Array(12) },    // a fourth vertex
+    aColor: { numComponents: 4, data: new Float32Array(12) },
+  }));
+  assert.match(grown[0], /differs/);
+  const fewer = logged(() => ctx.backend.writeBuffer(ctx, stream, {
+    aPosition: { numComponents: 3, data: new Float32Array(9) },     // an attribute gone
+  }));
+  assert.match(fewer[0], /differs/);
+  assert.equal(allOf(calls, 'queue.writeBuffer').length, before);
 });
 
 test('the pipeline bakes the geometry\'s layout when the program is given it', async () => {
