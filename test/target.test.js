@@ -169,6 +169,19 @@ test('a pass over a target with no depth never bakes one in, even where the stat
   assert.equal(descriptor.depthStencil, undefined);
 });
 
+test('a depth-off state on a target with depth still bakes the field in: compare always, no write', async () => {
+  const { ctx, calls } = await setup();
+  const target = renderTarget(ctx);            // colour + depth
+  const prog = program(ctx, '@fragment fn fs() -> @location(0) vec4f { return vec4f(1.0); }');
+  ctx.backend.bindTarget(ctx, target);
+  filter(ctx, prog);                            // filter asks for depth: false, the attachment has depth
+  const descriptor = lastOf(calls, 'createRenderPipeline')[2];
+  assert.ok(descriptor.depthStencil);           // a pipeline set on a depth-attached pass must state it
+  assert.equal(descriptor.depthStencil.format, 'depth24plus');
+  assert.equal(descriptor.depthStencil.depthCompare, 'always');
+  assert.equal(descriptor.depthStencil.depthWriteEnabled, false);
+});
+
 test('the canvas pass is the preferred format, and image draws a target into it', async () => {
   const { ctx, calls } = await setup();
   const target = renderTarget(ctx, { width: 64, height: 48, depth: false });

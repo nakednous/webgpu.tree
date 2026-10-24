@@ -143,12 +143,17 @@ export function createDevice(opts) {
 
   const queue = {
     writeBuffer(buffer, offset, data, dataOffset, size) {
-      const length = size === undefined ? (data && data.byteLength) || 0 : size;
+      // the spec's units: bytes for an ArrayBuffer, elements for a TypedArray
       let bytes = null;
+      let length = 0;
       if (data instanceof ArrayBuffer) {
+        length = size === undefined ? data.byteLength : size;
         bytes = Array.from(new Uint8Array(data, dataOffset || 0, length));
       } else if (data && data.buffer) {
-        bytes = Array.from(new Uint8Array(data.buffer, data.byteOffset + (dataOffset || 0), length));
+        const bpe = data.BYTES_PER_ELEMENT || 1;
+        const start = (dataOffset || 0) * bpe;
+        length = size === undefined ? data.byteLength - start : size * bpe;
+        bytes = Array.from(new Uint8Array(data.buffer, data.byteOffset + start, length));
       }
       record('queue.writeBuffer', buffer && buffer.id, offset, length, bytes);
     },

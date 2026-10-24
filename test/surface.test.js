@@ -83,6 +83,8 @@ test('the package exports the bridge surface', () => {
     'texture', 'upload',
     'readPixel', 'pick',
     'mapLocation', 'mapDirection', 'unproject', 'fragCoord', 'pixelRatio', 'mat4Viewport',
+    'axes', 'grid', 'hermite', 'viewFrustum', 'trackPath', 'helmRig', 'handleLocus',
+    'beginHUD', 'endHUD', 'cross', 'bullsEye',
     'renderTarget', 'SCREEN', 'program', 'fullscreen', 'filter', 'image', 'pipe', 'releasePipe', 'state',
     'RED', 'GREEN', 'BLUE', 'ALPHA', 'RGB', 'NORMAL', 'ADD', 'MULTIPLY',
     'tree', 'host',

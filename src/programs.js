@@ -20,6 +20,12 @@
  * `QUAD` is the covering geometry `idiom` creates through `createBuffer`, and
  * `QUAD_LAYOUT` the vertex layout its arrays imply — derived from the same
  * arrays shape, so the pass pipelines and the geometry cannot disagree.
+ *
+ * The gizmos' two line programs are here too, and the quads one the handles'
+ * dots draw through: `LINE` and `WIDE` (each with and without a colour
+ * attribute, because a pipeline bakes its vertex layout), and `TRIS`. Their
+ * layouts are the generator arrays' shapes, non-interleaved — one buffer per
+ * attribute, so a gizmo's per-frame update is a write, not a rebuild.
  */
 
 'use strict';
@@ -92,6 +98,175 @@ export const QUAD = {
 
 /** The vertex buffers a pass pipeline declares — the layout `QUAD`'s arrays imply. */
 export const QUAD_LAYOUT = createBufferLayoutsFromArrays(QUAD).bufferLayouts;
+
+/** The plain line pipe: `uPV` · `uModel` · `uColor`, a line list of `aPosition`. */
+export const LINE = `
+struct LineU {
+  uPV: mat4x4f,
+  uModel: mat4x4f,
+  uColor: vec4f,
+  uUseColor: f32,
+};
+@group(0) @binding(0) var<uniform> u: LineU;
+
+struct LineOut {
+  @builtin(position) position: vec4f,
+  @location(0) color: vec4f,
+};
+
+@vertex
+fn vs(@location(0) aPosition: vec3f) -> LineOut {
+  var v: LineOut;
+  v.position = u.uPV * u.uModel * vec4f(aPosition, 1.0);
+  v.color = u.uColor;
+  return v;
+}
+
+@fragment
+fn fs(@location(0) color: vec4f) -> @location(0) vec4f { return color; }
+`;
+
+/** The line pipe where the generator writes a palette: `aColor` wins when `uUseColor`. */
+export const LINE_COLOR = `
+struct LineU {
+  uPV: mat4x4f,
+  uModel: mat4x4f,
+  uColor: vec4f,
+  uUseColor: f32,
+};
+@group(0) @binding(0) var<uniform> u: LineU;
+
+struct LineOut {
+  @builtin(position) position: vec4f,
+  @location(0) color: vec4f,
+};
+
+@vertex
+fn vs(@location(0) aPosition: vec3f, @location(1) aColor: vec4f) -> LineOut {
+  var v: LineOut;
+  v.position = u.uPV * u.uModel * vec4f(aPosition, 1.0);
+  v.color = select(u.uColor, aColor, u.uUseColor > 0.5);
+  return v;
+}
+
+@fragment
+fn fs(@location(0) color: vec4f) -> @location(0) vec4f { return color; }
+`;
+
+/** The wide line pipe: each segment a window-space quad of `uWidth` device pixels. */
+export const WIDE = `
+struct WideU {
+  uPV: mat4x4f,
+  uModel: mat4x4f,
+  uViewport: vec2f,
+  uWidth: f32,
+  uColor: vec4f,
+  uUseColor: f32,
+};
+@group(0) @binding(0) var<uniform> u: WideU;
+
+struct WideOut {
+  @builtin(position) position: vec4f,
+  @location(0) color: vec4f,
+};
+
+@vertex
+fn vs(@location(0) aA: vec3f, @location(1) aB: vec3f, @location(2) aT: f32, @location(3) aSide: f32) -> WideOut {
+  var v: WideOut;
+  let cA = u.uPV * u.uModel * vec4f(aA, 1.0);
+  let cB = u.uPV * u.uModel * vec4f(aB, 1.0);
+  let halfVp = u.uViewport * 0.5;
+  let sA = cA.xy / cA.w * halfVp;
+  let sB = cB.xy / cB.w * halfVp;
+  let l = length(sB - sA);
+  let d = select(vec2f(1.0, 0.0), (sB - sA) / l, l > 0.0);
+  let n = vec2f(-d.y, d.x) * (u.uWidth * 0.5 * aSide);
+  let c = select(cB, cA, aT < 0.5);
+  v.position = c + vec4f(n / halfVp * c.w, 0.0, 0.0);
+  v.color = u.uColor;
+  return v;
+}
+
+@fragment
+fn fs(@location(0) color: vec4f) -> @location(0) vec4f { return color; }
+`;
+
+/** The wide line pipe where the palette rides the segments: `aColor` per endpoint. */
+export const WIDE_COLOR = `
+struct WideU {
+  uPV: mat4x4f,
+  uModel: mat4x4f,
+  uViewport: vec2f,
+  uWidth: f32,
+  uColor: vec4f,
+  uUseColor: f32,
+};
+@group(0) @binding(0) var<uniform> u: WideU;
+
+struct WideOut {
+  @builtin(position) position: vec4f,
+  @location(0) color: vec4f,
+};
+
+@vertex
+fn vs(@location(0) aA: vec3f, @location(1) aB: vec3f, @location(2) aT: f32, @location(3) aSide: f32, @location(4) aColor: vec4f) -> WideOut {
+  var v: WideOut;
+  let cA = u.uPV * u.uModel * vec4f(aA, 1.0);
+  let cB = u.uPV * u.uModel * vec4f(aB, 1.0);
+  let halfVp = u.uViewport * 0.5;
+  let sA = cA.xy / cA.w * halfVp;
+  let sB = cB.xy / cB.w * halfVp;
+  let l = length(sB - sA);
+  let d = select(vec2f(1.0, 0.0), (sB - sA) / l, l > 0.0);
+  let n = vec2f(-d.y, d.x) * (u.uWidth * 0.5 * aSide);
+  let c = select(cB, cA, aT < 0.5);
+  v.position = c + vec4f(n / halfVp * c.w, 0.0, 0.0);
+  v.color = select(u.uColor, aColor, u.uUseColor > 0.5);
+  return v;
+}
+
+@fragment
+fn fs(@location(0) color: vec4f) -> @location(0) vec4f { return color; }
+`;
+
+/** The quads' program behind a handle's dot: the six declared transforms' MVP and a colour. */
+export const TRIS = `
+struct TrisU {
+  uModelViewProjectionMatrix: mat4x4f,
+  uColor: vec4f,
+};
+@group(0) @binding(0) var<uniform> u: TrisU;
+
+@vertex
+fn vs(@location(0) aPosition: vec3f) -> @builtin(position) vec4f {
+  return u.uModelViewProjectionMatrix * vec4f(aPosition, 1.0);
+}
+
+@fragment
+fn fs() -> @location(0) vec4f { return u.uColor; }
+`;
+
+/** A shape of `numComponents` floats per attribute, for a layout's derivation. @ignore */
+const floats = (components) => {
+  const shape = {};
+  for (const name of Object.keys(components)) shape[name] = { numComponents: components[name], data: new Float32Array(0) };
+  return shape;
+};
+
+/** The plain line pipe's vertex layout: `aPosition`, one buffer. */
+export const LINE_LAYOUT = createBufferLayoutsFromArrays(floats({ aPosition: 3 }), { interleave: false }).bufferLayouts;
+
+/** The coloured line pipe's: `aPosition` then `aColor`, one buffer each. */
+export const LINE_COLOR_LAYOUT = createBufferLayoutsFromArrays(floats({ aPosition: 3, aColor: 4 }), { interleave: false }).bufferLayouts;
+
+/** The wide line pipe's layouts: both endpoints, the end and the side, one buffer each. */
+export const WIDE_LAYOUT = createBufferLayoutsFromArrays(floats({ aA: 3, aB: 3, aT: 1, aSide: 1 }), { interleave: false }).bufferLayouts;
+
+/** The coloured wide pipe's: the same, and `aColor`. */
+export const WIDE_COLOR_LAYOUT = createBufferLayoutsFromArrays(floats({ aA: 3, aB: 3, aT: 1, aSide: 1, aColor: 4 }), { interleave: false }).bufferLayouts;
+
+/** The quads' layout: `aPosition` alone. */
+export const TRIS_LAYOUT = LINE_LAYOUT;
 
 const VERTEX_ENTRY = /@vertex\s+fn\s+([A-Za-z_][A-Za-z0-9_]*)/;
 const FRAGMENT_ENTRY = /@fragment\s+fn\s+([A-Za-z_][A-Za-z0-9_]*)/;

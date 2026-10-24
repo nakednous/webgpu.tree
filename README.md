@@ -12,17 +12,19 @@ state, and readback is asynchronous by construction.
 > `program`, `fullscreen`, `filter`, `image`, `pipe`, `releasePipe`, `state`, `setCamera`, `endFrame`,
 > `viewOf`, `dispose`; the figure's own path: `bind`, `buffer`, `updateBuffer`, `draw`,
 > `drawInstanced` with the six declared transforms, `texture`, `upload`; picking: `readPixel`, `pick`;
-> and the space mappings: `mapLocation`, `mapDirection`, `unproject`, `fragCoord`, `pixelRatio`,
-> `mat4Viewport`. `twin-design.md` is the differences table against `webgl.tree` and states the rest of
-> the surface — gizmos and the HUD, `cubemap` and the mip / 3D / array texture shapes — each as its own
-> stage.
+> the space mappings: `mapLocation`, `mapDirection`, `unproject`, `fragCoord`, `pixelRatio`,
+> `mat4Viewport`; and the line pipe with the HUD: `axes`, `grid`, `hermite`, `viewFrustum`,
+> `trackPath`, `helmRig`, `handleLocus`, `beginHUD`, `endHUD`, `cross`, `bullsEye`. `twin-design.md`
+> is the differences table against `webgl.tree` and states the rest of the surface — `pane` and the
+> textured frustum faces, the helm rig's HUD form and its `identify` labels, `cubemap` and the mip /
+> 3D / array texture shapes — each as its own stage.
 >
 > Pins `@nakednous/tree` ^0.0.34, `@nakednous/host` ^0.0.12, `@nakednous/idiom` ^0.0.1;
-> `webgpu-utils` ^2.1.1 is a peer. Gates: `npm test` (87 cases, against the recording device in
+> `webgpu-utils` ^2.1.1 is a peer. Gates: `npm test` (99 cases, against the recording device in
 > `test/gpu.js`) and `npm run build`. The browser is the maintainer's gate: the geometry path, the
-> uploaded texture, a scene's colour-id picks and the mappings were read back offscreen in this
-> machine's Chromium (adapter `google/swiftshader`, `rgba8unorm`) — the twin's `testing/` pages are the
-> record.
+> uploaded texture, a scene's colour-id picks, the mappings and a gizmo scene with its HUD were read
+> back offscreen in this machine's Chromium (adapter `google/swiftshader`, `rgba8unorm`) — the twin's
+> `testing/` pages are the record.
 
 ---
 
@@ -170,6 +172,32 @@ frame's, WebGPU's `[x, y, w, h]` from the top: that is the pass's, not the point
 name a space (`tree.WORLD` · `EYE` · `NDC` · `SCREEN`) or take a column-major frame matrix — a camera,
 a model, an object's own frame — dispatched as `tree.MATRIX`, a singular `to` answering `null`. The NDC
 depth convention is bound to `WEBGPU` in the `tree` namespace, so no call names it.
+
+## Gizmos and the HUD
+
+```js
+axes(ctx, opts) · grid(ctx, opts) · hermite(ctx, p0, t0, p1, t1, opts)
+viewFrustum(ctx, opts) · trackPath(ctx, track, opts) · helmRig(ctx, helm, opts) · handleLocus(ctx, h, opts)
+beginHUD(ctx) · cross(ctx, opts) · bullsEye(ctx, opts) · endHUD(ctx)
+```
+
+The line pipe draws tree's generators by name, each call running its generator into a cached arrays
+record and drawing it under the installed camera — `{ M, color, bits, size, depth, width }` as the
+reference takes them, the state and the bound program restored after every draw. Colour is semantic
+where the generator writes a palette (axes, the helm rig) and `opts.color` elsewhere.
+
+- **The width.** `width` counts logical pixels, default 1, times the device ratio. WebGPU rasterizes
+  a `line-list` one device pixel, so at or below one the line list draws and above it each segment
+  becomes a window-space quad of that width (`uViewport`, `uWidth`): the twin's wide line is built
+  geometry, not a GL line width.
+- **A slot per draw, per frame.** A geometry's data goes up with `queue.writeBuffer`, which is ordered
+  with *submissions*, not inside a command buffer — so two gizmos of one name drawn in a frame must not
+  share a buffer. Each draw takes a slot of the frame's pool (the cursor restarts at the frame's
+  submit), the geometries are non-interleaved so a frame's update is one write per attribute, and
+  nothing is allocated once warm.
+- **The HUD** is an orthographic projection over the canvas's *logical* viewport — y down, depth off —
+  with an identity view, so a mark's coordinates are the pointer's; the camera and the state come back
+  at `endHUD`. `cross` and `bullsEye` wrap themselves in one when called outside it.
 
 ## Conventions
 

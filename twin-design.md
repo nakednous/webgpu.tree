@@ -7,9 +7,10 @@
 > interface, the composites over it (`renderTarget`, `program`, `fullscreen`, `filter`, `image`,
 > `pipe`, `releasePipe`, `state`, `setCamera`, `endFrame`), the figure's own path (`bind`, `buffer`,
 > `updateBuffer`, `draw`, `drawInstanced` with the six declared transforms, `texture`, `upload`),
-> picking (`readPixel`, `pick`) and the space mappings (`mapLocation`, `mapDirection`, `unproject`,
-> `fragCoord`, `pixelRatio`, `mat4Viewport`). The rest of the table's surface is stated, each verb its
-> own stage. Names inherit the bridge's.
+> picking (`readPixel`, `pick`), the space mappings (`mapLocation`, `mapDirection`, `unproject`,
+> `fragCoord`, `pixelRatio`, `mat4Viewport`) and the line pipe with the HUD (`axes`, `grid`, `hermite`,
+> `viewFrustum`, `trackPath`, `helmRig`, `handleLocus`, `beginHUD`, `endHUD`, `cross`, `bullsEye`). The
+> rest of the table's surface is stated, each verb its own stage. Names inherit the bridge's.
 
 ---
 
@@ -157,3 +158,22 @@ notebook column may use; the bridge does not).
   two, and `0 0` for the corner — no flip. The mapped pixel, the pick and the readback then agreed on
   one pixel: `pick` at `120 90` read id `1`, a corner read `0`, and `readPixel` at `fragCoord`'s
   `240 180` read the id's colour `1 0 0 255`.
+
+**Read 2026-10-24, with the line pipe and the HUD built.**
+
+- *The pipe.* A scene of axes, a grid, a hermite, a frustum, a track path and a helm rig drew under a
+  camera: the generators filled `12 · 44 · 64 · 24 · 132 · 318` vertices, the hermite's midpoint read
+  `255 79 217` (its colour) at the mapped pixel, and the track's first keyframe `255 209 102` (its
+  own). Two gizmos of one name in one frame do not share a buffer: each draw takes a slot of the
+  frame's stream, because `queue.writeBuffer` is ordered with submissions and not inside a command
+  buffer.
+- *The width.* A 0.5-logical line — one device pixel at a ratio of two — drew through the line list and
+  covered two rows (a pixel landing on a row boundary); a 3-logical one covered six through the quads,
+  measured as the covered rows of a column through each arm.
+- *The HUD.* A cross at logical `(40, 40)` landed at the device pixel `80 80` with its arm reaching
+  `110 80` and its end off at `140 80`; a bulls-eye at `(200, 150)` read at `400 300`; and the place
+  the mark would sit were y up (`80 280`) was the background — y runs down, as a pointer's does.
+- *A finding, fixed.* A depth-off draw into a pass whose target has a depth attachment failed the
+  pipeline: WebGPU wants the field stated on every pipeline set on such a pass, so "off" is
+  `compare: always` and no write. The twin's `createPipeline` now states it, and its test pins it. The
+  stream buffers also had to be created `COPY_DST` — a vertex-only buffer refuses a queue write.

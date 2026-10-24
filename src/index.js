@@ -40,7 +40,8 @@
  * `uTexelSize`, only where declared. `image`'s flat program names
  * `uModelViewProjectionMatrix`, `uColor`, `uUseTexture` and `uTexture`.
  *
- * Not yet on this surface — each its own stage: gizmos and the HUD, `cubemap`,
+ * Not yet on this surface — each its own stage: `pane` and the textured
+ * frustum faces, the helm rig's HUD form and its `identify` labels, `cubemap`,
  * mips and the 3D / array texture shapes. The backend implements their
  * members; the twin publishes a verb when the figure corpus asks for it, as
  * §7 #110's ruling does for `beginPass`.
@@ -54,6 +55,10 @@ export { bind, buffer, updateBuffer, draw, drawInstanced } from './draw.js';
 export { texture, upload } from './texture.js';
 export { readPixel, pick } from './pick.js';
 export { mapLocation, mapDirection, unproject, fragCoord, pixelRatio, mat4Viewport } from './space.js';
+export {
+  axes, grid, hermite, viewFrustum, trackPath, helmRig, handleLocus,
+  beginHUD, endHUD, cross, bullsEye,
+} from './gizmo.js';
 export { renderTarget, SCREEN } from '@nakednous/idiom';
 export {
   fullscreen, filter, image, pipe, releasePipe, state,

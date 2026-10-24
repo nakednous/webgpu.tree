@@ -455,8 +455,10 @@ export function createBackend(opts) {
 
     // ---------------------------------------------------------------- buffers
 
-    createBuffer(ctx, arrays) {
-      const buffer = createBuffersAndAttributesFromArrays(device, arrays);
+    createBuffer(ctx, arrays, opts) {
+      // `opts` is the twin's own (non-interleaved arrays for a per-frame stream);
+      // `idiom` calls the member with `arrays` alone
+      const buffer = createBuffersAndAttributesFromArrays(device, arrays, opts);
       buffer.id = ++seq;
       buffer.arrays = arrays;
       for (const gpu of buffer.buffers) resources.buffers.add(gpu);
@@ -464,8 +466,8 @@ export function createBackend(opts) {
       return buffer;
     },
 
-    updateBuffer(ctx, buffer, arrays) {
-      const rebuilt = createBuffersAndAttributesFromArrays(device, arrays);
+    updateBuffer(ctx, buffer, arrays, opts) {
+      const rebuilt = createBuffersAndAttributesFromArrays(device, arrays, opts);
       for (const gpu of buffer.buffers) gpu.destroy();
       if (buffer.indexBuffer) buffer.indexBuffer.destroy();
       for (const gpu of rebuilt.buffers) resources.buffers.add(gpu);

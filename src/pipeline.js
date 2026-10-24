@@ -18,6 +18,9 @@
  *
  * `pipelineKey` is a pure function of its arguments: the same program, state and
  * attachment give the same pipeline, and one field differing gives another.
+ * The depth *state* is the test and the write; the depth *attachment* is the
+ * pass's — a pipeline set on a pass that has one must declare the field, so a
+ * depth-off state draws with `compare: 'always'` and no write rather than none.
  */
 
 'use strict';
@@ -125,11 +128,13 @@ export function createPipeline(ctx, prog, state, pass) {
     primitive: { topology: state.topology, cullMode: state.cull, frontFace: 'ccw' },
     multisample: { count: pass.samples || 1 },
   };
-  if (depth) {
+  if (pass.depth) {
+    // the attachment is the pass's: a pipeline set on it must state the depth
+    // field even where the state asks for no test, so "off" is always + no write
     descriptor.depthStencil = {
       format: pass.depthFormat,
-      depthWriteEnabled: true,
-      depthCompare: state.depthCompare === 'less-equal' ? 'less-equal' : 'less',
+      depthWriteEnabled: depth,
+      depthCompare: depth ? (state.depthCompare === 'less-equal' ? 'less-equal' : 'less') : 'always',
     };
   }
   return ctx.device.createRenderPipeline(descriptor);

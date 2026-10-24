@@ -1,0 +1,205 @@
+/**
+ * @file Gizmos — the line pipe: the cache, the layouts, the expand's quads, the
+ * width policy, the HUD's projection and the restores.
+ * @license AGPL-3.0-only
+ */
+
+'use strict';
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+import {
+  init, setCamera, tree, renderTarget, program, endFrame,
+  axes, grid, hermite, viewFrustum, trackPath, handleLocus, cross, bullsEye, beginHUD, endHUD,
+} from '../src/index.js';
+import { LINE_COLOR_LAYOUT, LINE_LAYOUT, TRIS_LAYOUT, WIDE_COLOR_LAYOUT, WIDE_LAYOUT } from '../src/programs.js';
+import { canvasViewport } from '../src/space.js';
+import { createCanvas, createDevice, createGpu, allOf, lastOf } from './gpu.js';
+
+async function setup(canvasOpts) {
+  const { device, calls, world } = createDevice();
+  const { canvas, context } = createCanvas({ width: 320, height: 240 });
+  Object.assign(canvas, canvasOpts || {});
+  const gpu = createGpu({ device });
+  const ctx = await init(canvas, { gpu, device, context, format: 'rgba8unorm' });
+  const target = renderTarget(ctx, { width: 320, height: 240, depth: false });
+  ctx.backend.bindTarget(ctx, target);
+  const cam = tree.createCamera({ eye: [0, 0, 300], center: [0, 0, 0], up: [0, 1, 0], fov: Math.PI / 4, near: 1, far: 1000 });
+  setCamera(ctx, cam);
+  return { ctx, calls, world, canvas };
+}
+
+const pipelineOf = (calls, index) => allOf(calls, 'createRenderPipeline')[index][2];
+const buffersWritten = (calls) => allOf(calls, 'queue.writeBuffer').map((call) => Array.from(new Uint8Array(call[4])));
+
+test('a draw takes its own slot: two gizmos of one name in a frame do not share a buffer', async () => {
+  const { ctx, calls } = await setup();
+  grid(ctx, { size: 100 });
+  grid(ctx, { size: 60 });
+  const slots = ctx.gizmoPool.slots.line.slots;
+  assert.equal(slots.length, 2);                             // one per draw, this frame
+  assert.notEqual(slots[0].geometry, slots[1].geometry);
+  assert.equal(slots[0].geometry.buffers.length, 1);         // non-interleaved: a buffer an attribute
+  const made = allOf(calls, 'createBuffer').length;
+  endFrame(ctx);                                             // the frame's boundary: the cursor restarts
+  grid(ctx, { size: 100 });
+  grid(ctx, { size: 60 });
+  assert.equal(allOf(calls, 'createBuffer').length, made);   // the same slots, nothing allocated
+  assert.equal(ctx.gizmoPool.slots.line.slots[0], slots[0]);
+});
+
+test('a gizmo\'s geometry and its program bake the same layout: non-interleaved, a buffer per attribute', async () => {
+  const { ctx, calls } = await setup();
+  axes(ctx, { size: 50 });
+  const geometry = ctx.gizmoPool.slots.lineColor.slots[0].geometry;
+  assert.deepEqual(geometry.bufferLayouts, LINE_COLOR_LAYOUT);
+  assert.deepEqual(pipelineOf(calls, 0).vertex.buffers, LINE_COLOR_LAYOUT);
+  assert.equal(LINE_COLOR_LAYOUT.length, 2);                // aPosition then aColor
+  assert.ok(LINE_COLOR_LAYOUT.every((layout) => layout.attributes.length === 1));
+
+  grid(ctx, { size: 50 });
+  assert.deepEqual(ctx.gizmoPool.slots.line.slots[0].geometry.bufferLayouts, LINE_LAYOUT);
+  assert.deepEqual(pipelineOf(calls, 1).vertex.buffers, LINE_LAYOUT);
+  assert.equal(LINE_LAYOUT.length, 1);
+
+  // the palette rides axes: uUseColor is on; the grid's is off
+  const floats = allOf(calls, 'queue.writeBuffer').map((call) => Array.from(new Float32Array(Uint8Array.from(call[4]).buffer)));
+  const useColor = floats.map((f) => f[36]);                 // uUseColor, after uPV · uModel · uColor
+  assert.ok(useColor.indexOf(1) >= 0 && useColor.indexOf(0) >= 0);
+});
+
+test('a line list at one device pixel: the arrays\' count is the draw\'s count', async () => {
+  const { ctx, calls } = await setup();
+  cross(ctx, { x: 0, y: 0, size: 100 });   // HUD-wrapped, and the HUD's ortho at scale 1
+  const drawCall = lastOf(calls, 'pass.draw');
+  assert.equal(drawCall[1], 4);                              // two segments, four vertices
+  assert.equal(drawCall[2], 1);                              // one instance
+  assert.equal(allOf(calls, 'pass.drawIndexed').length, 0);  // no quads
+});
+
+test('a width past one device pixel goes through the expand: four vertices and six indices a segment', async () => {
+  const { ctx, calls } = await setup();
+  cross(ctx, { x: 100, y: 100, size: 50, width: 3 });
+  const wide = ctx.gizmos.cross.wide;
+  const slot = ctx.gizmoPool.slots.wide.slots[0];
+  assert.equal(wide.segments, 2);
+  assert.equal(wide.capacity, 16);
+  // 4 vertices a segment, every one carrying the segment's endpoints
+  assert.deepEqual(Array.from(wide.A.slice(0, 12)), [75, 100, 0, 75, 100, 0, 75, 100, 0, 75, 100, 0]);
+  assert.deepEqual(Array.from(wide.B.slice(0, 12)), [125, 100, 0, 125, 100, 0, 125, 100, 0, 125, 100, 0]);
+  assert.deepEqual(Array.from(slot.arrays.aT.data.slice(0, 4)), [0, 0, 1, 1]);
+  assert.deepEqual(Array.from(slot.arrays.aSide.data.slice(0, 4)), [-1, 1, -1, 1]);
+  assert.deepEqual(Array.from(slot.arrays.indices.data.slice(0, 6)), [0, 1, 2, 1, 3, 2]);
+  const drawCall = lastOf(calls, 'pass.drawIndexed');
+  assert.equal(drawCall[1], 12);                             // six indices a segment
+  assert.deepEqual(slot.geometry.bufferLayouts, WIDE_LAYOUT);
+  assert.deepEqual(pipelineOf(calls, 0).vertex.buffers, WIDE_LAYOUT);
+});
+
+test('the wide program gets the pass\'s viewport and the width in device pixels', async () => {
+  const { ctx, calls } = await setup({ clientWidth: 160, clientHeight: 120 });   // a device ratio of 2
+  grid(ctx, { size: 50, width: 3 });
+  const floats = allOf(calls, 'queue.writeBuffer')
+    .map((call) => Array.from(new Float32Array(Uint8Array.from(call[4]).buffer)))
+    .filter((f) => f.length === 44)[0];                      // the wide struct
+  assert.ok(floats);
+  assert.deepEqual(floats.slice(32, 34), [320, 240]);        // uViewport: the pass's, not the canvas's
+  assert.equal(floats[34], 6);                               // uWidth: 3 logical × 2
+  assert.deepEqual(pipelineOf(calls, 0).vertex.buffers, WIDE_LAYOUT);
+});
+
+test('a growing generator grows the arrays, rebuilds the slot and frees the old buffers', async () => {
+  const { ctx, calls } = await setup();
+  hermite(ctx, [0, 0, 0], [0, 10, 0], [10, 0, 0], [0, 0, 0], { samples: 4 });   // 8 vertices, capacity 64
+  const slot = ctx.gizmoPool.slots.line.slots[0];
+  assert.ok(slot.capacity >= 8);                             // the slot's own capacity, at least 16
+  endFrame(ctx);                                             // a new frame takes the same slot again
+  hermite(ctx, [0, 0, 0], [0, 10, 0], [10, 0, 0], [0, 0, 0], { samples: 400 });  // 800 vertices
+  assert.equal(ctx.gizmos.hermite.arrays.count, 800);
+  assert.ok(slot.capacity >= 800);                           // the slot grew
+  assert.ok(allOf(calls, 'buffer.destroy').length >= 1);     // and its old buffers were freed
+  // the draw counts the generated vertices, not the slot's capacity
+  assert.equal(lastOf(calls, 'pass.draw')[1], 800);
+});
+
+test('the HUD is an ortho over the logical viewport, y down, depth off, and it all comes back', async () => {
+  const { ctx } = await setup();
+  const vp = canvasViewport(ctx);
+  const V = Float32Array.from(ctx.V);
+  const P = Float32Array.from(ctx.P);
+  const state = ctx.state;
+  beginHUD(ctx);
+  const near = (a, b) => Math.abs(a - b) < 1e-6;
+  const ndc = tree.mat4MulPoint([0, 0, 0], ctx.PV, 0, 0, 0);
+  assert.ok(near(ndc[0], -1) && near(ndc[1], 1));                               // (0, 0) is the top-left corner
+  const centre = tree.mat4MulPoint([0, 0, 0], ctx.PV, vp[2] / 2, -vp[3] / 2, 0);
+  assert.ok(near(centre[0], 0) && near(centre[1], 0));
+  const corner = tree.mat4MulPoint([0, 0, 0], ctx.PV, vp[2], -vp[3], 0);
+  assert.ok(near(corner[0], 1) && near(corner[1], -1));                          // and the bottom-right
+  assert.equal(ctx.state.depth, false);
+  endHUD(ctx);
+  assert.deepEqual(Array.from(ctx.P), Array.from(P));
+  assert.deepEqual(Array.from(ctx.V), Array.from(V));
+  assert.equal(ctx.state.depth, state.depth);
+});
+
+test('a gizmo restores the program and the state it found', async () => {
+  const { ctx } = await setup();
+  const prior = program(ctx, '@fragment fn fs() -> @location(0) vec4f { return vec4f(1.0); }');
+  ctx.prog = prior;
+  const depth = ctx.state.depth;
+  grid(ctx, { size: 50, depth: false });
+  assert.equal(ctx.prog, prior);
+  assert.equal(ctx.state.depth, depth);
+});
+
+test('the frustum draws its twelve edges and a viewer\'s axes; a track its path and a marker a keyframe', async () => {
+  const { ctx, calls } = await setup();
+  viewFrustum(ctx, { camera: tree.createCamera({ eye: [0, 0, 200], center: [0, 0, 0], fov: Math.PI / 4, near: 4, far: 40 }) });
+  const frustumDraws = allOf(calls, 'pass.draw').length;
+  assert.ok(frustumDraws >= 2);                              // the frustum, then the viewer's axes
+  assert.equal(ctx.gizmos.frustum.arrays.count, 24);         // twelve edges, NEAR · FAR · BODY
+
+  const track = new tree.PoseTrack();
+  track.add([
+    { pos: [-150, 0, 0], rot: [0, 0, 0, 1] },
+    { pos: [0, 100, 50], rot: [0, 0, 0, 1] },
+    { pos: [150, 0, 0], rot: [0, 0, 0, 1] },
+  ]);
+  trackPath(ctx, track, { bits: tree.PATH });
+  assert.ok(ctx.gizmos.path.arrays.count > 0);
+  assert.ok(ctx.gizmos.axes.arrays.count > 0);               // a marker per keyframe
+});
+
+test('a handle\'s locus draws its constraint and, at HANDLE, a disc through the quads program', async () => {
+  const { ctx, calls } = await setup();
+  const constraint = {
+    locus(out, o) {
+      out.position.data.set([0, 0, 0, 1, 0, 0]);
+      out.count = 2;
+      return 2;
+    },
+  };
+  const h = { _constraint: constraint, _grabPx: 12, value: (out) => { out[0] = 0; out[1] = 0; out[2] = 0; } };
+  handleLocus(ctx, h, { bits: tree.HANDLE | tree.LOCUS });
+  assert.equal(ctx.gizmos.locus.arrays.count, 2);
+  assert.equal(ctx.gizmos.dot.arrays.count, 48);             // 16 triangles
+  assert.deepEqual(ctx.gizmoPool.slots.tris.slots[0].geometry.bufferLayouts, TRIS_LAYOUT);
+  const trisDraw = lastOf(calls, 'pass.draw');
+  assert.equal(trisDraw[1], 48);
+  // the quads program's MVP is the installed camera's, installed by the draw
+  const floats = allOf(calls, 'queue.writeBuffer')
+    .map((call) => Array.from(new Float32Array(Uint8Array.from(call[4]).buffer)))
+    .filter((f) => f.length === 20);
+  assert.ok(floats.length >= 1);
+  const mvp = floats.at(-1).slice(0, 16);
+  const expected = Array.from(ctx.PV);
+  mvp.forEach((value, i) => assert.ok(Math.abs(value - expected[i]) < 1e-5, 'mvp ' + i));
+});
+
+test('the gizmo layouts are the arrays shapes\': one buffer an attribute, locations in key order', async () => {
+  assert.deepEqual(WIDE_LAYOUT.map((layout) => [layout.arrayStride, layout.attributes[0].shaderLocation]), [[12, 0], [12, 1], [4, 2], [4, 3]]);
+  assert.deepEqual(WIDE_COLOR_LAYOUT.map((layout) => layout.attributes[0].shaderLocation), [0, 1, 2, 3, 4]);
+  assert.deepEqual(TRIS_LAYOUT, LINE_LAYOUT);
+});
