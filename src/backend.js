@@ -94,6 +94,7 @@ export const DEPTH_FORMAT = 'depth24plus';
  * Resolve a `renderTarget` format token to a WebGPU colour format.
  * @param {{ format?:*, float?:boolean }} spec  `idiom`'s resolved target spec.
  * @returns {string} A `GPUTextureFormat`.
+ * @ignore
  * @example
  * formatOf({ float: true })   // 'rgba16float'
  */

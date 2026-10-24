@@ -310,6 +310,7 @@ const FRAGMENT_ENTRY = /@fragment\s+fn\s+([A-Za-z_][A-Za-z0-9_]*)/;
  * first of its stage; null where there is none.
  * @param {string} code  WGSL source.
  * @returns {{ vertex: string|null, fragment: string|null }}
+ * @ignore
  * @example
  * entriesOf(PASS_VERT)   // { vertex: 'vs', fragment: null }
  */
@@ -327,6 +328,7 @@ export function entriesOf(code) {
  * @param {string} frag  The caller's WGSL.
  * @param {{ vertex?: string }} [opts]  `vertex`: the source's own vertex entry name.
  * @returns {string} One shader module's source.
+ * @ignore
  * @example
  * sourceOf('@fragment fn fs() -> @location(0) vec4f { return vec4f(1); }')   // PASS_VERT + the fragment
  */

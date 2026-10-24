@@ -42,6 +42,7 @@ const ZERO = [0, 0, 0, 0];
  * @returns {{ encoder:object|null, pass:object|null, target:object|null,
  *             viewport:number[]|null, loadOp:string|null, clear:number[]|null,
  *             submissions:number }}
+ * @ignore
  * @example
  * frameOf(ctx).target   // the target the frame is drawing into, null for the canvas
  */
@@ -167,10 +168,12 @@ export function endPass(ctx) {
 }
 
 /**
- * Submit the frame's encoder and start the next frame's arena. Called from the
- * host's `afterFrame` (§7 #107) or by the application.
+ * Submit the frame's encoder and start the next frame's arena — the implementation
+ * of the public `endFrame(ctx)`, which is `context.js`'s wrapper. The host's
+ * `afterFrame` calls that one (§7 #107), or the application does.
  * @param {object} ctx  The context record.
  * @returns {boolean} Whether a command buffer was submitted.
+ * @ignore
  * @example
  * const canvasHost = host.createHost(canvas, { afterFrame: () => endFrame(ctx) })
  */

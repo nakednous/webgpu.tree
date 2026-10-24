@@ -79,15 +79,38 @@ export * as host from '@nakednous/host';
  * @param {{ vertex?:string, fragment?:string, buffers?:object[], label?:string }} [opts]
  * @returns {object|null} The backend's program record, or null where it failed.
  * @example
+ * <caption>A pass program over an uploaded texture, one draw a frame</caption>
+ * import { init, endFrame, filter, program, texture } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300 })
+ *
  * const invert = program(ctx, `
+ * ```wgsl
  * @group(0) @binding(0) var uSource: texture_2d<f32>;
  * @group(0) @binding(1) var uSampler: sampler;
  *
  * @fragment
  * fn fs(@location(0) vTexCoord: vec2f) -> @location(0) vec4f {
  *   return vec4f(1.0 - textureSample(uSource, uSampler, vTexCoord).rgb, 1.0);
- * }`)
- * filter(ctx, invert, null, target)
+ * }
+ * ```
+ * `)
+ *
+ * const quad = texture(ctx, {
+ *   data: new Uint8Array([255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255]),
+ *   width: 2,
+ *   height: 2,
+ * })
+ *
+ * function frame() {
+ *   filter(ctx, invert, null, quad)   // uSource is the pass's input by declaration
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
  */
 export function program(ctx, wgsl, opts) {
   if (!ctx || !ctx.backend) return null;

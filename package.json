@@ -1,7 +1,7 @@
 {
   "name": "webgpu.tree",
   "version": "0.0.1",
-  "description": "webgpu.tree — the WebGPU twin of webgl.tree: @nakednous/tree + @nakednous/host on raw WebGPU, its composites on @nakednous/idiom.",
+  "description": "webgpu.tree \u2014 the WebGPU twin of webgl.tree: @nakednous/tree + @nakednous/host on raw WebGPU, its composites on @nakednous/idiom.",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.js",
@@ -16,7 +16,8 @@
   "scripts": {
     "test": "node --test test/",
     "build": "rollup -c",
-    "clean": "rm -rf dist",
+    "docs": "node tools/docs/index.js",
+    "clean": "rm -rf dist site",
     "rebuild": "npm run clean && npm run build",
     "reset": "rm -rf node_modules dist package-lock.json && npm install",
     "link:core": "npm install --no-save file:../tree file:../host file:../idiom",
@@ -51,6 +52,8 @@
   },
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^16.0.3",
+    "comment-parser": "^1.4.9",
+    "marked": "^18.1.1",
     "rollup": "^4.63.1",
     "webgpu-utils": "^2.1.1"
   }

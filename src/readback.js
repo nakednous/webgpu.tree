@@ -39,6 +39,7 @@ export const COPY_ALIGNMENT = 256;
  * the copy alignment.
  * @param {number} width  The copy's width in pixels.
  * @returns {number} Bytes per row, 256-multiple.
+ * @ignore
  * @example
  * bytesPerRow(1)    // 256
  * bytesPerRow(65)   // 512
@@ -53,6 +54,7 @@ export function bytesPerRow(width) {
  * @param {number} width  The copy's width in pixels.
  * @param {number} [bytesPerPixel]  Bytes per pixel, default 4 (RGBA8).
  * @returns {number} Bytes per row, 256-multiple.
+ * @ignore
  * @example
  * rowBytes(64, 4)    // 256
  * rowBytes(3, 16)    // 256
@@ -72,6 +74,7 @@ export function rowBytes(width, bytesPerPixel) {
  * @param {number} height  The image's height in rows.
  * @param {number} [bytesPerPixel]  Bytes per pixel, default 4 (RGBA8).
  * @returns {{ data:Uint8Array, bytesPerRow:number }} What `writeTexture` takes.
+ * @ignore
  * @example
  * paddedRows(new Uint8Array(2 * 2 * 4), 2, 2).bytesPerRow   // 256
  */
@@ -96,6 +99,7 @@ export function paddedRows(source, width, height, bytesPerPixel) {
  * @param {number} width  The copy's width in pixels.
  * @param {number} height  The copy's height in rows.
  * @returns {Uint8Array} `width · height · 4` bytes, rows tight.
+ * @ignore
  * @example
  * tightRows(new Uint8Array(256 * 2), 1, 2).length   // 8
  */

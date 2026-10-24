@@ -65,6 +65,7 @@ export const BLENDS = Object.freeze({
  * @param {object} prior  The state in effect.
  * @param {object} next  The fields asked for.
  * @returns {object} The new state.
+ * @ignore
  * @example
  * resolveState(BASE_STATE, { depth: false }).depth   // false
  */
@@ -95,6 +96,7 @@ export function writeMaskOf(mask) {
  *        What the pass draws into: a depth attachment at all, the colour
  *        attachments' formats, the sample count.
  * @returns {string} The key.
+ * @ignore
  * @example
  * pipelineKey(1, BASE_STATE, { depth: false, depthFormat: null, formats: ['rgba8unorm'], samples: 1 })
  * // '1|z:-|b:-|m:-|c:none|t:triangle-list|f:rgba8unorm|s:1'

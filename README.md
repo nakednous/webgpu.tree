@@ -7,8 +7,9 @@ pipe, HUD, render targets, filter passes and the pipe chain, colour-ID picking, 
 realized where uniforms are fields of a buffer bound as a group, a program is a pipeline with baked
 state, and readback is asynchronous by construction.
 
-> **Status: the render surface is built.** `init` and the backend behind `idiom`'s interface — the
-> twenty-two members and the four conventions — with the composites over it: `renderTarget`, `SCREEN`,
+> **Status: the render surface is built, and it has an API site of its own.** `init` and the backend
+> behind `idiom`'s interface — the twenty-three members (the in-place `writeBuffer` among them) and the
+> four conventions — with the composites over it: `renderTarget`, `SCREEN`,
 > `program`, `fullscreen`, `filter`, `image`, `pipe`, `releasePipe`, `state`, `setCamera`, `endFrame`,
 > `viewOf`, `dispose`; the figure's own path: `bind`, `buffer`, `updateBuffer`, `draw`,
 > `drawInstanced` with the six declared transforms, `texture`, `upload`; picking: `readPixel`, `pick`;
@@ -20,13 +21,40 @@ state, and readback is asynchronous by construction.
 > reference does not have — a cube / layered render target (§7 #104) and compute (§7 #85) — is not on
 > it either. `twin-design.md` is the differences table against `webgl.tree`.
 >
-> Pins `@nakednous/tree` ^0.0.34, `@nakednous/host` ^0.0.12, `@nakednous/idiom` ^0.0.1;
-> `webgpu-utils` ^2.1.1 is a peer. Gates: `npm test` (113 cases, against the recording device in
-> `test/gpu.js`) and `npm run build`. The browser is the maintainer's gate: the geometry path, the
-> uploaded texture, a scene's colour-id picks, the mappings, a gizmo scene with its HUD, a textured
-> pane, the helm rig's HUD composite, a mip level, a volume's slices, an array's layers and a cube
-> map's six faces were read back offscreen in this machine's Chromium (adapter `google/swiftshader`,
-> `rgba8unorm`) — the twin's `testing/` pages are the record.
+> Pins `@nakednous/tree` ^0.0.34, `@nakednous/host` ^0.0.12, `@nakednous/idiom` ^0.0.2;
+> `webgpu-utils` ^2.1.1 is a peer. Gates: `npm test` (118 cases, against the recording device in
+> `test/gpu.js`), `npm run build`, and `npm run docs` (the API site below, 0 warnings — every
+> documented name and a function's parameters checked against the build, and every example's imports
+> resolved). The browser is the maintainer's gate: the geometry path, the uploaded texture, a scene's
+> colour-id picks, the mappings, a gizmo scene with its HUD, a textured pane, the helm rig's HUD
+> composite, a mip level, a volume's slices, an array's layers and a cube map's six faces were read
+> back offscreen in this machine's Chromium (adapter `google/swiftshader`, `rgba8unorm`) — the twin's
+> `testing/` pages are the record.
+
+## The API site
+
+The package has a reference site of its own, generated from this source by its own `tools/docs`
+(`npm run docs`, after `npm run build`):
+
+```
+site/                index.html, one page per module, search.json
+                     assets/{runner.js,search.js,style.css}, favicons
+                     webgpu.tree.js  ← dist/index.js, the ESM build of the same commit
+                     tree.js · host.js · idiom.js  ← the builds it was made against
+```
+
+It is **ESM-only**, as the package is: an example imports from `webgpu.tree`, runs under the page's
+import map (`webgpu-utils` to the pinned CDN module, the stack's packages to the site's own copies of
+the same commit) and awaits `init`; a shader is a WGSL fence. Examples that are a call's shape rather
+than a whole figure are marked `fragment` and shown as code — they are not mounted.
+Serve it locally, from the repository root:
+
+```
+python3 -m http.server 8000     # then open http://127.0.0.1:8000/site/
+```
+
+It is **not deployed**: the repositories' GitHub home, and the sites' deployment, is §7 #77's pending
+ground, and #56's "the `*.tree` bridges only" gives this bridge a site, not an address.
 
 ---
 
@@ -231,7 +259,22 @@ where the generator writes a palette (axes, the helm rig) and `opts.color` elsew
 - **WGSL, one module.** `program(ctx, wgsl, opts)` compiles the twin's vertex stage *concatenated*
   with the caller's fragment source — WGSL has no include, and varyings match by location — unless
   the source brings its own `@vertex` stage. That is how one file carries both stages without a
-  shared module, and why the backend interface needs no change for it.
+  shared module, and why the backend interface needs no change for it. A pass program is the
+  fragment stage alone:
+
+```wgsl
+struct U {
+  uResolution: vec2f,
+};
+@group(0) @binding(0) var<uniform> u: U;
+
+@fragment
+fn fs(@location(0) vTexCoord: vec2f) -> @location(0) vec4f {
+  let cell = floor(vTexCoord * u.uResolution / 32.0);
+  let on = (cell.x + cell.y) % 2.0;
+  return mix(vec4f(0.05, 0.07, 0.10, 1.0), vec4f(0.10, 0.55, 0.46, 1.0), on);
+}
+```
 - **Uniforms.** A `var<uniform>` is a struct, and the names a bag sets are its members; the backend
   writes them through webgpu-utils' structured views into the frame's uniform arena, one slot per
   draw, offsets aligned to the device's. A `mat3x3f` travels as nine floats and its columns are

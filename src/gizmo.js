@@ -662,6 +662,10 @@ export function beginHUD(ctx) {
 /**
  * End HUD mode: the camera and the depth test come back.
  * @param {object} ctx  The context record.
+ * @example
+ * beginHUD(ctx)
+ * bullsEye(ctx, { x: 120, y: 90, size: 60, color: [1, 0.31, 0.85, 1] })
+ * endHUD(ctx)   // the installed camera and the depth state again
  */
 export function endHUD(ctx) {
   if (!ctx || !ctx.hud) return;

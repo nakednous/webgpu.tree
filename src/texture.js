@@ -114,9 +114,25 @@ function _writeSlices(ctx, tex, pixels) {
  * @returns {object|null} The texture record `upload`, `image`, `pane` and a pass
  *          take — `{ gpu, view, width, height, layers, dimension, format }`.
  * @example
- * const tex = texture(ctx, document.querySelector('img'), { mips: true })
+ * <caption>A pixel source, row 0 at the texture's top, shown on the canvas</caption>
+ * import { init, endFrame, image, texture } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300 })
+ *
+ * const tex = texture(ctx, {
+ *   data: new Uint8Array([255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255]),
+ *   width: 2,
+ *   height: 2,
+ * })
+ * image(ctx, tex)   // a cover rect: red green / blue white, top row first
+ * endFrame(ctx)
+ * @example
  * const volume = texture(ctx, { data, width: 32, height: 32, depth: 16 }, { format: 'r8unorm' })
  * const array = texture(ctx, { data, width: 16, height: 16, layers: 4 })
+ * const chain = texture(ctx, { data, width: 64, height: 64 }, { mips: true })
  */
 export function texture(ctx, source, opts) {
   if (!ctx || !ctx.backend) return null;

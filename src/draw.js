@@ -271,6 +271,9 @@ export function draw(ctx, obj, M, opts) {
  * @param {number} n  Instance count.
  * @param {ArrayLike<number>|object} [M]  A model mat4, or an `opts` object.
  * @param {{ count?:number, offset?:number }} [opts]
+ * @example
+ * bind(ctx, prog, { uTint: 1 })
+ * drawInstanced(ctx, box, 24, M)   // the vertex stage reads @builtin(instance_index)
  */
 export function drawInstanced(ctx, obj, n, M, opts) {
   if (M != null && !_isMat4(M)) { opts = M; M = null; }

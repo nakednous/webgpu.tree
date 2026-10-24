@@ -46,6 +46,7 @@ const DEFAULT_CAPACITY = 1 << 16;
  *          `alloc(size)` answers `{ buffer, offset, size }`; `version` changes
  *          whenever the buffer is replaced, which is when a cached bind group
  *          must be rebuilt.
+ * @ignore
  * @example
  * const arena = createArena(device)
  * const slot = arena.alloc(80)

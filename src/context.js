@@ -65,10 +65,33 @@ const _identity = (m) => {
  * @returns {Promise<object>} The context record — `{ device, context, format }`
  *          and the layer's, every verb's first argument.
  * @example
- * const ctx = await init(document.querySelector('canvas'), { width: 400, height: 300 })
- * const scene = renderTarget(ctx, { width: 400, height: 300, depth: false })
- * state(ctx, { width: 256, height: 192 }).pass(program(ctx, wgsl))
- * endFrame(ctx)
+ * <caption>A frame on the host's loop, the submit at its end</caption>
+ * import { init, endFrame, host, image, program, state } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300 })
+ *
+ * const bands = program(ctx, `
+ * ```wgsl
+ * @fragment
+ * fn fs(@location(0) vTexCoord: vec2f) -> @location(0) vec4f {
+ *   let cell = floor(vTexCoord * vec2f(6.0, 4.0));
+ *   let on = (cell.x + cell.y) % 2.0;
+ *   return mix(vec4f(0.05, 0.07, 0.10, 1.0), vec4f(0.10, 0.55, 0.46, 1.0), on);
+ * }
+ * ```
+ * `)
+ *
+ * const field = state(ctx, { width: 200, height: 150 })
+ * host.createHost(canvas, {
+ *   onFrame() {
+ *     field.pass(bands)             // a pass into the state's write side
+ *     image(ctx, field.read.color)  // and the read side on the canvas
+ *   },
+ *   afterFrame: () => endFrame(ctx) // after pointer.flush(), the frame's submit
+ * })
  */
 export async function init(canvas, opts) {
   const o = opts || {};
@@ -128,6 +151,9 @@ export async function init(canvas, opts) {
  * otherwise.
  * @param {object} ctx  The context record.
  * @returns {object} The bag `setCamera` fills.
+ * @example
+ * const view = viewOf(ctx)                                   // the host's bag, or the bridge's own
+ * const eye = tree.mat4MulPoint([0, 0, 0], view.mat4Eye, 0, 0, 0)   // the eye's world origin
  */
 export function viewOf(ctx) {
   return ctx && ctx.host && ctx.host.view ? ctx.host.view : ctx.view;

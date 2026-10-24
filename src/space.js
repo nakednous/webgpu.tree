@@ -4,6 +4,10 @@
  * @module webgpu.tree/space
  * @license AGPL-3.0-only
  *
+ * A point or a direction between spaces through the installed camera, the ray
+ * under a screen pixel, the two spaces' crossing, and the viewport matrix — the
+ * mappings a pointer, a HUD mark and a pick share.
+ *
  * ```
  * mapLocation(ctx, out, x, y, z, from, to)   // a point, through the installed camera
  * mapDirection(ctx, out, dx, dy, dz, from, to)
@@ -135,8 +139,18 @@ function _dispatch(view, from, to) {
  * @param {string|Float32Array|number[]} to  A space name, or the frame to read it into.
  * @returns {number[]|null} out, or null when `to` is a singular frame.
  * @example
- * const screen = mapLocation(ctx, tree.vec3(), 100, 0, 0, tree.WORLD, tree.SCREEN)
- * // the pixel under a HUD cross
+ * <caption>A world point's pixel through the installed camera</caption>
+ * import { init, mapLocation, setCamera, tree } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300 })
+ * setCamera(ctx, tree.createCamera({ eye: [0, 0, 300], center: [0, 0, 0], up: [0, 1, 0] }))
+ *
+ * const screen = mapLocation(ctx, tree.vec3(), 40, 30, 0, tree.WORLD, tree.SCREEN)
+ * document.body.appendChild(document.createElement('pre')).textContent =
+ *   'world (40, 30, 0) → screen ' + screen.map((v) => v.toFixed(1)).join(' ')
  */
 export function mapLocation(ctx, out, x, y, z, from, to) {
   const r = _dispatch(viewOf(ctx), from, to);

@@ -1,19 +1,27 @@
 # `webgpu.tree` — the twin (design)
 
 > Target: `webgpu.tree` 0.0.1 on `@nakednous/tree` ^0.0.34, `@nakednous/host` ^0.0.12,
-> `@nakednous/idiom` ^0.0.1, and `webgpu-utils` ^2.1.1 as a peer. The reference surface is
+> `@nakednous/idiom` ^0.0.2, and `webgpu-utils` ^2.1.1 as a peer. The reference surface is
 > `webgl.tree`'s (`bridge-design.md`); this doc is the **differences table** against it and nothing
-> more. Status: **the render surface is built** (2026-10-23/24) — `init`, the backend behind `idiom`'s
-> interface, the composites over it (`renderTarget`, `program`, `fullscreen`, `filter`, `image`,
-> `pipe`, `releasePipe`, `state`, `setCamera`, `endFrame`), the figure's own path (`bind`, `buffer`,
-> `updateBuffer`, `draw`, `drawInstanced` with the six declared transforms, `texture`, `upload`),
-> picking (`readPixel`, `pick`), the space mappings (`mapLocation`, `mapDirection`, `unproject`,
-> `fragCoord`, `pixelRatio`, `mat4Viewport`), the line pipe with the HUD (`axes`, `grid`, `hermite`,
-> `viewFrustum`, `trackPath`, `helmRig`, `handleLocus`, `beginHUD`, `endHUD`, `cross`, `bullsEye`),
-> `pane` with the frustum's textured faces and the helm rig's HUD form with its `identify` labels, and
-> the texture shapes (`cubemap`, mips, the 3D / 2D-array sources). **The surface is the reference's.**
-> What the reference does not have — a cube / layered render target (§7 #104) and compute (§7 #85) — is
-> not on it either. Names inherit the bridge's.
+> more. Status: **the render surface is built, and the package has an API site of its own**
+> (2026-10-23/24) — `init`, the backend behind `idiom`'s interface (its twenty-three members,
+> `writeBuffer` among them), the composites over it (`renderTarget`, `program`, `fullscreen`, `filter`,
+> `image`, `pipe`, `releasePipe`, `state`, `setCamera`, `endFrame`), the figure's own path (`bind`,
+> `buffer`, `updateBuffer`, `draw`, `drawInstanced` with the six declared transforms, `texture`,
+> `upload`), picking (`readPixel`, `pick`), the space mappings (`mapLocation`, `mapDirection`,
+> `unproject`, `fragCoord`, `pixelRatio`, `mat4Viewport`), the line pipe with the HUD (`axes`, `grid`,
+> `hermite`, `viewFrustum`, `trackPath`, `helmRig`, `handleLocus`, `beginHUD`, `endHUD`, `cross`,
+> `bullsEye`), `pane` with the frustum's textured faces and the helm rig's HUD form with its
+> `identify` labels, and the texture shapes (`cubemap`, mips, the 3D / 2D-array sources). **The
+> surface is the reference's.** What the reference does not have — a cube / layered render target (§7
+> #104) and compute (§7 #85) — is not on it either. Names inherit the bridge's.
+>
+> **The site.** `tools/docs` is this package's own copy — a third, after `webgl.tree`'s and p5.tree's
+> — and `npm run docs` writes `site/`: the README as the landing page, a page per module, search, the
+> ES build of the same commit and the builds it was made against. It is **ESM-only**, as the package
+> is: an example imports from `webgpu.tree`, runs as a module script under the page's import map and
+> awaits `init`; a shader is a WGSL fence. It does not deploy — #56 gives the bridge a site, #77's
+> ground for an address stays pending. §5's last reading is the site's gate.
 
 ---
 
@@ -46,8 +54,8 @@ blend and depth state." The twin realizes those two sentences.
 | `draw(obj, M)` | `drawBufferInfo` | the six declared transforms uploaded first, through `setUniforms`, then `pass.setVertexBuffer` / `setIndexBuffer` / `draw` / `drawIndexed` on the current render pass. There is no attribute settling: the vertex state is the pipeline's, fixed when it is made |
 | `drawInstanced` | `drawBufferInfo(…, instanceCount)` | native `draw(…, n)` |
 | `renderTarget` | `createFramebufferInfo`, `drawBuffers` for MRT | textures with `RENDER_ATTACHMENT | TEXTURE_BINDING`; a depth texture for `depth` / `depthTexture`; MRT is the pass descriptor's `colorAttachments` list, fragment `@location(i)` in list order |
-| `beginPass` · `screen` | `bindFramebufferInfo(gl, fbo | null)` — a flat call | **the twin's** `beginPass(ctx, fbo | SCREEN)`: ends the current render pass if any, begins one on a frame-scoped command encoder; the encoder is submitted at frame end (`endFrame(ctx)`, called by the host loop hook or by the application). The flat-call model survives; the block is internal |
-| `clear` | `gl.clear` | the pass's `loadOp: 'clear'` with `clearValue`; `clear(ctx, color)` sets the value the next `beginPass` uses |
+| `beginPass` · `screen` | `bindFramebufferInfo(gl, fbo | null)` — a flat call | **the layer's internal `bindTarget`** (§7 #110): the target is recorded, the pass is begun lazily on the next draw on a frame-scoped command encoder, and the encoder is submitted at `endFrame(ctx)` — the host loop's hook, or the application. No public `beginPass`, `screen` or `clear` is published; the flat-call model survives, the block does not leak |
+| `clear` | `gl.clear` | the pass's `loadOp: 'clear'` with `clearValue`; `ctx.backend.clear(ctx, color)` is the layer's member the composites call (a state's pair, a pipe's working target), and a figure that needs a cleared target says so through the composites |
 | render state (`cullFace`, blend) | raw `gl.*`, per draw | baked into pipelines at `program`; a state flip is a second pipeline, cached by state key |
 | depth compare | `LESS`, the platform's, stated once at `createCanvas`; a pass that writes the far plane's depth raises it to `LEQUAL` for itself | a pipeline field: `'less'` unless `opts` names another, `'less-equal'` for a pinned backdrop. WebGPU has **no default to inherit** — the field is required as soon as depth writes are on — so the twin states it at `program`, the same word the WebGL twin states at the context |
 | `readPixel` | PBO + fence, self-polling raf | `copyTextureToBuffer` into a `MAP_READ` buffer (`bytesPerRow` padded to 256), `mapAsync`; natively a `Promise` — the reason the surface is async on both. A copy's target is a texture: the canvas is a presentation surface, so a read takes a **target**, in its own pixels, row 0 at the top. A read is ordered after the frame's draws, so it **ends the frame** — one submit per read |
@@ -61,7 +69,7 @@ blend and depth state." The twin realizes those two sentences.
 | supplied programs | GLSL `flat`, `phong`, the line pipe, the pass-through | WGSL twins of the same four — the one source duplication in the stack, kept to these files |
 | HUD | ortho `P`, depth off | the same matrices; depth off is a pipeline variant |
 | `dispose` | deletes GL objects | destroys buffers / textures; pipelines are dropped |
-| packaging | ESM (twgl.js, tree, host external) + `dist/webgl.tree.umd.cjs`, global `webglTree` with `.tree` · `.host` | ESM (webgpu-utils, tree, host external) + `dist/webgpu.tree.umd.cjs`, global `webgpuTree` with `.tree` · `.host` |
+| packaging | ESM (twgl.js, tree, host external) + `dist/webgl.tree.umd.cjs`, global `webglTree` with `.tree` · `.host` | **ESM only**: one build, `dist/index.js`, with `webgpu-utils`, tree, host and idiom external — no IIFE bundle and no global, so an example is a module script under an import map (the site's own shape) and `init` is awaited. The script-tag bundle the reference has waits for a public surface a script tag would use |
 
 ---
 
@@ -202,3 +210,28 @@ notebook column may use; the bridge does not).
   said so, its level count still 1.
 - *The cube.* Six 1 × 1 faces read by direction: +X `255 0 0`, −X `0 255 0`, +Y `0 0 255`, −Y
   `255 255 0`, +Z `0 255 255`, −Z `255 0 255` — the face order the sources went in by.
+
+**Read 2026-10-24, with the pipeline key's depth and the API site.**
+
+- *The depth key.* `pipelineKey`'s depth field names the pass's depth — the compare where the state
+  asks for the test (`z:less`), the pass's format where it does not (`z:off:depth24plus`), `z:-` for a
+  pass with no depth attachment — so a depth-off state never shares a pipeline between a pass with
+  depth and one without. The page `testing/depth-probe.html` draws the same program with the test off
+  into a target that has depth and one that has none and reads both back: `255 79 217 255` twice with
+  this key, `0 0 0 0` for the depth-less pass with the older one, Chromium naming the render pass's
+  attachment state against the pipeline's. The suite's own cases pin the three namings and the
+  inequality the finding asked for.
+- *The site.* `tools/docs` ported: `npm run docs` writes ten pages (the README's, eight modules', the
+  search index), 34 doclets, 35 examples — four of them runnable and live — with 0 warnings. The
+  structural check is the generator's: every documented name is in the ES build, a function's
+  parameters are the ones its own source declares, every example's import resolves under the page's
+  map and its named imports are in the build, every fence's language is one the site renders, and a
+  `wgsl` fence carries a shader. The curated run mounted the five runnable figures (the index page's
+  demo, `init`, `program`, `texture`, `mapLocation`) in this machine's Chromium with
+  `--enable-unsafe-webgpu`: each acquired a device, drew, and logged nothing; the headless canvas
+  remains the known limit. The run found one example of its own: the texture example carried the next
+  call's illustrative lines into the runnable code, `data is not defined` — they are a fragment now.
+- *The WGSL fence.* A doc comment reads a line that begins with `@` as a tag, and a shader stage's
+  attribute is one, so an example's WGSL is written between fence lines (` ```wgsl ` … ` ``` `) inside
+  its template literal. The parser drops the fence lines: the example's code is the same text without
+  them, so the page shows valid JS and the shader inside it.
