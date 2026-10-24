@@ -40,10 +40,10 @@
  * `uTexelSize`, only where declared. `image`'s flat program names
  * `uModelViewProjectionMatrix`, `uColor`, `uUseTexture` and `uTexture`.
  *
- * Not yet on this surface — each its own stage: `cubemap`, mips and the 3D /
- * array texture shapes. The backend implements their members; the twin
- * publishes a verb when the figure corpus asks for it, as §7 #110's ruling
- * does for `beginPass`.
+ * The surface is the reference's. What the reference does not have — a cube /
+ * layered render target (§7 #104) and compute (§7 #85) — is not on this surface
+ * either; the backend implements what the composite verbs call, and the twin
+ * publishes a verb when the figure corpus asks for it.
  */
 
 'use strict';
@@ -51,7 +51,7 @@
 export { init, dispose, endFrame, viewOf } from './context.js';
 export { setCamera } from './camera.js';
 export { bind, buffer, updateBuffer, draw, drawInstanced } from './draw.js';
-export { texture, upload } from './texture.js';
+export { texture, upload, cubemap } from './texture.js';
 export { readPixel, pick } from './pick.js';
 export { mapLocation, mapDirection, unproject, fragCoord, pixelRatio, mat4Viewport } from './space.js';
 export {

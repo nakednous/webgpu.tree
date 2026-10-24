@@ -80,7 +80,7 @@ test('an element or a bitmap is copied with no flip and no origin, as its rows a
   const tex = texture(ctx, el);
   assert.deepEqual([tex.width, tex.height], [4, 3]);
   const copy = lastOf(calls, 'queue.copyExternalImageToTexture');
-  assert.deepEqual(copy.slice(1), [tex.gpu.id, [4, 3], { width: 4, height: 3, origin: null, flipY: false }]);
+  assert.deepEqual(copy.slice(1), [tex.gpu.id, [4, 3, 1], { width: 4, height: 3, origin: [0, 0, 0], flipY: false }]);
   assert.equal(uploads(calls).length, 0);
 });
 
@@ -109,12 +109,12 @@ test('a format the twin does not make is refused, and nothing is created', async
   console.error = (...args) => logged.push(args.join(' '));
   let tex;
   try {
-    tex = texture(ctx, PIXELS, { format: 'r8unorm' });
+    tex = texture(ctx, PIXELS, { format: 'rgb10a2unorm' });   // not a channel name the twin takes
   } finally {
     console.error = original;
   }
   assert.equal(tex, null);
-  assert.match(logged[0], /r8unorm/);
+  assert.match(logged[0], /rgb10a2unorm/);
   assert.equal(make(calls).length, 0);
 });
 

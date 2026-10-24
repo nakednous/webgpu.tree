@@ -14,17 +14,19 @@ state, and readback is asynchronous by construction.
 > `drawInstanced` with the six declared transforms, `texture`, `upload`; picking: `readPixel`, `pick`;
 > the space mappings: `mapLocation`, `mapDirection`, `unproject`, `fragCoord`, `pixelRatio`,
 > `mat4Viewport`; and the line pipe with the HUD: `axes`, `grid`, `hermite`, `viewFrustum`,
-> `trackPath`, `helmRig`, `handleLocus`, `beginHUD`, `endHUD`, `cross`, `bullsEye`; and `pane`, with
-> the frustum's textured faces and the helm rig's HUD form and `identify` labels. `twin-design.md` is
-> the differences table against `webgl.tree` and states the rest of the surface — `cubemap`, mips and
-> the 3D / array texture shapes — each as its own stage.
+> `trackPath`, `helmRig`, `handleLocus`, `beginHUD`, `endHUD`, `cross`, `bullsEye`; `pane`, with the
+> frustum's textured faces and the helm rig's HUD form and `identify` labels; and the texture shapes —
+> `cubemap`, mips, and the 3D / 2D-array sources. The twin's surface is the reference's; what the
+> reference does not have — a cube / layered render target (§7 #104) and compute (§7 #85) — is not on
+> it either. `twin-design.md` is the differences table against `webgl.tree`.
 >
 > Pins `@nakednous/tree` ^0.0.34, `@nakednous/host` ^0.0.12, `@nakednous/idiom` ^0.0.1;
-> `webgpu-utils` ^2.1.1 is a peer. Gates: `npm test` (106 cases, against the recording device in
+> `webgpu-utils` ^2.1.1 is a peer. Gates: `npm test` (113 cases, against the recording device in
 > `test/gpu.js`) and `npm run build`. The browser is the maintainer's gate: the geometry path, the
 > uploaded texture, a scene's colour-id picks, the mappings, a gizmo scene with its HUD, a textured
-> pane and the helm rig's HUD composite were read back offscreen in this machine's Chromium (adapter
-> `google/swiftshader`, `rgba8unorm`) — the twin's `testing/` pages are the record.
+> pane, the helm rig's HUD composite, a mip level, a volume's slices, an array's layers and a cube
+> map's six faces were read back offscreen in this machine's Chromium (adapter `google/swiftshader`,
+> `rgba8unorm`) — the twin's `testing/` pages are the record.
 
 ---
 
@@ -115,11 +117,19 @@ upload(ctx, tex, video)                                            // refresh ea
 
 One orientation, WebGPU's: **top-down, nothing flipped anywhere**. A decoded image's rows already run
 that way and are copied as they are; a pixel source is taken as given — row 0 at the texture's top.
-A pixel upload's rows are padded to 256 bytes, the copy alignment a readback's rows take. The formats
-are the targets' own — `rgba8unorm` (the default), `rgba16float`, `rgba32float`; a `Float32Array`
-defaults to the 32F one. Sampling an `rgba32float` texture linearly needs the adapter's
-`float32-filterable` feature (request it through `init`'s `deviceOptions`), or a nearest sampler;
-the twin's default sampler is linear and clamps. Sampling state is a sampler's, not a texture's.
+A pixel upload's rows are padded to 256 bytes, the copy alignment a readback's rows take, and a
+**volume or an array is uploaded a slice at a time** (`depth` → a `3d` texture, `layers` → a `2d`
+array, slice 0 first). **`mips: true`** creates the chain and generates it after the level-0 upload —
+WebGPU has no `generateMipmap` call, so the chain is the peer's render pass, a layer at a time. A 3d
+texture takes no chain, and says so. **`cubemap(ctx, faces, opts)`** takes six sources in the cube's
+face order (`+X −X +Y −Y +Z −Z`) into one texture with a cube view, each face unflipped, mips
+optional.
+
+The formats are the targets' three — `rgba8unorm` (the default), `rgba16float`, `rgba32float` — and
+the channel names a volume or a mask needs (`r8unorm`, `rg8unorm`, `r16float`, `r32float`, …); a
+`Float32Array` defaults to the 32F one. Sampling an `rgba32float` texture linearly needs the adapter's
+`float32-filterable` feature (request it through `init`'s `deviceOptions`), or a nearest sampler; the
+twin's default sampler is linear and clamps. Sampling state is a sampler's, not a texture's.
 `dispose(ctx)` frees every texture the twin made.
 
 ## Picking

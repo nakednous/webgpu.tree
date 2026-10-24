@@ -111,11 +111,13 @@ export function createDevice(opts) {
   };
 
   const createTexture = (descriptor) => {
-    const [width, height] = sizeOf(descriptor.size);
+    const [width, height, layers] = sizeOf(descriptor.size);
     const texture = {
       id: ++seq,
       width,
       height,
+      depthOrArrayLayers: layers || 1,
+      dimension: descriptor.dimension || '2d',
       format: descriptor.format,
       usage: descriptor.usage,
       sampleCount: descriptor.sampleCount || 1,
@@ -127,16 +129,19 @@ export function createDevice(opts) {
       },
       createView(viewDescriptor) {
         const view = { id: ++seq, texture, descriptor: viewDescriptor || null };
-        record('texture.createView', view.id, texture.id);
+        record('texture.createView', view.id, texture.id, viewDescriptor || null);
         return view;
       },
     };
     record('createTexture', texture.id, {
       width,
       height,
+      layers: layers || 1,
+      dimension: descriptor.dimension || '2d',
       format: descriptor.format,
       usage: descriptor.usage,
       sampleCount: descriptor.sampleCount || 1,
+      mipLevelCount: descriptor.mipLevelCount || 1,
     });
     return texture;
   };
@@ -161,14 +166,17 @@ export function createDevice(opts) {
       const bytes = data instanceof ArrayBuffer
         ? Array.from(new Uint8Array(data))
         : (data && data.buffer ? Array.from(new Uint8Array(data.buffer, data.byteOffset, data.byteLength)) : null);
-      record('queue.writeTexture', destination && destination.texture && destination.texture.id, layout && layout.bytesPerRow, size, bytes);
+      record('queue.writeTexture', destination && destination.texture && destination.texture.id, layout && layout.bytesPerRow, size, bytes, {
+        mipLevel: destination && destination.mipLevel || 0,
+        origin: destination && destination.origin ? [destination.origin.x, destination.origin.y, destination.origin.z || 0] : null,
+      });
     },
     copyExternalImageToTexture(source, destination, size) {
       const from = source && source.source;
       record('queue.copyExternalImageToTexture', destination && destination.texture && destination.texture.id, size, {
         width: from && (from.videoWidth || from.naturalWidth || from.width),
         height: from && (from.videoHeight || from.naturalHeight || from.height),
-        origin: source && source.origin ? [source.origin.x, source.origin.y] : null,
+        origin: destination && destination.origin ? [destination.origin.x, destination.origin.y, destination.origin.z || 0] : null,
         flipY: !!(source && source.flipY),
       });
     },
@@ -265,7 +273,15 @@ export function createDevice(opts) {
       return group;
     },
     createRenderPipeline(descriptor) {
-      const pipeline = { id: ++seq, descriptor };
+      const pipeline = {
+        id: ++seq,
+        descriptor,
+        getBindGroupLayout(index) {
+          const layout = { id: ++seq, fromPipeline: pipeline.id, index };
+          record('pipeline.getBindGroupLayout', layout.id, pipeline.id, index);
+          return layout;
+        },
+      };
       record('createRenderPipeline', pipeline.id, descriptor);
       return pipeline;
     },

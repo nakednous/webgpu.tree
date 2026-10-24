@@ -8,10 +8,12 @@
 > `pipe`, `releasePipe`, `state`, `setCamera`, `endFrame`), the figure's own path (`bind`, `buffer`,
 > `updateBuffer`, `draw`, `drawInstanced` with the six declared transforms, `texture`, `upload`),
 > picking (`readPixel`, `pick`), the space mappings (`mapLocation`, `mapDirection`, `unproject`,
-> `fragCoord`, `pixelRatio`, `mat4Viewport`) and the line pipe with the HUD (`axes`, `grid`, `hermite`,
-> `viewFrustum`, `trackPath`, `helmRig`, `handleLocus`, `beginHUD`, `endHUD`, `cross`, `bullsEye`), and
-> `pane` with the frustum's textured faces and the helm rig's HUD form with its `identify` labels. The
-> rest of the table's surface is stated, each verb its own stage. Names inherit the bridge's.
+> `fragCoord`, `pixelRatio`, `mat4Viewport`), the line pipe with the HUD (`axes`, `grid`, `hermite`,
+> `viewFrustum`, `trackPath`, `helmRig`, `handleLocus`, `beginHUD`, `endHUD`, `cross`, `bullsEye`),
+> `pane` with the frustum's textured faces and the helm rig's HUD form with its `identify` labels, and
+> the texture shapes (`cubemap`, mips, the 3D / 2D-array sources). **The surface is the reference's.**
+> What the reference does not have — a cube / layered render target (§7 #104) and compute (§7 #85) — is
+> not on it either. Names inherit the bridge's.
 
 ---
 
@@ -50,7 +52,7 @@ blend and depth state." The twin realizes those two sentences.
 | depth compare | `LESS`, the platform's, stated once at `createCanvas`; a pass that writes the far plane's depth raises it to `LEQUAL` for itself | a pipeline field: `'less'` unless `opts` names another, `'less-equal'` for a pinned backdrop. WebGPU has **no default to inherit** — the field is required as soon as depth writes are on — so the twin states it at `program`, the same word the WebGL twin states at the context |
 | `readPixel` | PBO + fence, self-polling raf | `copyTextureToBuffer` into a `MAP_READ` buffer (`bytesPerRow` padded to 256), `mapAsync`; natively a `Promise` — the reason the surface is async on both. A copy's target is a texture: the canvas is a presentation surface, so a read takes a **target**, in its own pixels, row 0 at the top. A read is ordered after the frame's draws, so it **ends the frame** — one submit per read |
 | `pick` | 1×1 target + `mat4Pick`, `paint(id)` → `uColor` | the same on the twin's `readPixel`: a cached 1 × 1 `rgba8unorm` + `depth24plus` target, the projection narrowed onto the query pixel, `paint(id)` through `setUniforms` (one arena slot per object), the camera/state/target/program restored. Query pixels are **logical screen pixels**. The id program is `opts.program` — the figure's own for a mesh, since the pipeline bakes its vertex state — and the default flat one serves the covering quad |
-| `upload` | `setTextureFromElement`, `flipY` on for images | `copyExternalImageToTexture`, no flip — WebGPU's texture space is **top-down**, the same as decoded images; raw pixels through `writeTexture` with rows padded to 256 bytes, as a readback's are |
+| `upload` | `setTextureFromElement`, `flipY` on for images; `generateMipmap` | `copyExternalImageToTexture`, no flip — WebGPU's texture space is **top-down**, the same as decoded images; raw pixels through `writeTexture` with rows padded to 256 bytes, as a readback's are. A volume (`depth`) or an array (`layers`) uploads a slice at a time; `mips: true` chains through the peer's render pass (WebGPU has no `generateMipmap`); a 3d texture takes no chain. `cubemap`'s six faces are a 6-layer texture's layers, its view a cube's |
 | texture orientation | one orientation, GL's bottom-up: images flipped at upload, targets untouched | one orientation, WebGPU's top-down: nothing flipped, targets already top-down. The rule "no flip switch anywhere" holds on both; the *direction* differs, and the default pane UVs follow (`p0` → `(0, 0)`) |
 | `fullscreen` `vTexCoord` | bottom-up (`v = 0` at the bottom) | top-down (`v = 0` at the top) — coincidentally p5's `filter` convention. A filter that uses `vTexCoord.y` spatially reads differently on the two bridges; one that only samples `uSource` is unaffected |
 | `ndcZMin` | `WEBGL` (−1) | `WEBGPU` (0): every `cameraProj`, `mapLocation`, `mat4Pick`, `frustumCorners` call takes it; nothing else changes |
@@ -189,3 +191,14 @@ notebook column may use; the bridge does not).
   `110 0 0` under a red tint and `0 110 0` under a green one, with the frame outside them black.
 - *`identify`.* The rig's six lanes (`L0 L1 L2` twice — the translation arrows and the rotation rings)
   reached the host's label layer as DOM labels, a world anchor each.
+
+**Read 2026-10-24, with the texture shapes built.**
+
+- *Mips.* A 4 × 4 texture whose 2 × 2 quadrants are uniform, `mips: true`, sampled at level 1 read
+  `254 1 1`, `1 255 1`, `1 1 255`, `255 255 255` at the level's four texels — the chain is real.
+- *Volumes and arrays.* A 2 × 2 × 2 volume of red and green slices read `255 0 0` at z 0.25 and
+  `0 255 0` at z 0.75; a 2 × 2 × 2 array of blue and white layers read `0 0 255` and `255 255 255` —
+  the dimensions and the views are the shaders' own. A volume asked for `mips` refused the chain and
+  said so, its level count still 1.
+- *The cube.* Six 1 × 1 faces read by direction: +X `255 0 0`, −X `0 255 0`, +Y `0 0 255`, −Y
+  `255 255 0`, +Z `0 255 255`, −Z `255 0 255` — the face order the sources went in by.

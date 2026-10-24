@@ -107,11 +107,11 @@ export function formatOf(spec) {
   return spec.float ? 'rgba16float' : 'rgba8unorm';
 }
 
-/** Bytes per pixel of the formats the bridge makes. @ignore */
+/** Bytes per pixel of a texture format, from its channels and their width. @ignore */
 export function bytesPerPixel(format) {
-  const bits = /rgba(8|16|32)/.exec(format || '');
-  if (bits) return Number(bits[1]) / 2;
-  return 4;   // rgba8unorm, bgra8unorm and their kin
+  const m = /^(rgba|bgra|rg|r)(8|16|32)(unorm|snorm|float|uint|sint)?$/.exec(format || '');
+  if (m) return (m[1] === 'r' ? 1 : m[1] === 'rg' ? 2 : 4) * Number(m[2]) / 8;
+  return 4;   // rgba8unorm and its kin
 }
 
 /** Log a message once per context record. @ignore */
@@ -488,28 +488,45 @@ export function createBackend(opts) {
       const d = descriptor || {};
       const width = d.width || 1;
       const height = d.height || 1;
+      const layers = d.depthOrArrayLayers || 1;
+      const dimension = d.dimension || '2d';
       const textureFormat = d.format ? formatOf({ format: d.format }) : 'rgba8unorm';
+      const size = dimension === '3d' || layers > 1 ? [width, height, layers] : [width, height];
       const gpu = device.createTexture({
-        size: [width, height],
+        size,
+        dimension,
         format: textureFormat,
         usage: d.usage || (TEXTURE_USAGE.TEXTURE_BINDING | TEXTURE_USAGE.COPY_DST | TEXTURE_USAGE.RENDER_ATTACHMENT | TEXTURE_USAGE.COPY_SRC),
         mipLevelCount: d.mips || 1,
         label: d.label,
       });
-      const texture = { id: ++seq, gpu, view: gpu.createView(), width, height, format: textureFormat };
+      // the mip chain's generator reads the platform's own textureBindingViewDimension
+      const view = d.viewDimension ? gpu.createView({ dimension: d.viewDimension }) : gpu.createView();
+      const texture = { id: ++seq, gpu, view, width, height, layers, dimension, format: textureFormat };
       resources.textures.add(gpu);
       return texture;
     },
 
-    uploadTexture(ctx, texture, source) {
+    uploadTexture(ctx, texture, source, origin) {
       if (!texture || !texture.gpu) return;
+      const z = origin && origin.z ? origin.z : 0;
+      const mipLevel = origin && origin.mipLevel ? origin.mipLevel : 0;
       if (source && (ArrayBuffer.isView(source) || source instanceof ArrayBuffer)) {
         // rows padded to 256 like a read's, row 0 to row 0 — no flip
         const layout = paddedRows(source, texture.width, texture.height, bytesPerPixel(texture.format));
-        device.queue.writeTexture({ texture: texture.gpu }, layout.data, { bytesPerRow: layout.bytesPerRow, rowsPerImage: texture.height }, [texture.width, texture.height]);
+        device.queue.writeTexture(
+          { texture: texture.gpu, mipLevel, origin: { x: 0, y: 0, z } },
+          layout.data,
+          { bytesPerRow: layout.bytesPerRow, rowsPerImage: texture.height },
+          [texture.width, texture.height, 1],
+        );
       } else {
         // no flip: WebGPU's texture space is top-down, as a decoded image's rows are
-        device.queue.copyExternalImageToTexture({ source }, { texture: texture.gpu }, [texture.width, texture.height]);
+        device.queue.copyExternalImageToTexture(
+          { source },
+          { texture: texture.gpu, mipLevel, origin: { x: 0, y: 0, z } },
+          [texture.width, texture.height, 1],
+        );
       }
     },
 
