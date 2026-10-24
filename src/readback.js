@@ -11,7 +11,10 @@
  * The copy's rows are the spec's, not the texture's: `bytesPerRow` must be a
  * multiple of 256, a one-pixel pick included, so a 1 × 1 read copies a 256-byte
  * row and decodes four bytes at offset 0. `bytesPerRow` and `tightRows` are pure
- * functions of the size, and are what the padding is pinned by.
+ * functions of the size, and are what the padding is pinned by. The upload side
+ * shares that alignment: `paddedRows` is what a pixel upload hands
+ * `writeTexture`, so an upload's rows are padded the same way — and, like the
+ * read, they run top-down with no flip.
  *
  * ```
  * readPixels(ctx, target, 0, 0, 1, 1)          // → Promise<Uint8Array> (4 bytes)
@@ -41,7 +44,49 @@ export const COPY_ALIGNMENT = 256;
  * bytesPerRow(65)   // 512
  */
 export function bytesPerRow(width) {
-  return Math.ceil((width * 4) / COPY_ALIGNMENT) * COPY_ALIGNMENT;
+  return rowBytes(width, 4);
+}
+
+/**
+ * The `bytesPerRow` a copy of `width` pixels of `bytesPerPixel` bytes takes: the
+ * row padded up to the copy alignment.
+ * @param {number} width  The copy's width in pixels.
+ * @param {number} [bytesPerPixel]  Bytes per pixel, default 4 (RGBA8).
+ * @returns {number} Bytes per row, 256-multiple.
+ * @example
+ * rowBytes(64, 4)    // 256
+ * rowBytes(3, 16)    // 256
+ */
+export function rowBytes(width, bytesPerPixel) {
+  return Math.ceil((width * (bytesPerPixel || 4)) / COPY_ALIGNMENT) * COPY_ALIGNMENT;
+}
+
+/**
+ * Pixel data as `writeTexture` wants it: rows at the copy alignment, and no flip
+ * anywhere — row 0 of the source is row 0 of the texture, its top, because
+ * WebGPU's texture space is top-down as a decoded image's rows are. A row that is
+ * already a 256-byte multiple is passed through; otherwise the rows are packed
+ * into a padded copy.
+ * @param {ArrayBuffer|ArrayBufferView} source  The pixels, rows tight.
+ * @param {number} width  The image's width in pixels.
+ * @param {number} height  The image's height in rows.
+ * @param {number} [bytesPerPixel]  Bytes per pixel, default 4 (RGBA8).
+ * @returns {{ data:Uint8Array, bytesPerRow:number }} What `writeTexture` takes.
+ * @example
+ * paddedRows(new Uint8Array(2 * 2 * 4), 2, 2).bytesPerRow   // 256
+ */
+export function paddedRows(source, width, height, bytesPerPixel) {
+  const bpp = bytesPerPixel || 4;
+  const row = width * bpp;
+  const stride = rowBytes(width, bpp);
+  const bytes = source instanceof ArrayBuffer
+    ? new Uint8Array(source)
+    : new Uint8Array(source.buffer, source.byteOffset, source.byteLength);
+  if (stride === row) return { data: bytes, bytesPerRow: row };
+  const rows = height || 1;
+  const out = new Uint8Array(stride * rows);
+  for (let y = 0; y < rows; y++) out.set(bytes.subarray(y * row, y * row + row), y * stride);
+  return { data: out, bytesPerRow: stride };
 }
 
 /**

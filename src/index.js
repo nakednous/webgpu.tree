@@ -19,6 +19,20 @@
  * endFrame(ctx)        // from the host's afterFrame, or here
  * ```
  *
+ * A figure with geometry draws it the way a webgl.tree hero does — `buffer` a
+ * mesh, `bind` a program, `draw` it under a model matrix — with two WebGPU
+ * readings: a program's vertex layout is what its pipeline bakes, so it is
+ * stated at `program` (`{ buffers: geometry.bufferLayouts }`), and the shading
+ * language is WGSL.
+ *
+ * ```
+ * const geo = buffer(ctx, mesh)
+ * const prog = program(ctx, wgsl, { buffers: geo.bufferLayouts })
+ * setCamera(ctx, cam)
+ * bind(ctx, prog, { uColor: [1, 0.5, 0.2, 1] })
+ * draw(ctx, geo, M)
+ * ```
+ *
  * What the twin names in a shader, and nothing else: its geometry's
  * `aPosition` `aTexCoord`; the six declared transforms (`uModelMatrix` …
  * `uNormalMatrix`) where a program declares them; a pass's input, bound to every
@@ -26,16 +40,18 @@
  * `uTexelSize`, only where declared. `image`'s flat program names
  * `uModelViewProjectionMatrix`, `uColor`, `uUseTexture` and `uTexture`.
  *
- * Not yet on this surface — each its own stage: the raw verbs (`bind`, `draw`,
- * `buffer`, `texture`, `upload`), picking, the space mappings, gizmos and the
- * HUD. The backend implements their members; the twin publishes a verb when the
- * figure corpus asks for it, as §7 #110's ruling does for `beginPass`.
+ * Not yet on this surface — each its own stage: picking, the space mappings,
+ * gizmos and the HUD, `cubemap`, mips and the 3D / array texture shapes. The
+ * backend implements their members; the twin publishes a verb when the figure
+ * corpus asks for it, as §7 #110's ruling does for `beginPass`.
  */
 
 'use strict';
 
 export { init, dispose, endFrame, viewOf } from './context.js';
 export { setCamera } from './camera.js';
+export { bind, buffer, updateBuffer, draw, drawInstanced } from './draw.js';
+export { texture, upload } from './texture.js';
 export { renderTarget, SCREEN } from '@nakednous/idiom';
 export {
   fullscreen, filter, image, pipe, releasePipe, state,

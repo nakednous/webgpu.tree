@@ -3,10 +3,12 @@
 > Target: `webgpu.tree` 0.0.1 on `@nakednous/tree` ^0.0.34, `@nakednous/host` ^0.0.12,
 > `@nakednous/idiom` ^0.0.1, and `webgpu-utils` ^2.1.1 as a peer. The reference surface is
 > `webgl.tree`'s (`bridge-design.md`); this doc is the **differences table** against it and nothing
-> more. Status: **the core is built** (2026-10-23) — `init`, the backend behind `idiom`'s interface
-> and the composites over it: `renderTarget`, `program`, `fullscreen`, `filter`, `image`, `pipe`,
-> `releasePipe`, `state`, `setCamera`, `endFrame`. The rest of the table's surface is stated, each
-> verb its own stage. Names inherit the bridge's.
+> more. Status: **the core, the draw policy and the raw verbs are built** (2026-10-23/24) —
+> `init`, the backend behind `idiom`'s interface, the composites over it (`renderTarget`, `program`,
+> `fullscreen`, `filter`, `image`, `pipe`, `releasePipe`, `state`, `setCamera`, `endFrame`), and the
+> figure's own path: `bind`, `buffer`, `updateBuffer`, `draw`, `drawInstanced` with the six declared
+> transforms, `texture`, `upload`. The rest of the table's surface is stated, each verb its own stage.
+> Names inherit the bridge's.
 
 ---
 
@@ -31,12 +33,12 @@ blend and depth state." The twin realizes those two sentences.
 | surface | `webgl.tree` (WebGL2 · twgl) | `webgpu.tree` (WebGPU · webgpu-utils) |
 |---|---|---|
 | context | `gl` from `canvas.getContext('webgl2')` | `{ device, context, format }` from `init(canvas)`: adapter → device, canvas context configured to the preferred format |
-| `program(vert, frag)` | twgl's `createProgramInfo`, not re-wrapped | **the twin's**: `program(ctx, wgsl, opts)` builds a render pipeline — one WGSL module with `vs` / `fs` entry points, vertex layout from the module, `opts` baking topology, cull, blend, depth. There is no thin-layer verb to leave un-wrapped: a pipeline is more than a program |
+| `program(vert, frag)` | twgl's `createProgramInfo`, not re-wrapped | **the twin's**: `program(ctx, wgsl, opts)` builds a render pipeline — one WGSL module with `vs` / `fs` entry points, the final vertex layout `opts.buffers` states (the geometry's own; the covering quad's by default), and the render state `setState` records baked by the pipeline a draw selects. There is no thin-layer verb to leave un-wrapped: a pipeline is more than a program |
 | `program(frag)` | fixed pass-through vertex stage | the same, as a WGSL vertex entry the twin supplies |
 | `bind(prog, uniforms)` | `useProgram` + `setUniforms` per name | `makeShaderDataDefinitions(wgsl)` once per pipeline; `makeStructuredView` per uniform struct; `bind` writes the named fields into the view and `queue.writeBuffer`s the struct; bind groups cached per pipeline. Bare names still resolve one field each |
 | declared transforms | read off `programInfo.uniformSetters` | read off the definitions: any uniform struct field named `uModelViewMatrix` … receives its value; the fixed set is the same (apex pending #10) |
-| geometry | `createBufferInfoFromArrays` | `createBuffersAndAttributesFromArrays` (webgpu-utils) from the same `arrays` shape — the core's gizmo arrays upload unchanged |
-| `draw(obj, M)` | `drawBufferInfo` | `pass.setVertexBuffer` / `setIndexBuffer` / `draw` / `drawIndexed` on the current render pass |
+| geometry | `createBufferInfoFromArrays` | `createBuffersAndAttributesFromArrays` (webgpu-utils) from the same `arrays` shape — the core's gizmo arrays upload unchanged. The geometry's layout is that shape's (`buffer`'s `bufferLayouts`: attributes in key order, interleaved), and it is what the program's `opts.buffers` states to the pipeline |
+| `draw(obj, M)` | `drawBufferInfo` | the six declared transforms uploaded first, through `setUniforms`, then `pass.setVertexBuffer` / `setIndexBuffer` / `draw` / `drawIndexed` on the current render pass. There is no attribute settling: the vertex state is the pipeline's, fixed when it is made |
 | `drawInstanced` | `drawBufferInfo(…, instanceCount)` | native `draw(…, n)` |
 | `renderTarget` | `createFramebufferInfo`, `drawBuffers` for MRT | textures with `RENDER_ATTACHMENT | TEXTURE_BINDING`; a depth texture for `depth` / `depthTexture`; MRT is the pass descriptor's `colorAttachments` list, fragment `@location(i)` in list order |
 | `beginPass` · `screen` | `bindFramebufferInfo(gl, fbo | null)` — a flat call | **the twin's** `beginPass(ctx, fbo | SCREEN)`: ends the current render pass if any, begins one on a frame-scoped command encoder; the encoder is submitted at frame end (`endFrame(ctx)`, called by the host loop hook or by the application). The flat-call model survives; the block is internal |
@@ -45,7 +47,7 @@ blend and depth state." The twin realizes those two sentences.
 | depth compare | `LESS`, the platform's, stated once at `createCanvas`; a pass that writes the far plane's depth raises it to `LEQUAL` for itself | a pipeline field: `'less'` unless `opts` names another, `'less-equal'` for a pinned backdrop. WebGPU has **no default to inherit** — the field is required as soon as depth writes are on — so the twin states it at `program`, the same word the WebGL twin states at the context |
 | `readPixel` | PBO + fence, self-polling raf | `copyTextureToBuffer` into a `MAP_READ` buffer (`bytesPerRow` padded to 256), `mapAsync`; natively a `Promise` — the reason the surface is async on both |
 | `pick` | 1×1 target + `mat4Pick`, `paint(id)` → `uColor` | identical, on the twin's `readPixel` |
-| `upload` | `setTextureFromElement`, `flipY` on for images | `copyExternalImageToTexture`, no flip — WebGPU's texture space is **top-down**, the same as decoded images |
+| `upload` | `setTextureFromElement`, `flipY` on for images | `copyExternalImageToTexture`, no flip — WebGPU's texture space is **top-down**, the same as decoded images; raw pixels through `writeTexture` with rows padded to 256 bytes, as a readback's are |
 | texture orientation | one orientation, GL's bottom-up: images flipped at upload, targets untouched | one orientation, WebGPU's top-down: nothing flipped, targets already top-down. The rule "no flip switch anywhere" holds on both; the *direction* differs, and the default pane UVs follow (`p0` → `(0, 0)`) |
 | `fullscreen` `vTexCoord` | bottom-up (`v = 0` at the bottom) | top-down (`v = 0` at the top) — coincidentally p5's `filter` convention. A filter that uses `vTexCoord.y` spatially reads differently on the two bridges; one that only samples `uSource` is unaffected |
 | `ndcZMin` | `WEBGL` (−1) | `WEBGPU` (0): every `cameraProj`, `mapLocation`, `mat4Pick`, `frustumCorners` call takes it; nothing else changes |
@@ -110,3 +112,24 @@ notebook column may use; the bridge does not).
   `mapAsync` after the first canvas presentation fails with *"A valid external Instance reference no
   longer exists"*, so the figure's readbacks are taken offscreen and the on-screen look is the
   maintainer's gate.
+
+**Read 2026-10-24, with the draw policy and the raw verbs built.**
+
+- *The vertex layout is the pipeline's.* `program(ctx, wgsl, { buffers })` states it, and
+  `buffer(ctx, arrays)` answers the arrays shape's own (`geometry.bufferLayouts` — attributes in key
+  order, one interleaved vertex buffer); a mesh program is made from the geometry's record, so the
+  two are one statement, and the pass programs keep the quad's. A figure's WGSL therefore declares
+  the locations the shape fixes — a mesh's `position`, `normal`, `texcoord` are 0, 1, 2 — and a
+  layout that does not agree fails the pipeline at the first draw instead of reading a stale
+  attribute. The geometry path was read back in Chromium: a quad through `buffer`, its WGSL through
+  `program` with the geometry's layout, `draw` under a camera state and a model matrix, the four
+  texel centres of its 2 × 2 texture answering `247 4 4`, `4 255 4`, `4 4 255` and `255 255 255`,
+  the outside the clear colour, and a translated `M` moving the sampled cell the way the camera's
+  projection says.
+- *Row alignment, the upload side.* `paddedRows` is the readback's alignment used for
+  `writeTexture`: a 2 × 2 RGBA8 source writes 256-byte rows with the padding zeroed, and a 64-pixel
+  row passes through tight. `test/texture.test.js` pins the bytes.
+- *Orientation.* The uploaded texture read back through `image` has red and green on the target's top
+  row and blue and white on its bottom — the source's row 0 at the texture's top, no flip anywhere —
+  and the geometry path samples the same rows through its own uvs.
+- *Availability* stands as read above; the canvas is still the maintainer's look.

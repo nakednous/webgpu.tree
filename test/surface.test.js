@@ -79,6 +79,8 @@ test('every member is a function of the backend, and the twenty-two are the inte
 test('the package exports the bridge surface', () => {
   const expected = [
     'init', 'dispose', 'endFrame', 'viewOf', 'setCamera',
+    'bind', 'buffer', 'updateBuffer', 'draw', 'drawInstanced',
+    'texture', 'upload',
     'renderTarget', 'SCREEN', 'program', 'fullscreen', 'filter', 'image', 'pipe', 'releasePipe', 'state',
     'RED', 'GREEN', 'BLUE', 'ALPHA', 'RGB', 'NORMAL', 'ADD', 'MULTIPLY',
     'tree', 'host',

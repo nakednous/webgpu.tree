@@ -56,7 +56,7 @@ import { declare } from './uniforms.js';
 import { BASE_STATE, createPipeline, pipelineKey, resolveState } from './pipeline.js';
 import { QUAD_LAYOUT, FLAT, entriesOf, sourceOf } from './programs.js';
 import { createArena } from './arena.js';
-import { readPixels as readback } from './readback.js';
+import { readPixels as readback, paddedRows } from './readback.js';
 import {
   bindTarget as bindFrameTarget,
   clearTarget,
@@ -445,12 +445,12 @@ export function createBackend(opts) {
       return ctx.host && ctx.host.view ? ctx.host.view : ctx.view;
     },
 
-    draw(ctx, prog, geometry) {
-      return drawProgram(ctx, prog, geometry, 1);
+    draw(ctx, prog, geometry, opts) {
+      return drawProgram(ctx, prog, geometry, 1, opts);
     },
 
-    drawInstanced(ctx, prog, geometry, count) {
-      return drawProgram(ctx, prog, geometry, count || 1);
+    drawInstanced(ctx, prog, geometry, count, opts) {
+      return drawProgram(ctx, prog, geometry, count || 1, opts);
     },
 
     // ---------------------------------------------------------------- buffers
@@ -502,8 +502,9 @@ export function createBackend(opts) {
     uploadTexture(ctx, texture, source) {
       if (!texture || !texture.gpu) return;
       if (source && (ArrayBuffer.isView(source) || source instanceof ArrayBuffer)) {
-        const stride = Math.ceil((texture.width * bytesPerPixel(texture.format)) / 256) * 256;
-        device.queue.writeTexture({ texture: texture.gpu }, source, { bytesPerRow: stride, rowsPerImage: texture.height }, [texture.width, texture.height]);
+        // rows padded to 256 like a read's, row 0 to row 0 — no flip
+        const layout = paddedRows(source, texture.width, texture.height, bytesPerPixel(texture.format));
+        device.queue.writeTexture({ texture: texture.gpu }, layout.data, { bytesPerRow: layout.bytesPerRow, rowsPerImage: texture.height }, [texture.width, texture.height]);
       } else {
         // no flip: WebGPU's texture space is top-down, as a decoded image's rows are
         device.queue.copyExternalImageToTexture({ source }, { texture: texture.gpu }, [texture.width, texture.height]);
@@ -556,7 +557,7 @@ export function createBackend(opts) {
    * arena, bind the group and draw.
    * @ignore
    */
-  function drawProgram(ctx, prog, geometry, count) {
+  function drawProgram(ctx, prog, geometry, count, opts) {
     if (!prog || prog.failed) return null;
     const f = frameOf(ctx);
     const pass = ensurePass(ctx);
@@ -586,8 +587,11 @@ export function createBackend(opts) {
     pass.setBindGroup(0, bindings.group, bindings.offsets);
     if (geometry) {
       setVertexAndIndexBuffers(pass, geometry);
-      if (geometry.indexBuffer) pass.drawIndexed(geometry.numElements, count);
-      else pass.draw(geometry.numElements, count);
+      const o = opts || {};
+      const elements = o.count === undefined ? geometry.numElements : o.count;
+      const first = o.offset || 0;
+      if (geometry.indexBuffer) pass.drawIndexed(elements, count, first);
+      else pass.draw(elements, count, first);
     }
     ctx.prog = prog;
     return prog;

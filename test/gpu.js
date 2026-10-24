@@ -150,10 +150,19 @@ export function createDevice(opts) {
       record('queue.writeBuffer', buffer && buffer.id, offset, length, bytes);
     },
     writeTexture(destination, data, layout, size) {
-      record('queue.writeTexture', destination && destination.texture && destination.texture.id, layout && layout.bytesPerRow, size);
+      const bytes = data instanceof ArrayBuffer
+        ? Array.from(new Uint8Array(data))
+        : (data && data.buffer ? Array.from(new Uint8Array(data.buffer, data.byteOffset, data.byteLength)) : null);
+      record('queue.writeTexture', destination && destination.texture && destination.texture.id, layout && layout.bytesPerRow, size, bytes);
     },
     copyExternalImageToTexture(source, destination, size) {
-      record('queue.copyExternalImageToTexture', destination && destination.texture && destination.texture.id, size);
+      const from = source && source.source;
+      record('queue.copyExternalImageToTexture', destination && destination.texture && destination.texture.id, size, {
+        width: from && (from.videoWidth || from.naturalWidth || from.width),
+        height: from && (from.videoHeight || from.naturalHeight || from.height),
+        origin: source && source.origin ? [source.origin.x, source.origin.y] : null,
+        flipY: !!(source && source.flipY),
+      });
     },
     submit(commandBuffers) {
       world.submitted += commandBuffers.length;
@@ -172,16 +181,16 @@ export function createDevice(opts) {
         record('pass.setBindGroup', index, group && group.id, offsets ? Array.from(offsets) : undefined);
       },
       setVertexBuffer(slot, buffer) {
-        record('pass.setVertexBuffer', buffer && buffer.id);
+        record('pass.setVertexBuffer', slot, buffer && buffer.id);
       },
       setIndexBuffer(buffer, format) {
         record('pass.setIndexBuffer', buffer && buffer.id, format);
       },
-      draw(count, instances) {
-        record('pass.draw', count, instances);
+      draw(count, instances, first) {
+        record('pass.draw', count, instances, first);
       },
-      drawIndexed(count, instances) {
-        record('pass.drawIndexed', count, instances);
+      drawIndexed(count, instances, first) {
+        record('pass.drawIndexed', count, instances, first);
       },
       setViewport(x, y, width, height, minDepth, maxDepth) {
         record('pass.setViewport', x, y, width, height, minDepth, maxDepth);
