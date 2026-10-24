@@ -11,16 +11,18 @@ state, and readback is asynchronous by construction.
 > twenty-two members and the four conventions — with the composites over it: `renderTarget`, `SCREEN`,
 > `program`, `fullscreen`, `filter`, `image`, `pipe`, `releasePipe`, `state`, `setCamera`, `endFrame`,
 > `viewOf`, `dispose`; the figure's own path: `bind`, `buffer`, `updateBuffer`, `draw`,
-> `drawInstanced` with the six declared transforms, `texture`, `upload`; and picking: `readPixel`,
-> `pick`. `twin-design.md` is the differences table against `webgl.tree` and states the rest of the
-> surface — the space mappings, gizmos and the HUD, `cubemap` and the mip / 3D / array texture
-> shapes — each as its own stage.
+> `drawInstanced` with the six declared transforms, `texture`, `upload`; picking: `readPixel`, `pick`;
+> and the space mappings: `mapLocation`, `mapDirection`, `unproject`, `fragCoord`, `pixelRatio`,
+> `mat4Viewport`. `twin-design.md` is the differences table against `webgl.tree` and states the rest of
+> the surface — gizmos and the HUD, `cubemap` and the mip / 3D / array texture shapes — each as its own
+> stage.
 >
 > Pins `@nakednous/tree` ^0.0.34, `@nakednous/host` ^0.0.12, `@nakednous/idiom` ^0.0.1;
-> `webgpu-utils` ^2.1.1 is a peer. Gates: `npm test` (79 cases, against the recording device in
+> `webgpu-utils` ^2.1.1 is a peer. Gates: `npm test` (87 cases, against the recording device in
 > `test/gpu.js`) and `npm run build`. The browser is the maintainer's gate: the geometry path, the
-> uploaded texture and a scene's colour-id picks were read back offscreen in this machine's Chromium
-> (adapter `google/swiftshader`, `rgba8unorm`) — the twin's `testing/` pages are the record.
+> uploaded texture, a scene's colour-id picks and the mappings were read back offscreen in this
+> machine's Chromium (adapter `google/swiftshader`, `rgba8unorm`) — the twin's `testing/` pages are the
+> record.
 
 ---
 
@@ -143,6 +145,31 @@ the nearer of two overlapping ones.
   compositor's, and a copy after the frame's submit is invalid (this Chromium also cannot map a buffer
   once a canvas frame was presented). A figure draws into a target and reads that, or displays it with
   `image`. `pick` reads a target of its own, so it is unaffected.
+
+## Space
+
+```js
+mapLocation(ctx, out, x, y, z, from, to)   // a point through the installed camera
+mapDirection(ctx, out, dx, dy, dz, from, to)
+unproject(ctx, outO, outD, sx, sy)         // a screen pixel → a ray (near-plane origin, unit direction)
+fragCoord(ctx, out, x, y)                  // screen space → window space
+pixelRatio(ctx, eyeZ)                      // world units per logical pixel
+mat4Viewport(ctx, out)                     // W: NDC → screen pixels, depth → [0, 1]
+```
+
+Two spaces, as on `webgl.tree`: **screen** space — logical pixels, top-left, y down, what the pointer,
+labels and a HUD count — and **window** space — the drawing buffer's device pixels. The twin's window
+space has its origin at the **top-left too**, because `@builtin(position)` is the framebuffer's own
+row: `fragCoord` scales and does not flip, its answer is what `readPixel` takes, and
+`uResolution` (`filter`'s viewport) counts the same pixels. On `webgl.tree` window space is
+bottom-left and `fragCoord` flips y.
+
+The viewport these verbs describe is the **canvas's**, `[0, h, w, −h]` logical — the signed rectangle
+the screen mapping and `mat4Pick` take, so a sub-viewport composes. A target's own viewport is the
+frame's, WebGPU's `[x, y, w, h]` from the top: that is the pass's, not the pointer's. `from` / `to`
+name a space (`tree.WORLD` · `EYE` · `NDC` · `SCREEN`) or take a column-major frame matrix — a camera,
+a model, an object's own frame — dispatched as `tree.MATRIX`, a singular `to` answering `null`. The NDC
+depth convention is bound to `WEBGPU` in the `tree` namespace, so no call names it.
 
 ## Conventions
 

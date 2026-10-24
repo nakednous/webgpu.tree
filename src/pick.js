@@ -55,45 +55,12 @@
 
 import { idToRgba, mat4Pick, rgbaToId } from '@nakednous/tree';
 import { renderTarget } from '@nakednous/idiom';
+import { canvasViewport } from './space.js';
 
 const _rgba = [0, 0, 0, 1];
 const _V = new Float32Array(16);
 const _P = new Float32Array(16);
 const _Ppick = new Float32Array(16);
-const _vp = [0, 0, 0, 0];
-
-/**
- * Device pixels per logical pixel, from the host's viewport width or the
- * canvas's own client width.
- * @param {object} ctx  The context record.
- * @returns {number}
- * @ignore
- */
-export function canvasScale(ctx) {
-  const view = ctx.host && ctx.host.view;
-  const logical = view && view.vp && view.vp[2] > 0 ? view.vp[2] : (ctx.canvas && ctx.canvas.clientWidth) || 0;
-  const buffer = (ctx.canvas && ctx.canvas.width) || ctx.width || 0;
-  return logical > 0 && buffer > 0 ? buffer / logical : 1;
-}
-
-/**
- * The canvas in screen space, `[0, h, w, −h]`, in module scratch — the signed
- * viewport `mat4Pick` and the space mappings take.
- * @param {object} ctx  The context record.
- * @returns {number[]}
- * @ignore
- */
-export function canvasViewport(ctx) {
-  const view = ctx.host && ctx.host.view;
-  const s = canvasScale(ctx);
-  const w = view && view.vp[2] > 0 ? view.vp[2] : (ctx.canvas && ctx.canvas.clientWidth) || ctx.width / s;
-  const h = view && -view.vp[3] > 0 ? -view.vp[3] : (ctx.canvas && ctx.canvas.clientHeight) || ctx.height / s;
-  _vp[0] = 0;
-  _vp[1] = h;
-  _vp[2] = w;
-  _vp[3] = -h;
-  return _vp;
-}
 
 const _declared = new WeakMap();
 

@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { WEBGL, mat4Mul, mat4Pick, mat4FromTRS, mat4Ortho } from '@nakednous/tree';
 
 import { init, renderTarget, program, bind, draw, setCamera, buffer, readPixel, pick, SCREEN } from '../src/index.js';
-import { canvasScale, canvasViewport } from '../src/pick.js';
+import { canvasScale, canvasViewport } from '../src/space.js';
 import { frameOf, viewportOf } from '../src/frame.js';
 import { createCanvas, createDevice, createGpu, allOf, lastOf, namesOf } from './gpu.js';
 

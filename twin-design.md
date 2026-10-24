@@ -6,9 +6,10 @@
 > more. Status: **the render surface is built** (2026-10-23/24) — `init`, the backend behind `idiom`'s
 > interface, the composites over it (`renderTarget`, `program`, `fullscreen`, `filter`, `image`,
 > `pipe`, `releasePipe`, `state`, `setCamera`, `endFrame`), the figure's own path (`bind`, `buffer`,
-> `updateBuffer`, `draw`, `drawInstanced` with the six declared transforms, `texture`, `upload`), and
-> picking (`readPixel`, `pick`). The rest of the table's surface is stated, each verb its own stage.
-> Names inherit the bridge's.
+> `updateBuffer`, `draw`, `drawInstanced` with the six declared transforms, `texture`, `upload`),
+> picking (`readPixel`, `pick`) and the space mappings (`mapLocation`, `mapDirection`, `unproject`,
+> `fragCoord`, `pixelRatio`, `mat4Viewport`). The rest of the table's surface is stated, each verb its
+> own stage. Names inherit the bridge's.
 
 ---
 
@@ -52,6 +53,7 @@ blend and depth state." The twin realizes those two sentences.
 | `fullscreen` `vTexCoord` | bottom-up (`v = 0` at the bottom) | top-down (`v = 0` at the top) — coincidentally p5's `filter` convention. A filter that uses `vTexCoord.y` spatially reads differently on the two bridges; one that only samples `uSource` is unaffected |
 | `ndcZMin` | `WEBGL` (−1) | `WEBGPU` (0): every `cameraProj`, `mapLocation`, `mat4Pick`, `frustumCorners` call takes it; nothing else changes |
 | framebuffer y | `gl_FragCoord` y-up | `@builtin(position)` y-down; the host's viewport `[0, h, w, −h]` is the same on both (it describes screen space, not the framebuffer) |
+| `fragCoord` · the spaces | screen space → window space, device pixels, **bottom-left, y up** | screen space → window space, device pixels, **top-left, y down** — the framebuffer's own row, so no flip: the value is what `readPixel` takes and what a fragment shader's `@builtin(position).xy` reads. The viewport the mappings take is the **canvas's** signed `[0, h, w, −h]`; a target's own is the frame's `[x, y, w, h]` |
 | supplied programs | GLSL `flat`, `phong`, the line pipe, the pass-through | WGSL twins of the same four — the one source duplication in the stack, kept to these files |
 | HUD | ortho `P`, depth off | the same matrices; depth off is a pipeline variant |
 | `dispose` | deletes GL objects | destroys buffers / textures; pipelines are dropped |
@@ -144,3 +146,14 @@ notebook column may use; the bridge does not).
 - *The read's target.* Reading a target's own pixel worked from the first attempt offscreen; the
   canvas stays unreadable on this machine (a presentation surface, and the mapAsync limit above), so
   the twin's `readPixel` takes a target and says so.
+
+**Read 2026-10-24, with the space mappings built.**
+
+- *The mappings are the matrices.* A cube's centre mapped to `120 90` — the canvas centre of a
+  480 × 360 buffer at a CSS size of 240 × 180 — exactly as `W · P · V` gave it, with `W` the viewport
+  matrix, and `mapDirection` equalled the view's own rotation. `unproject` came back to the ray: its
+  origin on the near plane (eye-space z −1), its direction the unit ray, the world point on it.
+- *The window crossing.* `fragCoord` answered `240 180` for the logical centre at a device ratio of
+  two, and `0 0` for the corner — no flip. The mapped pixel, the pick and the readback then agreed on
+  one pixel: `pick` at `120 90` read id `1`, a corner read `0`, and `readPixel` at `fragCoord`'s
+  `240 180` read the id's colour `1 0 0 255`.
