@@ -81,6 +81,7 @@ test('the package exports the bridge surface', () => {
     'init', 'dispose', 'endFrame', 'viewOf', 'setCamera',
     'bind', 'buffer', 'updateBuffer', 'draw', 'drawInstanced',
     'texture', 'upload',
+    'readPixel', 'pick',
     'renderTarget', 'SCREEN', 'program', 'fullscreen', 'filter', 'image', 'pipe', 'releasePipe', 'state',
     'RED', 'GREEN', 'BLUE', 'ALPHA', 'RGB', 'NORMAL', 'ADD', 'MULTIPLY',
     'tree', 'host',

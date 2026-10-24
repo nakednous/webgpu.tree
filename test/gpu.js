@@ -73,6 +73,7 @@ export function createDevice(opts) {
     pass: null,
     submitted: 0,
     destroyed: false,
+    picked: null,          // the bytes a test wants a mapped readback to answer
   };
   let seq = 0;
 
@@ -92,6 +93,8 @@ export function createDevice(opts) {
       mapAsync(mode) {
         record('buffer.mapAsync', buffer.id, mode);
         if (!buffer.mapped) buffer.mapped = new ArrayBuffer(buffer.size);
+        // a readback's answer, where a test states one: the mapped range's first bytes
+        if (world.picked) new Uint8Array(buffer.mapped).set(world.picked.slice(0, buffer.size));
         return Promise.resolve();
       },
       getMappedRange() {

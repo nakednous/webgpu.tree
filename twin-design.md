@@ -3,11 +3,11 @@
 > Target: `webgpu.tree` 0.0.1 on `@nakednous/tree` ^0.0.34, `@nakednous/host` ^0.0.12,
 > `@nakednous/idiom` ^0.0.1, and `webgpu-utils` ^2.1.1 as a peer. The reference surface is
 > `webgl.tree`'s (`bridge-design.md`); this doc is the **differences table** against it and nothing
-> more. Status: **the core, the draw policy and the raw verbs are built** (2026-10-23/24) —
-> `init`, the backend behind `idiom`'s interface, the composites over it (`renderTarget`, `program`,
-> `fullscreen`, `filter`, `image`, `pipe`, `releasePipe`, `state`, `setCamera`, `endFrame`), and the
-> figure's own path: `bind`, `buffer`, `updateBuffer`, `draw`, `drawInstanced` with the six declared
-> transforms, `texture`, `upload`. The rest of the table's surface is stated, each verb its own stage.
+> more. Status: **the render surface is built** (2026-10-23/24) — `init`, the backend behind `idiom`'s
+> interface, the composites over it (`renderTarget`, `program`, `fullscreen`, `filter`, `image`,
+> `pipe`, `releasePipe`, `state`, `setCamera`, `endFrame`), the figure's own path (`bind`, `buffer`,
+> `updateBuffer`, `draw`, `drawInstanced` with the six declared transforms, `texture`, `upload`), and
+> picking (`readPixel`, `pick`). The rest of the table's surface is stated, each verb its own stage.
 > Names inherit the bridge's.
 
 ---
@@ -45,8 +45,8 @@ blend and depth state." The twin realizes those two sentences.
 | `clear` | `gl.clear` | the pass's `loadOp: 'clear'` with `clearValue`; `clear(ctx, color)` sets the value the next `beginPass` uses |
 | render state (`cullFace`, blend) | raw `gl.*`, per draw | baked into pipelines at `program`; a state flip is a second pipeline, cached by state key |
 | depth compare | `LESS`, the platform's, stated once at `createCanvas`; a pass that writes the far plane's depth raises it to `LEQUAL` for itself | a pipeline field: `'less'` unless `opts` names another, `'less-equal'` for a pinned backdrop. WebGPU has **no default to inherit** — the field is required as soon as depth writes are on — so the twin states it at `program`, the same word the WebGL twin states at the context |
-| `readPixel` | PBO + fence, self-polling raf | `copyTextureToBuffer` into a `MAP_READ` buffer (`bytesPerRow` padded to 256), `mapAsync`; natively a `Promise` — the reason the surface is async on both |
-| `pick` | 1×1 target + `mat4Pick`, `paint(id)` → `uColor` | identical, on the twin's `readPixel` |
+| `readPixel` | PBO + fence, self-polling raf | `copyTextureToBuffer` into a `MAP_READ` buffer (`bytesPerRow` padded to 256), `mapAsync`; natively a `Promise` — the reason the surface is async on both. A copy's target is a texture: the canvas is a presentation surface, so a read takes a **target**, in its own pixels, row 0 at the top. A read is ordered after the frame's draws, so it **ends the frame** — one submit per read |
+| `pick` | 1×1 target + `mat4Pick`, `paint(id)` → `uColor` | the same on the twin's `readPixel`: a cached 1 × 1 `rgba8unorm` + `depth24plus` target, the projection narrowed onto the query pixel, `paint(id)` through `setUniforms` (one arena slot per object), the camera/state/target/program restored. Query pixels are **logical screen pixels**. The id program is `opts.program` — the figure's own for a mesh, since the pipeline bakes its vertex state — and the default flat one serves the covering quad |
 | `upload` | `setTextureFromElement`, `flipY` on for images | `copyExternalImageToTexture`, no flip — WebGPU's texture space is **top-down**, the same as decoded images; raw pixels through `writeTexture` with rows padded to 256 bytes, as a readback's are |
 | texture orientation | one orientation, GL's bottom-up: images flipped at upload, targets untouched | one orientation, WebGPU's top-down: nothing flipped, targets already top-down. The rule "no flip switch anywhere" holds on both; the *direction* differs, and the default pane UVs follow (`p0` → `(0, 0)`) |
 | `fullscreen` `vTexCoord` | bottom-up (`v = 0` at the bottom) | top-down (`v = 0` at the top) — coincidentally p5's `filter` convention. A filter that uses `vTexCoord.y` spatially reads differently on the two bridges; one that only samples `uSource` is unaffected |
@@ -133,3 +133,14 @@ notebook column may use; the bridge does not).
   row and blue and white on its bottom — the source's row 0 at the texture's top, no flip anywhere —
   and the geometry path samples the same rows through its own uvs.
 - *Availability* stands as read above; the canvas is still the maintainer's look.
+
+**Read 2026-10-24, with picking built.**
+
+- *Colour-id picking.* A scene of two cubes drawn with the figure's id WGSL read `1` and `2` at their
+  centres, `0` at a corner, and `0` again after the frame split; two overlapping cubes answered the
+  nearer id, so the 1 × 1 target's depth attachment decides; and the same ids read off a target as
+  the colour code, `1 0 0` and `2 0 0`. The camera, the target, the depth state and the bound program
+  came back after each pick.
+- *The read's target.* Reading a target's own pixel worked from the first attempt offscreen; the
+  canvas stays unreadable on this machine (a presentation surface, and the mapAsync limit above), so
+  the twin's `readPixel` takes a target and says so.

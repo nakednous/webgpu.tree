@@ -40,10 +40,10 @@
  * `uTexelSize`, only where declared. `image`'s flat program names
  * `uModelViewProjectionMatrix`, `uColor`, `uUseTexture` and `uTexture`.
  *
- * Not yet on this surface — each its own stage: picking, the space mappings,
- * gizmos and the HUD, `cubemap`, mips and the 3D / array texture shapes. The
- * backend implements their members; the twin publishes a verb when the figure
- * corpus asks for it, as §7 #110's ruling does for `beginPass`.
+ * Not yet on this surface — each its own stage: the space mappings, gizmos and
+ * the HUD, `cubemap`, mips and the 3D / array texture shapes. The backend
+ * implements their members; the twin publishes a verb when the figure corpus
+ * asks for it, as §7 #110's ruling does for `beginPass`.
  */
 
 'use strict';
@@ -52,6 +52,7 @@ export { init, dispose, endFrame, viewOf } from './context.js';
 export { setCamera } from './camera.js';
 export { bind, buffer, updateBuffer, draw, drawInstanced } from './draw.js';
 export { texture, upload } from './texture.js';
+export { readPixel, pick } from './pick.js';
 export { renderTarget, SCREEN } from '@nakednous/idiom';
 export {
   fullscreen, filter, image, pipe, releasePipe, state,

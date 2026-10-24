@@ -7,20 +7,20 @@ pipe, HUD, render targets, filter passes and the pipe chain, colour-ID picking, 
 realized where uniforms are fields of a buffer bound as a group, a program is a pipeline with baked
 state, and readback is asynchronous by construction.
 
-> **Status: the core, the draw policy and the raw verbs are built.** `init` and the backend behind
-> `idiom`'s interface — the twenty-two members and the four conventions — with the composites over it:
-> `renderTarget`, `SCREEN`, `program`, `fullscreen`, `filter`, `image`, `pipe`, `releasePipe`,
-> `state`, `setCamera`, `endFrame`, `viewOf`, `dispose`; and the figure's own path: `bind`, `buffer`,
-> `updateBuffer`, `draw`, `drawInstanced` with the six declared transforms, and `texture`, `upload`.
-> `twin-design.md` is the differences table against `webgl.tree` and states the rest of the surface —
-> picking, the space mappings, gizmos and the HUD, `cubemap` and the mip / 3D / array texture
+> **Status: the render surface is built.** `init` and the backend behind `idiom`'s interface — the
+> twenty-two members and the four conventions — with the composites over it: `renderTarget`, `SCREEN`,
+> `program`, `fullscreen`, `filter`, `image`, `pipe`, `releasePipe`, `state`, `setCamera`, `endFrame`,
+> `viewOf`, `dispose`; the figure's own path: `bind`, `buffer`, `updateBuffer`, `draw`,
+> `drawInstanced` with the six declared transforms, `texture`, `upload`; and picking: `readPixel`,
+> `pick`. `twin-design.md` is the differences table against `webgl.tree` and states the rest of the
+> surface — the space mappings, gizmos and the HUD, `cubemap` and the mip / 3D / array texture
 > shapes — each as its own stage.
 >
 > Pins `@nakednous/tree` ^0.0.34, `@nakednous/host` ^0.0.12, `@nakednous/idiom` ^0.0.1;
-> `webgpu-utils` ^2.1.1 is a peer. Gates: `npm test` (71 cases, against the recording device in
-> `test/gpu.js`) and `npm run build`. The browser is the maintainer's gate: the geometry path and the
-> uploaded texture were read back offscreen in this machine's Chromium (adapter `google/swiftshader`,
-> `rgba8unorm`) — the twin's `testing/` pages are the record.
+> `webgpu-utils` ^2.1.1 is a peer. Gates: `npm test` (79 cases, against the recording device in
+> `test/gpu.js`) and `npm run build`. The browser is the maintainer's gate: the geometry path, the
+> uploaded texture and a scene's colour-id picks were read back offscreen in this machine's Chromium
+> (adapter `google/swiftshader`, `rgba8unorm`) — the twin's `testing/` pages are the record.
 
 ---
 
@@ -117,6 +117,32 @@ defaults to the 32F one. Sampling an `rgba32float` texture linearly needs the ad
 `float32-filterable` feature (request it through `init`'s `deviceOptions`), or a nearest sampler;
 the twin's default sampler is linear and clamps. Sampling state is a sampler's, not a texture's.
 `dispose(ctx)` frees every texture the twin made.
+
+## Picking
+
+```js
+readPixel(ctx, target, x, y) → Promise<Uint8Array>   // a target's own pixels, top-left, a frame late
+pick(ctx, x, y, drawFn, opts) → Promise<number>      // the id under a logical screen pixel, 0 a miss
+```
+
+`pick` renders the scene into a cached 1 × 1 `rgba8unorm` + `depth24plus` target, cleared black, under
+the installed projection narrowed by `tree.mat4Pick` onto the query pixel. `drawFn` draws the scene,
+calling `paint(id)` before each object; the promise resolves to that id (ids 1 … 2²⁴−1, `tree.idToRgba`
+· `rgbaToId`), and the target, viewport, camera, state and bound program are restored afterwards. Each
+`paint` is its own uniform-arena slot, so two objects in one pick read differently, and depth decides
+the nearer of two overlapping ones.
+
+- **The id program.** `opts.program`. A pipeline bakes its vertex state, so the default (the twin's
+  flat program) serves the covering quad only: a scene of meshes passes an id WGSL of its own, built
+  with the geometry's layout (`program(ctx, wgsl, { buffers: geometry.bufferLayouts })`), declaring
+  `uColor: vec4f` — §7 #112's shape again.
+- **Readback.** A copy must be ordered after the frame's draws, so a read **ends the frame** (the
+  backend submits, then copies and maps); a pick inside a frame submits what is drawn and the frame
+  continues — one extra submit, the cost of an asynchronous read on WebGPU. There is no `sync` form.
+- **The canvas is not a read source.** A WebGPU canvas is a presentation surface: its pixels are the
+  compositor's, and a copy after the frame's submit is invalid (this Chromium also cannot map a buffer
+  once a canvas frame was presented). A figure draws into a target and reads that, or displays it with
+  `image`. `pick` reads a target of its own, so it is unaffected.
 
 ## Conventions
 

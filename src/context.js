@@ -166,5 +166,6 @@ export function dispose(ctx) {
   disposeContext(ctx);   // targets, pipes, then backend.dispose
   _registry.delete(device);
   ctx.frame = null;
+  ctx.pickTarget = null;
   if (owned) device.destroy();
 }
