@@ -229,6 +229,37 @@ fn vs(@location(0) aA: vec3f, @location(1) aB: vec3f, @location(2) aT: f32, @loc
 fn fs(@location(0) color: vec4f) -> @location(0) vec4f { return color; }
 `;
 
+/** The pane's program: a world-space quad, textured or flat, under the six declared transforms' MVP. */
+export const PANE = `
+struct PaneU {
+  uModelViewProjectionMatrix: mat4x4f,
+  uColor: vec4f,
+  uUseTexture: f32,
+};
+@group(0) @binding(0) var<uniform> u: PaneU;
+@group(0) @binding(1) var uTexture: texture_2d<f32>;
+@group(0) @binding(2) var uSampler: sampler;
+
+struct PaneOut {
+  @builtin(position) position: vec4f,
+  @location(0) vTexCoord: vec2f,
+};
+
+@vertex
+fn vs(@location(0) aPosition: vec3f, @location(1) aTexCoord: vec2f) -> PaneOut {
+  var v: PaneOut;
+  v.position = u.uModelViewProjectionMatrix * vec4f(aPosition, 1.0);
+  v.vTexCoord = aTexCoord;
+  return v;
+}
+
+@fragment
+fn fs(@location(0) vTexCoord: vec2f) -> @location(0) vec4f {
+  let texel = textureSample(uTexture, uSampler, vTexCoord);
+  return select(u.uColor, texel * u.uColor, u.uUseTexture > 0.5);
+}
+`;
+
 /** The quads' program behind a handle's dot: the six declared transforms' MVP and a colour. */
 export const TRIS = `
 struct TrisU {
@@ -267,6 +298,9 @@ export const WIDE_COLOR_LAYOUT = createBufferLayoutsFromArrays(floats({ aA: 3, a
 
 /** The quads' layout: `aPosition` alone. */
 export const TRIS_LAYOUT = LINE_LAYOUT;
+
+/** The pane's layout: a world position and its texture coordinate. */
+export const PANE_LAYOUT = createBufferLayoutsFromArrays(floats({ aPosition: 3, aTexCoord: 2 }), { interleave: false }).bufferLayouts;
 
 const VERTEX_ENTRY = /@vertex\s+fn\s+([A-Za-z_][A-Za-z0-9_]*)/;
 const FRAGMENT_ENTRY = /@fragment\s+fn\s+([A-Za-z_][A-Za-z0-9_]*)/;

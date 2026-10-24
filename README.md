@@ -14,17 +14,17 @@ state, and readback is asynchronous by construction.
 > `drawInstanced` with the six declared transforms, `texture`, `upload`; picking: `readPixel`, `pick`;
 > the space mappings: `mapLocation`, `mapDirection`, `unproject`, `fragCoord`, `pixelRatio`,
 > `mat4Viewport`; and the line pipe with the HUD: `axes`, `grid`, `hermite`, `viewFrustum`,
-> `trackPath`, `helmRig`, `handleLocus`, `beginHUD`, `endHUD`, `cross`, `bullsEye`. `twin-design.md`
-> is the differences table against `webgl.tree` and states the rest of the surface — `pane` and the
-> textured frustum faces, the helm rig's HUD form and its `identify` labels, `cubemap` and the mip /
-> 3D / array texture shapes — each as its own stage.
+> `trackPath`, `helmRig`, `handleLocus`, `beginHUD`, `endHUD`, `cross`, `bullsEye`; and `pane`, with
+> the frustum's textured faces and the helm rig's HUD form and `identify` labels. `twin-design.md` is
+> the differences table against `webgl.tree` and states the rest of the surface — `cubemap`, mips and
+> the 3D / array texture shapes — each as its own stage.
 >
 > Pins `@nakednous/tree` ^0.0.34, `@nakednous/host` ^0.0.12, `@nakednous/idiom` ^0.0.1;
-> `webgpu-utils` ^2.1.1 is a peer. Gates: `npm test` (99 cases, against the recording device in
+> `webgpu-utils` ^2.1.1 is a peer. Gates: `npm test` (106 cases, against the recording device in
 > `test/gpu.js`) and `npm run build`. The browser is the maintainer's gate: the geometry path, the
-> uploaded texture, a scene's colour-id picks, the mappings and a gizmo scene with its HUD were read
-> back offscreen in this machine's Chromium (adapter `google/swiftshader`, `rgba8unorm`) — the twin's
-> `testing/` pages are the record.
+> uploaded texture, a scene's colour-id picks, the mappings, a gizmo scene with its HUD, a textured
+> pane and the helm rig's HUD composite were read back offscreen in this machine's Chromium (adapter
+> `google/swiftshader`, `rgba8unorm`) — the twin's `testing/` pages are the record.
 
 ---
 
@@ -198,6 +198,13 @@ where the generator writes a palette (axes, the helm rig) and `opts.color` elsew
 - **The HUD** is an orthographic projection over the canvas's *logical* viewport — y down, depth off —
   with an identity view, so a mark's coordinates are the pointer's; the camera and the state come back
   at `endHUD`. `cross` and `bullsEye` wrap themselves in one when called outside it.
+- **`pane`** is a textured or flat quad through its own world-space program (`PANE`), the MVP from a
+  draw's declared transform. Its default uvs read `p0` at `(0, 0)` — the twin's texture space is
+  top-down, so an image sits upright on the pane where the reference's flipped upload does. The
+  frustum's `nearTexture` / `farTexture` are panes, the far one first.
+- **The helm rig's HUD form.** `helmRig(ctx, helm, { x, y, size, tilt, tint })` renders the rig into a
+  per-helm cached square target through its own iso camera and composites it with `image` at its
+  logical rect, tinted. `identify` forwards the six lanes to `host.labels`, a world anchor each.
 
 ## Conventions
 

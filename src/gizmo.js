@@ -59,9 +59,10 @@
 import * as T from './tree.js';
 import { helmBasis } from '@nakednous/host';
 import {
-  LINE, LINE_COLOR, LINE_COLOR_LAYOUT, LINE_LAYOUT,
+  LINE, LINE_COLOR, LINE_COLOR_LAYOUT, LINE_LAYOUT, PANE, PANE_LAYOUT,
   TRIS, TRIS_LAYOUT, WIDE, WIDE_COLOR, WIDE_COLOR_LAYOUT, WIDE_LAYOUT,
 } from './programs.js';
+import { NORMAL, image, renderTarget } from '@nakednous/idiom';
 import { bind, draw } from './draw.js';
 import { setCamera } from './camera.js';
 import { viewOf } from './context.js';
@@ -80,18 +81,27 @@ const _p = [0, 0, 0];                 // a handle's point
 const _du = [0, 0, 0], _dv = [0, 0, 0];   // the camera's right and up
 const _cam = T.createCamera();        // a track's evaluated state
 const _matCam = { mat4Eye: null, mat4Proj: null, ndcZMin: T.WEBGPU };
+const _rigCam = T.createCamera({ fov: null, halfHeight: 90, near: 0.1, far: 960 });
+const _c24 = new Float64Array(24);    // a frustum's corners
+const _q0 = [0, 0, 0], _q1 = [0, 0, 0], _q2 = [0, 0, 0], _q3 = [0, 0, 0];
+const _AZ_ISO = Math.PI / 4, _EL_ISO = Math.atan(1 / Math.SQRT2), _RIG_D = 240;
+let _rigSeq = 0;
+const _corner = (out, i) => { out[0] = _c24[3 * i]; out[1] = _c24[3 * i + 1]; out[2] = _c24[3 * i + 2]; return out; };
 
 /** The creation options of a stream geometry: non-interleaved, writable in place. @ignore */
 const STREAM = Object.freeze({ interleave: false, usage: BUFFER_USAGE.COPY_DST });
 
 const _cache = (ctx) => ctx.gizmos || (ctx.gizmos = Object.create(null));
-const _programs = (ctx) => ctx.gizmoPrograms || (ctx.gizmoPrograms = { line: Object.create(null), wide: Object.create(null), tris: null });
+const _programs = (ctx) => ctx.gizmoPrograms || (ctx.gizmoPrograms = { line: Object.create(null), wide: Object.create(null), tris: null, pane: null });
 
 /** The gizmo names the pipe caches, one arrays record each. @ignore */
 function _keyed(ctx, name, opts) {
   const cache = _cache(ctx);
   let g = cache[name];
   if (!g) g = cache[name] = { arrays: T.createArrays(64, opts), wide: null };
+  // a cache first made without a label array may be asked for one later (the
+  // helm rig's identify), and the generator fills whatever array exists
+  if (opts && opts.labels && !g.arrays.labels) g.arrays.labels = [];
   return g;
 }
 
@@ -121,6 +131,12 @@ function _arraysFor(kind, cap) {
     return {
       aPosition: { numComponents: 3, data: new Float32Array(3 * n) },
       aColor: { numComponents: 4, data: new Float32Array(4 * n) },
+    };
+  }
+  if (kind === 'pane') {
+    return {
+      aPosition: { numComponents: 3, data: new Float32Array(3 * n) },
+      aTexCoord: { numComponents: 2, data: new Float32Array(2 * n) },
     };
   }
   const pattern = _patternOf(n);
@@ -192,6 +208,13 @@ function _wideProgram(ctx, colored) {
     });
   }
   return p.wide[key];
+}
+
+/** The pane's program: a world-space quad, textured or flat. @ignore */
+function _paneProgram(ctx) {
+  const p = _programs(ctx);
+  if (!p.pane) p.pane = ctx.backend.createProgram(ctx, PANE, { buffers: PANE_LAYOUT, label: 'webgpu.tree pane' });
+  return p.pane;
 }
 
 /** The quads program a handle's dot draws through. @ignore */
@@ -391,6 +414,13 @@ export function viewFrustum(ctx, opts) {
   }
   const aspect = _aspect(ctx, o);
   const bits = o.bits ?? (T.NEAR | T.FAR | T.BODY);
+  // a textured face is drawn first and keeps its outline, as the reference draws it
+  if (((bits & T.FAR) && o.farTexture) || ((bits & T.NEAR) && o.nearTexture)) {
+    if (T.frustumCorners(_c24, cam, aspect)) {
+      if ((bits & T.FAR) && o.farTexture) pane(ctx, _corner(_q0, 7), _corner(_q1, 6), _corner(_q2, 5), _corner(_q3, 4), { texture: o.farTexture, depth: o.depth });
+      if ((bits & T.NEAR) && o.nearTexture) pane(ctx, _corner(_q0, 3), _corner(_q1, 2), _corner(_q2, 1), _corner(_q3, 0), { texture: o.nearTexture, depth: o.depth });
+    }
+  }
   const g = _keyed(ctx, 'frustum');
   _generate(ctx, g, (a) => T.frustumLines(a, cam, { aspect, ndcZMin: T.WEBGPU, bits, color: o.color }));
   _drawLines(ctx, g, null, o.color, o.depth, o.width);
@@ -466,10 +496,7 @@ export function trackPath(ctx, track, opts) {
 export function helmRig(ctx, helm, opts) {
   const o = opts || {};
   if (!helm) return;
-  if (o.x != null && o.y != null) {
-    console.error('[webgpu.tree] helmRig: the HUD form is a later stage — draw the rig in the scene (no x / y).');
-    return;
-  }
+  if (o.x != null && o.y != null) { _rigHud(ctx, helm, o); return; }
   const basis = helmBasis(helm, viewOf(ctx), _R);
   let M = o.M || null;
   if (basis) {
@@ -478,9 +505,68 @@ export function helmRig(ctx, helm, opts) {
     _R[15] = 1;
     M = M ? T.mat4Mul(_M, M, _R) : _R;
   }
-  const g = _keyed(ctx, 'helmRig', { color: true });
-  _generate(ctx, g, (a) => T.helmRigLines(a, helm, { size: o.size, bits: o.bits }));
+  const g = _keyed(ctx, 'helmRig', { color: true, labels: true });
+  _generate(ctx, g, (a) => T.helmRigLines(a, helm, { size: o.size, bits: o.bits, identify: o.identify === true }));
   _drawLines(ctx, g, M, null, o.depth, o.width);
+  const host = ctx.host;
+  if (o.identify === true && host && host.labels && g.arrays.labels.length) {
+    const id = helm._rigId || (helm._rigId = ++_rigSeq);
+    g.arrays.labels.forEach((l, i) => {
+      if (M) T.mat4MulPoint(_p, M, l.x, l.y, l.z);
+      else { _p[0] = l.x; _p[1] = l.y; _p[2] = l.z; }
+      host.labels.set('helmRig' + id + ':' + i, l.text, _p[0], _p[1], _p[2], { frame: true, class: 'helm-rig' });
+    });
+  }
+}
+
+/**
+ * The rig's HUD form: rendered into a per-helm cached square target through its
+ * own iso camera, then composited at (x, y) in HUD pixels with `tint`.
+ * @ignore
+ */
+function _rigHud(ctx, helm, o) {
+  // the HUD's coordinates are logical pixels: the rig's own target is that size
+  // times the canvas's scale, and the rect it is displayed in is the same
+  const s = canvasScale(ctx);
+  const size = o.size ?? 120;
+  const px = Math.max(1, Math.round(size * s));
+  if (!ctx.rigs) ctx.rigs = new Map();
+  let entry = ctx.rigs.get(helm);
+  if (!entry || entry.size !== px) {
+    entry = { target: renderTarget(ctx, { width: px, height: px }), size: px };
+    ctx.rigs.set(helm, entry);
+  }
+  let az = _AZ_ISO, el = _EL_ISO;
+  if (Array.isArray(o.tilt)) { az = o.tilt[0]; el = o.tilt[1]; } else if (typeof o.tilt === 'number') el = o.tilt;
+  const ce = Math.cos(el), se = Math.sin(el);
+  _rigCam.eye[0] = _RIG_D * ce * Math.sin(az);
+  _rigCam.eye[1] = _RIG_D * se;
+  _rigCam.eye[2] = _RIG_D * ce * Math.cos(az);
+
+  const priorTarget = ctx.backend.bindTarget(ctx);
+  const priorViewport = ctx.backend.setViewport(ctx);
+  const priorState = ctx.backend.setState(ctx, { depth: true });
+  const V = Float32Array.from(ctx.V), P = Float32Array.from(ctx.P);
+  ctx.backend.bindTarget(ctx, entry.target);
+  ctx.backend.clear(ctx, [0, 0, 0, 0]);
+  setCamera(ctx, T.cameraView(_E, _rigCam), T.cameraProj(_P, _rigCam, 1));
+  const g = _keyed(ctx, 'helmRig', { color: true });
+  _generate(ctx, g, (a) => T.helmRigLines(a, helm, { size: 100, bits: o.bits }));
+  _drawLines(ctx, g, null, null, true, o.width);
+  setCamera(ctx, V, P);
+  ctx.backend.bindTarget(ctx, priorTarget);
+  ctx.backend.setViewport(ctx, priorViewport);
+  ctx.backend.setState(ctx, priorState);
+  // the rect is the target's own pixels, origin bottom-left, as image takes it
+  const H = viewportOf(ctx)[3];
+  image(ctx, entry.target.color, {
+    x: (o.x ?? 0) * s,
+    y: H - ((o.y ?? 0) + size) * s,
+    width: px,
+    height: px,
+    tint: o.tint,
+    blend: NORMAL,
+  });
 }
 
 /**
@@ -513,6 +599,43 @@ export function handleLocus(ctx, h, opts) {
     _generate(ctx, d, (a) => _disc(a, _p[0], _p[1], _p[2], r, _du, _dv));
     _drawTris(ctx, d, null, o.dotColor || o.color, o.depth);
   }
+}
+
+/** The pane's default uvs: `p0` reads (0, 0) — the twin's top-down texture space. @ignore */
+const PANE_UVS = [0, 0, 1, 0, 1, 1, 0, 1];
+
+/**
+ * A textured or flat quad through the pane program — p0 … p3 in order, the
+ * default uvs reading `p0` at (0, 0): the twin's texture space is top-down, so
+ * an image sits upright on the pane where the reference's flipped upload does.
+ * @param {object} ctx  The context record.
+ * @param {number[]} p0  A corner.
+ * @param {number[]} p1  The next corner, in order.
+ * @param {number[]} p2
+ * @param {number[]} p3
+ * @param {{ M?:ArrayLike<number>, color?:number[], texture?:object, uvs?:number[], depth?:boolean }} [opts]
+ * @example
+ * pane(ctx, [-40, 40, 0], [40, 40, 0], [40, -40, 0], [-40, -40, 0], { texture: tex })
+ */
+export function pane(ctx, p0, p1, p2, p3, opts) {
+  const o = opts || {};
+  const g = _keyed(ctx, 'pane', { texcoord: true });
+  _generate(ctx, g, (a) => T.paneTris(a, p0, p1, p2, p3, { uvs: o.uvs || PANE_UVS, color: o.color }));
+  const count = g.arrays.count;
+  if (!count) return;
+  const prog = _paneProgram(ctx);
+  if (!prog) return;
+  const priorState = ctx.backend.setState(ctx, { depth: o.depth !== false });
+  const priorProg = ctx.prog;
+  const slot = _slot(ctx, 'pane', count);
+  ctx.device.queue.writeBuffer(slot.geometry.buffers[0], 0, g.arrays.position.data, 0, 3 * count);
+  ctx.device.queue.writeBuffer(slot.geometry.buffers[1], 0, g.arrays.texcoord.data, 0, 2 * count);
+  const uniforms = { uColor: o.color || WHITE, uUseTexture: o.texture ? 1 : 0 };
+  if (o.texture) uniforms.uTexture = o.texture;
+  bind(ctx, prog, uniforms);
+  draw(ctx, slot.geometry, o.M || null, { count });   // the draw installs uModelViewProjectionMatrix
+  ctx.prog = priorProg;
+  ctx.backend.setState(ctx, priorState);
 }
 
 // ── HUD ──────────────────────────────────────────────────────────────────

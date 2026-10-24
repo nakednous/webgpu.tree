@@ -9,7 +9,8 @@
 > `updateBuffer`, `draw`, `drawInstanced` with the six declared transforms, `texture`, `upload`),
 > picking (`readPixel`, `pick`), the space mappings (`mapLocation`, `mapDirection`, `unproject`,
 > `fragCoord`, `pixelRatio`, `mat4Viewport`) and the line pipe with the HUD (`axes`, `grid`, `hermite`,
-> `viewFrustum`, `trackPath`, `helmRig`, `handleLocus`, `beginHUD`, `endHUD`, `cross`, `bullsEye`). The
+> `viewFrustum`, `trackPath`, `helmRig`, `handleLocus`, `beginHUD`, `endHUD`, `cross`, `bullsEye`), and
+> `pane` with the frustum's textured faces and the helm rig's HUD form with its `identify` labels. The
 > rest of the table's surface is stated, each verb its own stage. Names inherit the bridge's.
 
 ---
@@ -177,3 +178,14 @@ notebook column may use; the bridge does not).
   pipeline: WebGPU wants the field stated on every pipeline set on such a pass, so "off" is
   `compare: always` and no write. The twin's `createPipeline` now states it, and its test pins it. The
   stream buffers also had to be created `COPY_DST` — a vertex-only buffer refuses a queue write.
+
+**Read 2026-10-24, with the pane and the two seams built.**
+
+- *The pane.* A 2 × 2 texture on a world-space quad read red, green, blue and white at the pane's
+  four quadrants — `p0` at `(0, 0)`, so the image is upright under the twin's top-down sampling — and
+  the point outside the quad was the clear colour. The frustum's `nearTexture` face read its solid
+  texture at the near plane's centre, and outside the frustum the background.
+- *The helm rig's HUD form.* Two composites of one cached 119-pixel target at their logical rects read
+  `110 0 0` under a red tint and `0 110 0` under a green one, with the frame outside them black.
+- *`identify`.* The rig's six lanes (`L0 L1 L2` twice — the translation arrows and the rotation rings)
+  reached the host's label layer as DOM labels, a world anchor each.
