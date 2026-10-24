@@ -114,29 +114,40 @@ function _writeSlices(ctx, tex, pixels) {
  * @returns {object|null} The texture record `upload`, `image`, `pane` and a pass
  *          take — `{ gpu, view, width, height, layers, dimension, format }`.
  * @example
- * <caption>A 2 × 2 pixel source on a pane: the twin’s row 0 is the top row (the reference’s bottom-up upload would put it at the bottom), and its default sampler is linear, so the four texels blend — sampling state is a sampler’s, not a texture’s.</caption>
- * import { init, endFrame, image, renderTarget, SCREEN, setCamera, pane, texture, tree } from 'webgpu.tree'
+ * <caption>A 2 × 2 pixel source sampled nearest and flipped to the reference’s bottom-up picture: the twin’s row 0 is the top row, and its default sampler is linear — a stage names its own sampler when it wants hard texels.</caption>
+ * import { init, endFrame, filter, program, texture } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
  * canvas.style.width = '400px'
  * canvas.style.height = '300px'
  * const ctx = await init(canvas, { width: 400, height: 300 })
- * const scene = renderTarget(ctx)
  *
+ * // the source’s row 0 is the texture’s top row; the reference’s bottom-up upload starts at the other end
  * const magenta = [255, 79, 216, 255]
  * const yellow = [255, 209, 102, 255]
  * const data = new Uint8Array([...magenta, ...yellow, ...yellow, ...magenta])
  * const tex = texture(ctx, { data, width: 2, height: 2 })
  *
- * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
- * setCamera(ctx, tree.createCamera({ eye: [0, 0, 205] }))
- * pane(ctx, [-100, 100, 0], [100, 100, 0], [100, -100, 0], [-100, -100, 0], { texture: tex })
- * ctx.backend.bindTarget(ctx, SCREEN)
- * image(ctx, scene.color)
- * endFrame(ctx)
+ * const nearest = ctx.device.createSampler({ magFilter: 'nearest', minFilter: 'nearest' })
+ * const show = program(ctx, `
+ * ```wgsl
+ * @group(0) @binding(0) var uSource: texture_2d<f32>;
+ * @group(0) @binding(1) var uSampler: sampler;
  *
+ * @fragment
+ * fn fs(@location(0) vTexCoord: vec2f) -> @location(0) vec4f {
+ *   // v = 0 at the top here; flipped so the picture is the reference’s
+ *   return textureSample(uSource, uSampler, vec2f(vTexCoord.x, 1.0 - vTexCoord.y));
+ * }
+ * ```
+ * `)
  *
+ * function frame() {
+ *   filter(ctx, show, { uSource: tex, uSampler: nearest })
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
  */
 export function texture(ctx, source, opts) {
   if (!ctx || !ctx.backend) return null;

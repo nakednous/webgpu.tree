@@ -235,10 +235,12 @@ notebook column may use; the bridge does not).
   v = 0 at the top and the reference's is bottom-up, so the figure flips v — stated in its comment —
   and green grows upward as the reference's does. `cubemap`'s first camera sat on the +Z axis and saw
   one face; the reference's off-axis one `[126, 105, 168]` shows three, read back as front
-  `79 157 255` (+Z), right `255 79 216` (+X) and top white (+Y). `texture`'s 2 × 2 source keeps the
-  twin's orientation lesson — row 0 at the top, which the reference's bottom-up upload flips — and
-  blends under the twin's linear sampler where the reference's figure asks for nearest; its caption
-  says both, because those are the two places the bridges differ by design.
+  `79 157 255` (+Z), right `255 79 216` (+X) and top white (+Y). `texture`'s 2 × 2 source was blurred and
+  flipped against the reference's: its figure now names a nearest sampler from the device and flips v,
+  so it reads the reference's picture exactly — yellow top-left and bottom-right, magenta the other
+  two corners, hard texels (read back `255 209 102`, `255 79 216`, `255 79 216`, `255 209 102`). The
+  twin's defaults stay what the docs say they are, top-down and linear, and the figure's caption names
+  the two places the bridges differ by design.
 - *The runner's lifecycle.* A re-mounted figure came back blank on scroll-up: the headless
   compositor's instance drop is not the whole story — a WebGPU device made after an earlier one was
   destroyed renders nothing here. A figure is therefore mounted once and hidden when far; a hidden
