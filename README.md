@@ -16,8 +16,9 @@ state, and readback is asynchronous by construction.
 > the space mappings: `mapLocation`, `mapDirection`, `unproject`, `fragCoord`, `pixelRatio`,
 > `mat4Viewport`; and the line pipe with the HUD: `axes`, `grid`, `hermite`, `viewFrustum`,
 > `trackPath`, `helmRig`, `handleLocus`, `beginHUD`, `endHUD`, `cross`, `bullsEye`; `pane`, with the
-> frustum's textured faces and the helm rig's HUD form and `identify` labels; and the texture shapes —
-> `cubemap`, mips, and the 3D / 2D-array sources. The twin's surface is the reference's; what the
+> frustum's textured faces and the helm rig's HUD form and `identify` labels; the texture shapes —
+> `cubemap`, mips, and the 3D / 2D-array sources; and the Radiance path: `decodeRGBE`, `encodeRGBE`,
+> `loadHDR`. The twin's surface is the reference's; what the
 > reference does not have — a cube / layered render target (§7 #104) and compute (§7 #85) — is not on
 > it either. `twin-design.md` is the differences table against `webgl.tree`.
 >
@@ -116,18 +117,20 @@ Serve it locally, from the repository root:
 python3 -m http.server 8000     # then open http://127.0.0.1:8000/site/
 ```
 
-The site documents **the verbs this package declares** — eight pages: `camera`, `context`, `draw`,
-`gizmo`, `pick`, `space`, `texture` and the root module — **the composites it re-exports**, on three
+The site documents **the verbs this package declares** — nine pages: `camera`, `context`, `draw`,
+`gizmo`, `hdr`, `pick`, `space`, `texture` and the root module — **the composites it re-exports**, on three
 pages of their own: `pass` (`fullscreen`, `filter`, `image`, `pipe`, `releasePipe` and the mask and
 blend constants), `target` (`renderTarget`, `SCREEN`) and `state`; and **the two namespaces it
 re-exports**, on the reference's eight: `host`, `host.handles`, `host.tracks`, `tree.camera`,
-`tree.matrices`, `tree.projection`, `tree.quaternions` and `tree.visibility` — nineteen module pages
+`tree.matrices`, `tree.projection`, `tree.quaternions` and `tree.visibility` — twenty module pages
 beside the README, the reference's page set and anchors (§7 #116). The composites' and the
 namespaces' pages are `@nakednous/idiom`'s and `@nakednous/tree`'s / `@nakednous/host`'s verbs,
 documented here as the bridge re-exports them, from doc-only files in `docs/`, as `webgl.tree`
 documents the surface it re-exports — each doclet's figure the reference's own figure translated to
-the twin, so the two sites read side by side. There is no Radiance module in the twin, so no `hdr`
-page: `host.decodeRGBE` is `host`'s.
+the twin, so the two sites read side by side. `hdr` is the Radiance path — `decodeRGBE` and
+`encodeRGBE` are `@nakednous/host`'s, re-exported, and `loadHDR` fetches and decodes a file, rows in
+the file's own order, which is what a texture here takes; the reference hands back GL's order instead
+(§7 #119).
 
 Its gate is two halves. `npm run docs` is the structural one — every documented name and a function's
 parameters against the build, every example's imports resolved, every fence's language — and it fails

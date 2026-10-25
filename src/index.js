@@ -52,6 +52,7 @@ export { init, dispose, endFrame, viewOf } from './context.js';
 export { setCamera } from './camera.js';
 export { bind, buffer, updateBuffer, draw, drawInstanced } from './draw.js';
 export { texture, upload, cubemap } from './texture.js';
+export { decodeRGBE, encodeRGBE, loadHDR } from './hdr.js';
 export { readPixel, pick } from './pick.js';
 export { mapLocation, mapDirection, unproject, fragCoord, pixelRatio, mat4Viewport } from './space.js';
 export {
