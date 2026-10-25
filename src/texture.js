@@ -159,6 +159,11 @@ export function texture(ctx, source, opts) {
     return null;
   }
   const format = _formatOf(source, o);
+  if (format === 'rgba32float' && ctx.device && ctx.device.features && !ctx.device.features.has('float32-filterable')) {
+    console.error('[webgpu.tree] texture: this device has no `float32-filterable`, so sampling an rgba32float ' +
+      'texture with the twin\'s sampler is invalid and draws nothing — use `float: true` (16F) or a format ' +
+      'the device filters.');
+  }
   if (!_formatOk(format)) {
     console.error('[webgpu.tree] texture: `' + format + '` is not a texture format the twin takes.');
     return null;

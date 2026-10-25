@@ -101,7 +101,20 @@ export async function init(canvas, opts) {
   if (!gpu && !o.device) throw new Error('[webgpu.tree] init: WebGPU is unavailable (navigator.gpu is undefined).');
   const adapter = o.adapter || (gpu && gpu.requestAdapter ? await gpu.requestAdapter(o.adapterOptions) : null);
   if (!adapter && !o.device) throw new Error('[webgpu.tree] init: no WebGPU adapter is available on this machine.');
-  const device = o.device || await adapter.requestDevice(o.deviceOptions);
+  // The features the twin's sampling wants where the adapter has them. A 32-bit
+  // float texture is *unfilterable* by default, and the twin's bind group asks
+  // for a filtering `texture_2d<f32>`: without this, a texture the `hdr` module
+  // hands over — or a target made with `float: true` — binds an invalid group and
+  // draws nothing. `float32-filterable` is optional in WebGPU, so it is requested
+  // only from an adapter that reports it (Dawn on the Arc does, SwiftShader does
+  // not need it); `texture` says so when it is missing.
+  const wanted = ['float32-filterable'].filter((f) => adapter && adapter.features && adapter.features.has(f));
+  const deviceOptions = Object.assign({}, o.deviceOptions);
+  if (wanted.length) {
+    const asked = deviceOptions.requiredFeatures || [];
+    deviceOptions.requiredFeatures = [...new Set([...asked, ...wanted])];
+  }
+  const device = o.device || await adapter.requestDevice(deviceOptions);
   const known = _registry.get(device);
   if (known) return known;
 
