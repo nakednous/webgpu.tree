@@ -60,6 +60,7 @@ codemirror.js  = [
 /** Repo-relative paths (resolved against the package root by index.js). */
 export const paths = {
   src:    'src',
+  docs:   'docs',             // doc-only files: the re-exported composites, by name
   pkg:    'package.json',
   readme: 'README.md',
   esm:    'tools/docs/esm.md',  // the index page's ES modules section and its live demo

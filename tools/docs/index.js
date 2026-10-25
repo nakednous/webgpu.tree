@@ -39,7 +39,7 @@ async function main() {
   const api = await import(pathToFileURL(at(paths.module)).href);
 
   // Parse + validate.
-  const parsed = parseSources(at(paths.src));
+  const parsed = parseSources(at(paths.src), at(paths.docs));
   const { errors, warnings } = validate(parsed, { api, readme, esm });
   for (const w of warnings) console.warn(`[docs] warn  ${w}`);
   for (const e of errors)   console.error(`[docs] error ${e}`);

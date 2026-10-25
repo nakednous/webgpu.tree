@@ -17,8 +17,9 @@
 > #104) and compute (§7 #85) — is not on it either. Names inherit the bridge's.
 >
 > **The site.** `tools/docs` is this package's own copy — a third, after `webgl.tree`'s and p5.tree's
-> — and `npm run docs` writes `site/`: the README as the landing page, a page per module, search, the
-> ES build of the same commit and the builds it was made against. It is **ESM-only**, as the package
+> — and `npm run docs` writes `site/`: the README as the landing page, a page per module (eleven: the
+> eight the package declares and the composites' three, from the doc-only files in `docs/`), search,
+> the ES build of the same commit and the builds it was made against. It is **ESM-only**, as the package
 > is: an example imports from `webgpu.tree`, runs as a module script under the page's import map and
 > awaits `init`; a shader is a WGSL fence. **Every doclet's example is the reference's figure
 > translated** — the same camera, scene and caption, so the two sites read side by side — mounted once
@@ -270,6 +271,13 @@ notebook column may use; the bridge does not).
   2 × 2 source stretched with clamp-to-edge showed a solid white quarter — a 16 × 16 ramp that the
   cover rect stretches smooth is the example now. An example that is a call's shape stays supported
   by the parser and the renderer, marked and shown as code; no doclet on the site is one.
+- *The composites' pages.* The site now documents what the twin re-exports as well as what it
+  declares: `pass` (`fullscreen`, `filter`, `image`, `pipe`, `releasePipe`, the mask and blend
+  constants), `target` (`renderTarget`, `SCREEN`) and `state`, in doc-only files under `docs/` — as
+  `webgl.tree` documents the surface it re-exports — each figure the reference's own figure for that
+  verb, translated. Two of them are the density rule in miniature: `image`'s inset derives its rect
+  from the buffer (`20 * canvas.width / canvas.clientWidth`), and the two-target figure splits the
+  canvas by `ctx.width / 2`, so both hold at a density of two. 13 pages, 50 doclets, 44 examples.
 - *The line pipe's topology.* The site's first figures showed the axes as a filled gradient triangle
   with a stray arm. WebGPU bakes the topology into the pipeline and the pipe never stated its own, so
   every gizmo's line list went through a `triangle-list` pipeline built from the ambient state; the

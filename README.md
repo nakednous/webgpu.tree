@@ -61,21 +61,23 @@ python3 -m http.server 8000     # then open http://127.0.0.1:8000/site/
 ```
 
 The site documents **the verbs this package declares** — eight pages: `camera`, `context`, `draw`,
-`gizmo`, `pick`, `space`, `texture` and the root module. The composites it re-exports
-(`renderTarget`, `fullscreen`, `filter`, `image`, `pipe`, `releasePipe`, `state`, `SCREEN`, the colour
-and blend constants) are `@nakednous/idiom`'s, and that layer's reference is the package's own JSDoc
-and `webgl.tree`'s pages for the same verbs — the two bridges share them, so nothing about them is
-WebGPU's. The `tree` and `host` namespaces the package re-exports document in their own READMEs. What
-the twin's site should carry of the first kind is open (§7 #114); the second kind has no counterpart
-here — there is no Radiance module in the twin, and `host.decodeRGBE` is `host`'s.
+`gizmo`, `pick`, `space`, `texture` and the root module — and **the composites it re-exports**, on
+three pages of their own: `pass` (`fullscreen`, `filter`, `image`, `pipe`, `releasePipe` and the mask
+and blend constants), `target` (`renderTarget`, `SCREEN`) and `state`. Those are
+`@nakednous/idiom`'s verbs, documented here as the bridge re-exports them — the same pages, verbs and
+figures the reference has — from doc-only files in `docs/`, as `webgl.tree` documents the surface it
+re-exports. The `tree` and `host` namespaces the twin re-exports document in their own READMEs; the
+reference's `tree.*` / `host.*` pages are a next stage (§7 #116). There is no Radiance module in the
+twin, so no `hdr` page: `host.decodeRGBE` is `host`'s.
 
 Its gate is two halves. `npm run docs` is the structural one — every documented name and a function's
 parameters against the build, every example's imports resolved, every fence's language — and it fails
 on an error. The other half mounts **every figure** in this machine's Chromium with
-`--enable-unsafe-webgpu`, one figure to a page load: the headless compositor drops its WebGPU instance
-when a canvas is first presented, so a page carries one figure per load, a figure that reads back
-reads before it presents, and a figure passes when it acquires a device, draws and logs nothing. The
-browser's look is the maintainer's gate.
+`--enable-unsafe-webgpu`, at device scale factors **1 and 2**: the headless compositor drops its WebGPU
+instance when a canvas is first presented, so a page carries one figure per load, a figure that reads
+back reads before it presents, and a figure passes when it acquires a device, draws, logs nothing, and
+its canvas is its page size times the density (§7 #115's first rule; the twin's `init` states the
+density, so the figures take it). The browser's look is the maintainer's gate.
 
 It is **not deployed**: the repositories' GitHub home, and the sites' deployment, is §7 #77's pending
 ground, and #56's "the `*.tree` bridges only" gives this bridge a site, not an address.
