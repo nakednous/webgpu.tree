@@ -591,10 +591,14 @@ export function trackPath(ctx, track, opts) {
 /**
  * A helm's control rig in the scene at `M`, oriented to the helm's resolved
  * `from`: three translation arrows and three rotation rings, the driven channel
- * bright.
+ * bright. With `{ x, y }` it renders into a small cached target through its own
+ * orthographic camera and composites it at (x, y) in HUD pixels (y down) with
+ * `tint` — the corner readout of a camera fly; `identify` sends each channel's
+ * lane to the host's labels.
  * @param {object} ctx  The context record.
  * @param {object} helm  A PoseHelm.
- * @param {{ M?:ArrayLike<number>, size?:number, bits?:number, depth?:boolean, width?:number }} [opts]
+ * @param {{ M?:ArrayLike<number>, size?:number, bits?:number, identify?:boolean, depth?:boolean,
+ *           width?:number, x?:number, y?:number, tilt?:number|number[], tint?:number[] }} [opts]
  * @example
  * <caption>A helm fed a translation rate, then a rotation rate, in turn: first an arrow brightens, then a ring.</caption>
  * import { init, endFrame, image, renderTarget, SCREEN, setCamera, helmRig, tree } from 'webgpu.tree'

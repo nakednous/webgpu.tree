@@ -5,7 +5,7 @@
  *
  * `host.createHost(canvas)` gives a canvas what is neither math nor drawing:
  * its pointer, a frame clock and size, and the constructs that tick with it.
- * Attach it with `init(gl, { host })`, then each frame: `setCamera`, update
+ * Attach it with `init(canvas, { host })`, then each frame: `setCamera`, update
  * handles, let the orbit take the pointer nobody grabbed, draw, and — when the
  * application owns the loop — `tick(dt)` and `pointer.flush()`.
  */
@@ -452,8 +452,7 @@
  * const g = drawing.getContext('2d')
  * g.fillStyle = '#ffd166'; g.fillRect(0, 0, 128, 128)
  * g.fillStyle = '#ff4fd8'; g.beginPath(); g.arc(64, 64, 44, 0, 2 * Math.PI); g.fill()
- * let tex = null
- * canvasHost.image(drawing.toDataURL()).then((bitmap) => { tex = texture(ctx, bitmap) })
+ * const tex = texture(ctx, await canvasHost.image(drawing.toDataURL()))   // uploaded before the first frame
  * const M = tree.mat4(), q = tree.quat()
  *
  * function frame() {
@@ -522,7 +521,7 @@
  * @param {object} [opts]
  * @returns {ImageBitmap|HTMLCanvasElement}
  * @example
- * <caption>Text drawn with the 2D canvas API — “webgl.tree” in magenta on white — rasterized once and textured onto the pane, upright.</caption>
+ * <caption>Text drawn with the 2D canvas API — “webgpu.tree” in magenta on white — rasterized once and textured onto the pane, upright.</caption>
  * import { init, endFrame, image, renderTarget, SCREEN, setCamera, texture, pane, tree, host } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
@@ -535,7 +534,7 @@
  * const source = canvasHost.raster((g, w, h) => {
  *   g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h)
  *   g.fillStyle = '#ff4fd8'; g.font = 'bold 44px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'
- *   g.fillText('webgl.tree', w / 2, h / 2)
+ *   g.fillText('webgpu.tree', w / 2, h / 2)
  * }, 320, 96)
  * const tex = texture(ctx, source)
  *
@@ -595,11 +594,9 @@
  * }
  * ```
  * `
- * let torus = null, prog = null
- * canvasHost.mesh('models/torus.obj').then((mesh) => {
- *   torus = buffer(ctx, mesh)
- *   prog = program(ctx, WGSL, { buffers: torus.bufferLayouts })   // the pipeline bakes the mesh's vertex layout
- * })
+ * const mesh = await canvasHost.mesh('models/torus.obj')   // fetched and uploaded before the first frame
+ * const torus = buffer(ctx, mesh)
+ * const prog = program(ctx, WGSL, { buffers: torus.bufferLayouts })   // the pipeline bakes the mesh's vertex layout
  * const M = tree.mat4(), q = tree.quat()
  *
  * function frame() {
@@ -666,14 +663,12 @@
  * }
  * ```
  * `
- * let parts = [], world = null
- * canvasHost.model('models/torus.obj', { normals: 'flat' }).then((model) => {
- *   parts = model.parts.map((part) => {
- *     const buf = buffer(ctx, part.mesh)
- *     return { ...part, buf, prog: program(ctx, WGSL, { buffers: buf.bufferLayouts }) }   // a pipeline per part's layout
- *   })
- *   world = tree.poseWorld(new Float32Array(16 * model.nodes.parents.length), model.nodes.rest, model.nodes.parents)
+ * const model = await canvasHost.model('models/torus.obj', { normals: 'flat' })   // fetched and uploaded before the first frame
+ * const parts = model.parts.map((part) => {
+ *   const buf = buffer(ctx, part.mesh)
+ *   return { ...part, buf, prog: program(ctx, WGSL, { buffers: buf.bufferLayouts }) }   // a pipeline per part's layout
  * })
+ * const world = tree.poseWorld(new Float32Array(16 * model.nodes.parents.length), model.nodes.rest, model.nodes.parents)
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
