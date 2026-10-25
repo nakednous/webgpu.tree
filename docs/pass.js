@@ -237,7 +237,7 @@
  * pane(ctx, [-30, 70, 1], [110, 70, 1], [110, -70, 1], [-30, -70, 1], { color: [1, 0.82, 0.4, 1] })
  *
  * ctx.backend.bindTarget(ctx, SCREEN)
- * pipe(ctx, scene, [pixelate, invert], { key: 'shown' })   // the chain’s end on the canvas
+ * pipe(ctx, scene, [{ program: pixelate, uniforms: { uCells: 20 } }, invert])   // the chain’s end on the canvas
  * endFrame(ctx)
  */
 
@@ -273,25 +273,34 @@
  * ```
  * `)
  *
+ * const out = document.body.appendChild(document.createElement('div'))
+ * out.style.cssText = 'position:absolute;left:8px;top:8px;color:#d8dee9;font:13px ui-monospace,monospace'
  * let effect = true
+ * let last = null, pairs = 0
+ *
  * canvas.addEventListener('click', () => {
  *   effect = !effect
- *   if (!effect) releasePipe(ctx, 'shown')   // the cached pair goes; pipe allocates another
+ *   if (!effect) releasePipe(ctx, 'fx')   // the cached pair goes; on again, pipe allocates another
  * })
  *
  * // a square of half-diagonal 70 centred at (cx, 0), turned by a
  * const square = (cx, a, z) => [0, 1, 2, 3].map((k) => [cx + 70 * Math.cos(a - k * Math.PI / 2), 70 * Math.sin(a - k * Math.PI / 2), z])
  *
  * function frame(ms) {
- *   const a = ms / 900
+ *   const a = ms / 2000
  *   ctx.backend.bindTarget(ctx, scene)
  *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
  *   setCamera(ctx, cam)
- *   pane(ctx, ...square(-70, a, 0), { color: [1, 0.31, 0.85, 1] })
- *   pane(ctx, ...square(70, -a, 1), { color: [1, 0.82, 0.4, 1] })
+ *   pane(ctx, ...square(-40, a, 0), { color: [1, 0.31, 0.85, 1] })
+ *   pane(ctx, ...square(40, -a, 1), { color: [1, 0.82, 0.4, 1] })
  *   ctx.backend.bindTarget(ctx, SCREEN)
- *   if (effect) pipe(ctx, scene, [pixelate], { key: 'shown' })
- *   else image(ctx, scene.color)
+ *   if (effect) {
+ *     const target = pipe(ctx, scene, { program: pixelate, uniforms: { uCells: 16 } }, { key: 'fx' })
+ *     if (target !== last) { last = target; pairs += 1 }   // every time it comes back, a fresh pair
+ *   } else {
+ *     image(ctx, scene.color)
+ *   }
+ *   out.textContent = (effect ? 'pixelated' : 'released') + ' · pairs allocated: ' + pairs
  *   endFrame(ctx)
  *   requestAnimationFrame(frame)
  * }
