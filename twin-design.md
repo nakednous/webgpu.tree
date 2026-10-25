@@ -291,8 +291,11 @@ notebook column may use; the bridge does not).
   through `owners`, an ES module namespace exports its members as getters so the value is read
   through the descriptor, and a factory's methods are read off its source with the prototype chain
   walked — while the bridge's own doclets keep the flat check. 21 pages, 210 doclets, 176 examples,
-  0 warnings. The examples' gate mounts all 176 at device scale factors 1 and 2: 0 failures, the four
-  camera figures' denial allowed by name, since a headless browser has no camera. The figures'
+  0 warnings. The examples' gate mounts all 177 figures — the 176 doclets' and the index page's demo —
+  at device scale factors 1 and 2: 354 mounts, 0 failures, the four camera figures' denial allowed by
+  name since a headless browser has no camera, and three after-present figures tolerated by name. The
+  harness fails a run that judges nothing: it had matched no figure at all, and its first
+  `{"failures": 0}` was a pass over zero mounts. The figures'
   pictures remain the maintainer's look: this Chromium composites no WebGPU canvas, so a screenshot of
   one is black — the existing checker figure's own included — and the headless evidence is a readback
   before the present.
