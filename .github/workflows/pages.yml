@@ -1,0 +1,46 @@
+# The API site: built from the tagged commit and deployed to GitHub Pages, so
+# the site and the published package never skew. Pages source: GitHub Actions.
+# Unlike the reference's repo this one commits its lockfile, so `npm ci` and the
+# setup-node cache are available.
+# A tag push is rejected until the github-pages environment allows it: Pages
+# defaults that environment's deployment rule to the default branch, so add a
+# Tag rule matching v* (Settings -> Environments -> github-pages), or dispatch
+# this workflow from main for a doc-only redeploy.
+name: pages
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+      - run: npm run build
+      - run: npm run docs
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v5
