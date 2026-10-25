@@ -12,7 +12,7 @@
  * WGSL block is the twin's one new kind of code on a page.
  */
 
-import { aliases, packages, paths, SITE_URL, importMap } from './config.js';
+import { aliases, owners, packages, paths, SITE_URL, importMap } from './config.js';
 
 const VOCABULARY = new Set([
   'file', 'module', 'license',
@@ -126,6 +126,61 @@ export function paramNames(src) {
     const name = p.trim().replace(/^\.\.\./, '');
     return /^[{[]/.test(name) ? null : name.split('=')[0].trim();
   });
+}
+
+/**
+ * A property descriptor anywhere up the prototype chain — a class's mixin
+ * methods live on a prototype above their own (§7 #116).
+ * @ignore
+ */
+function descriptorOf(obj, name) {
+  for (let o = obj; o; o = Object.getPrototypeOf(o)) {
+    const d = Object.getOwnPropertyDescriptor(o, name);
+    if (d) return d;
+  }
+  return null;
+}
+
+/**
+ * The member a documented name stands for, or null. An ES module namespace
+ * exports its members as getters, so the value is read through the descriptor
+ * where there is no `.value` — a re-exported package's namespace is one, its
+ * own build's functions are the other.
+ * @ignore
+ */
+function memberOf(target, name) {
+  const d = descriptorOf(target, name);
+  if (!d) return null;
+  if (typeof d.value === 'function') return d.value;
+  const value = target[name];
+  return typeof value === 'function' ? value : null;
+}
+
+/**
+ * What a re-exported owner's surface answers: `has(name)` and `params(name)`,
+ * the latter read off the build's source — or, for an object a factory returns,
+ * off the factory's own source. Null when the owner is not configured or not in
+ * the build.
+ * @ignore
+ */
+function ownerScope(api, owner) {
+  const path = owners[owner];
+  if (!path) return null;
+  const factory = path.endsWith('()');
+  const target = (factory ? path.slice(0, -2) : path).split('.').reduce((o, k) => (o == null ? o : o[k]), api);
+  if (target == null) return null;
+  if (factory) {
+    const src = String(target);
+    const at = (name) => src.search(new RegExp(`[\\s,{](?:get\\s+)?${name}\\s*\\(`));
+    return { has: (name) => at(name) >= 0, params: (name) => paramNames(src.slice(at(name) + 1).replace(/^get\s+/, '')) };
+  }
+  return {
+    has:    (name) => descriptorOf(target, name) !== null,
+    params: (name) => {
+      const fn = memberOf(target, name);
+      return fn ? paramNames(String(fn)) : [];
+    },
+  };
 }
 
 /** The names one `import` clause brings in, or null where it is a default or a namespace form. @ignore */
@@ -253,10 +308,22 @@ export function validate(parsed, { api, readme, esm } = {}) {
     if (d.kind === 'function' && d.examples.length === 0) warn(d, `${d.owner}.${d.name} has no @example`);
   }
 
-  // The documented surface against the build: every name is exported, and a
-  // function's parameters are the ones its source declares.
+  // The documented surface against the build: every name is there — the
+  // bridge's own at the top level, a re-exported namespace's through `owners` —
+  // and a function's parameters are the ones its source declares.
   for (const d of doclets) {
     if (!api) { fail(d, `the build does not export ${d.name}`); continue; }
+    const scope = owners[d.owner] ? ownerScope(api, d.owner) : null;
+    if (scope) {
+      if (!scope.has(d.name)) { fail(d, `${d.owner}.${d.name} is not in the build`); continue; }
+      if (d.kind !== 'function') continue;
+      const actual = scope.params(d.name);
+      const documented = d.params.map((p) => p.name);
+      if (actual.length !== documented.length || actual.some((n, i) => n !== null && n !== documented[i])) {
+        fail(d, `${d.owner}.${d.name}(${documented.join(', ')}) does not match the build's (${actual.map((n) => n ?? '{…}').join(', ')})`);
+      }
+      continue;
+    }
     const built = api[d.name];
     if (built === undefined) { fail(d, `${d.name} is not in the build`); continue; }
     if (d.kind !== 'function') continue;

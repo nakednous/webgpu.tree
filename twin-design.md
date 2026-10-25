@@ -17,9 +17,10 @@
 > #104) and compute (§7 #85) — is not on it either. Names inherit the bridge's.
 >
 > **The site.** `tools/docs` is this package's own copy — a third, after `webgl.tree`'s and p5.tree's
-> — and `npm run docs` writes `site/`: the README as the landing page, a page per module (eleven: the
-> eight the package declares and the composites' three, from the doc-only files in `docs/`), search,
-> the ES build of the same commit and the builds it was made against. It is **ESM-only**, as the package
+> — and `npm run docs` writes `site/`: the README as the landing page, a page per module (nineteen:
+> the eight the package declares, the composites' three and the two namespaces' eight — the last two
+> groups from doc-only files in `docs/`), search, the ES build of the same commit and the builds it was
+> made against. It is **ESM-only**, as the package
 > is: an example imports from `webgpu.tree`, runs as a module script under the page's import map and
 > awaits `init`; a shader is a WGSL fence. **Every doclet's example is the reference's figure
 > translated** — the same camera, scene and caption, so the two sites read side by side — mounted once
@@ -278,6 +279,23 @@ notebook column may use; the bridge does not).
   verb, translated. Two of them are the density rule in miniature: `image`'s inset derives its rect
   from the buffer (`20 * canvas.width / canvas.clientWidth`), and the two-target figure splits the
   canvas by `ctx.width / 2`, so both hold at a density of two. 13 pages, 50 doclets, 44 examples.
+- *The re-exported namespaces' pages.* The site now documents the two namespaces the twin re-exports,
+  on the reference's eight pages — `host`, `host.handles`, `host.tracks`, `tree.camera`,
+  `tree.matrices`, `tree.projection`, `tree.quaternions`, `tree.visibility` — ported from the
+  reference's doc-only files: 160 doclets, 132 examples, every figure the reference's figure
+  translated to the twin, the page names and anchors the reference's (§7 #116). The prose is the
+  reference's except where it names the reference's own context: `setCamera(gl, cam)` reads
+  `setCamera(ctx, cam)`, "the layout WebGL uploads" is WebGPU's, and `cameraProj`'s `ndcYSign`
+  paragraph states the fourth argument as the y sign rather than the depth constant the twin drops.
+  The validator grew the reference's owner-scope branch — a doclet owned by a namespace is checked
+  through `owners`, an ES module namespace exports its members as getters so the value is read
+  through the descriptor, and a factory's methods are read off its source with the prototype chain
+  walked — while the bridge's own doclets keep the flat check. 21 pages, 210 doclets, 176 examples,
+  0 warnings. The examples' gate mounts all 176 at device scale factors 1 and 2: 0 failures, the four
+  camera figures' denial allowed by name, since a headless browser has no camera. The figures'
+  pictures remain the maintainer's look: this Chromium composites no WebGPU canvas, so a screenshot of
+  one is black — the existing checker figure's own included — and the headless evidence is a readback
+  before the present.
 - *The line pipe's topology.* The site's first figures showed the axes as a filled gradient triangle
   with a stray arm. WebGPU bakes the topology into the pipeline and the pipe never stated its own, so
   every gizmo's line list went through a `triangle-list` pipeline built from the ambient state; the

@@ -31,6 +31,62 @@ state, and readback is asynchronous by construction.
 > back offscreen in this machine's Chromium (adapter `google/swiftshader`, `rgba8unorm`) — the twin's
 > `testing/` pages are the record.
 
+## Installation
+
+ESM only: the package ships `dist/index.js`, and a bundler or an import map resolves it beside the
+stack's packages and its one peer. A browser with WebGPU is required — `navigator.gpu` — so it does
+not run in Node: a page `await`s `init`, which asks for an adapter, a device and the canvas's context.
+
+```bash
+npm install webgpu.tree webgpu-utils @nakednous/tree @nakednous/host @nakednous/idiom
+```
+
+Without a bundler, an import map resolves the five names:
+
+```html
+<script type="importmap">
+{ "imports": {
+  "webgpu.tree": "https://cdn.jsdelivr.net/npm/webgpu.tree/dist/index.js",
+  "webgpu-utils": "https://cdn.jsdelivr.net/npm/webgpu-utils@2.1.1/dist/2.x/webgpu-utils.module.js",
+  "@nakednous/tree": "https://cdn.jsdelivr.net/npm/@nakednous/tree/dist/index.js",
+  "@nakednous/host": "https://cdn.jsdelivr.net/npm/@nakednous/host/dist/index.js",
+  "@nakednous/idiom": "https://cdn.jsdelivr.net/npm/@nakednous/idiom/dist/index.js"
+} }
+</script>
+```
+
+```js
+import { init, endFrame, image, renderTarget, SCREEN, setCamera, axes, tree } from 'webgpu.tree'
+
+const canvas = document.body.appendChild(document.createElement('canvas'))
+canvas.style.width = '400px'
+canvas.style.height = '300px'
+const ctx = await init(canvas, { width: 400, height: 300 })   // adapter, device, the canvas's context
+const scene = renderTarget(ctx)                              // a WebGPU canvas has no depth attachment
+
+const cam = tree.createCamera({ eye: [129, 107, 172] })
+
+function frame() {
+  ctx.backend.bindTarget(ctx, scene)                          // the layer's flat bind, the twin's pass
+  ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+  setCamera(ctx, cam)
+  axes(ctx, { size: 100 })
+  ctx.backend.bindTarget(ctx, SCREEN)
+  image(ctx, scene.color)
+  endFrame(ctx)                                               // submit the frame: the twin's own
+  requestAnimationFrame(frame)
+}
+requestAnimationFrame(frame)
+```
+
+`endFrame(ctx)` is the twin's, not the layer's (§7 #107): it submits the frame's command encoder, and
+it is what the host's `afterFrame` calls when a host is attached —
+`host.createHost(canvas, { afterFrame: () => endFrame(ctx) })` — after `pointer.flush()`, so a pointer
+handler's draw lands in the frame.
+
+> **Status: 0.0.x, experimental.** The twin's surface is `webgl.tree`'s; WebGPU is not yet the default
+> on Linux stable, so a figure's API stays an authoring choice (§7 #86, #108).
+
 ## The API site
 
 The package has a reference site of its own, generated from this source by its own `tools/docs`
@@ -61,14 +117,17 @@ python3 -m http.server 8000     # then open http://127.0.0.1:8000/site/
 ```
 
 The site documents **the verbs this package declares** — eight pages: `camera`, `context`, `draw`,
-`gizmo`, `pick`, `space`, `texture` and the root module — and **the composites it re-exports**, on
-three pages of their own: `pass` (`fullscreen`, `filter`, `image`, `pipe`, `releasePipe` and the mask
-and blend constants), `target` (`renderTarget`, `SCREEN`) and `state`. Those are
-`@nakednous/idiom`'s verbs, documented here as the bridge re-exports them — the same pages, verbs and
-figures the reference has — from doc-only files in `docs/`, as `webgl.tree` documents the surface it
-re-exports. The `tree` and `host` namespaces the twin re-exports document in their own READMEs; the
-reference's `tree.*` / `host.*` pages are a next stage (§7 #116). There is no Radiance module in the
-twin, so no `hdr` page: `host.decodeRGBE` is `host`'s.
+`gizmo`, `pick`, `space`, `texture` and the root module — **the composites it re-exports**, on three
+pages of their own: `pass` (`fullscreen`, `filter`, `image`, `pipe`, `releasePipe` and the mask and
+blend constants), `target` (`renderTarget`, `SCREEN`) and `state`; and **the two namespaces it
+re-exports**, on the reference's eight: `host`, `host.handles`, `host.tracks`, `tree.camera`,
+`tree.matrices`, `tree.projection`, `tree.quaternions` and `tree.visibility` — nineteen module pages
+beside the README, the reference's page set and anchors (§7 #116). The composites' and the
+namespaces' pages are `@nakednous/idiom`'s and `@nakednous/tree`'s / `@nakednous/host`'s verbs,
+documented here as the bridge re-exports them, from doc-only files in `docs/`, as `webgl.tree`
+documents the surface it re-exports — each doclet's figure the reference's own figure translated to
+the twin, so the two sites read side by side. There is no Radiance module in the twin, so no `hdr`
+page: `host.decodeRGBE` is `host`'s.
 
 Its gate is two halves. `npm run docs` is the structural one — every documented name and a function's
 parameters against the build, every example's imports resolved, every fence's language — and it fails

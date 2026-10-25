@@ -30,7 +30,8 @@ export const packages = {
   '@nakednous/tree':  'https://github.com/nakednous/tree',
   '@nakednous/host':  'https://github.com/nakednous/host',
   '@nakednous/ui':    'https://github.com/nakednous/ui',
-  '@nakednous/idiom': 'https://github.com/nakednous/idiom',
+  // the layer's repository is private, so its public address is the package page
+  '@nakednous/idiom': 'https://www.npmjs.com/package/@nakednous/idiom',
   'webgpu-utils':     peer.reference,
   'webgpu.tree':      'https://github.com/nakednous/webgpu.tree',
   'webgl.tree':       'https://github.com/nakednous/webgl.tree',
@@ -43,11 +44,31 @@ export const packageRefUrl = (name) => packages[name] ?? null;
 export const aliases = {};
 
 /**
- * Owners written as a prefix in signatures: none. The twin's own surface is
- * module-level, and the `tree` / `host` namespaces are the packages' — the
- * reference's pages document those, not this site.
+ * Owners written as a prefix in signatures and prose: the two namespaces the
+ * package re-exports. Their pages are the twin's own, ported from the
+ * reference's doc-only files (§7 #116), so a `tree.mat4Mul` or a `host.handle`
+ * in prose links to the page that documents it.
  */
-export const namespaces = [];
+export const namespaces = ['tree', 'host'];
+
+/**
+ * Where each owner of the re-exported surface lives in the build: a path from
+ * the ES build's namespace, or `path()` for the object literal a factory
+ * returns (its methods are read off the factory's source). The same table the
+ * reference's site uses — the build re-exports the same packages.
+ */
+export const owners = {
+  tree:        'tree',
+  host:        'host',
+  Host:        'host.createHost()',
+  Orbit:       'host.createOrbit()',
+  Labels:      'host.createLabels()',
+  Video:       'host.createVideo()',
+  Handle:      'host.Handle.prototype',
+  PoseTrack:   'tree.PoseTrack.prototype',
+  CameraTrack: 'tree.CameraTrack.prototype',
+  PoseHelm:    'tree.PoseHelm.prototype',
+};
 
 /** CodeMirror 5 UMD — the example editor. */
 export const codemirror = { version: '5.65.21' };
