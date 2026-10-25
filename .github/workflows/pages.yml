@@ -1,7 +1,8 @@
 # The API site: built from the tagged commit and deployed to GitHub Pages, so
 # the site and the published package never skew. Pages source: GitHub Actions.
-# Unlike the reference's repo this one commits its lockfile, so `npm ci` and the
-# setup-node cache are available.
+# No lockfile is committed (this repo ignores package-lock.json, as the
+# reference does), so the install is `npm install`, and no `cache: npm` — both
+# `npm ci` and the setup-node cache require a committed lockfile.
 # A tag push is rejected until the github-pages environment allows it: Pages
 # defaults that environment's deployment rule to the default branch, so add a
 # Tag rule matching v* (Settings -> Environments -> github-pages), or dispatch
@@ -33,8 +34,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 26
-          cache: npm
-      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-audit --no-fund
       - run: npm test
       - run: npm run build
       - run: npm run docs
