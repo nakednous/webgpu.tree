@@ -49,8 +49,10 @@ import { WEBGPU, mat4Mul } from '@nakednous/tree';
 import {
   createBufferLayoutsFromArrays,
   createBuffersAndAttributesFromArrays,
+  generateMipmap,
   makeBindGroupLayoutDescriptors,
   makeTypedArrayFromArrayUnion,
+  numMipLevels,
   setVertexAndIndexBuffers,
 } from 'webgpu-utils';
 import { TEXTURE_USAGE } from './flags.js';
@@ -139,6 +141,55 @@ function textureViewOf(tex) {
  *        format: the canvas's format; width / height: its size in device pixels.
  * @returns {object} The backend `idiom`'s context record nests.
  */
+// ── The texture ceremony ─────────────────────────────────────────────────
+// What a source becomes is this API's question: a size, a format, a dimension
+// and a view, then an upload (a queue write per slice) and, where asked, a mip
+// chain the peer generates. The layer's texture family hands the source here.
+
+const FORMAT = /^(r|rg|rgba|bgra)(8|16|32)(unorm|snorm|float|uint|sint)$/;
+
+const _isPixels = (s) => !!(s && s.data && typeof s.width === 'number' && typeof s.height === 'number' && !s.getContext);
+const _isFloat = (s) => !!(s && s.data instanceof Float32Array);
+const _sizeOf = (s) => {
+  if (!s) return null;
+  const w = s.videoWidth || s.naturalWidth || s.width || 0;
+  const h = s.videoHeight || s.naturalHeight || s.height || 0;
+  return w && h ? [w, h] : null;
+};
+
+/** The bytes of a pixel source, whatever its array's type. @ignore */
+function _bytes(data) {
+  if (data instanceof ArrayBuffer) return new Uint8Array(data);
+  return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+}
+
+/** The format a source and the options ask for. @ignore */
+function _formatOf(source, opts) {
+  const float = !!opts.float;
+  const token = opts.format !== undefined ? opts.format : (_isFloat(source) && !float ? 'rgba32float' : undefined);
+  return formatOf({ format: token, float });
+}
+
+/** Whether a format is one the twin's textures take. @ignore */
+const _formatOk = (format) => FORMAT.test(format);
+
+/** The slices a pixel source holds: `depth` a volume, `layers` an array. @ignore */
+const _layersOf = (pixels) => {
+  if (typeof pixels.depth === 'number') return pixels.depth;
+  if (typeof pixels.layers === 'number') return pixels.layers;
+  return 1;
+};
+
+/** Write a pixel source's slices into a texture, one layer at a time. @ignore */
+function _writeSlices(ctx, tex, pixels) {
+  const step = tex.width * tex.height * bytesPerPixel(tex.format);
+  const all = _bytes(pixels.data);
+  const layers = Math.max(1, Math.min(tex.layers || 1, _layersOf(pixels)));
+  for (let z = 0; z < layers; z++) {
+    ctx.backend.uploadTexture(ctx, tex, all.subarray(z * step, (z + 1) * step), { z });
+  }
+}
+
 export function createBackend(opts) {
   const { device, context, format } = opts;
   const arena = opts.arena || createArena(device);
@@ -517,7 +568,91 @@ export function createBackend(opts) {
 
     // -------------------------------------------------------------- textures
 
-    createTexture(ctx, descriptor) {
+    /**
+     * A texture from a source — an element, a bitmap, or `{ data, width, height }`
+     * (a `depth` makes it a 3d texture, `layers` a 2d array) — created, uploaded
+     * and, where `mips` asks, chained. A record that is already a descriptor is
+     * `createTextureFromDescriptor`, this backend's own.
+     */
+    createTexture(ctx, source, opts) {
+      const o = opts || {};
+      const pixels = _isPixels(source) ? source : null;
+      const size = pixels ? [pixels.width, pixels.height] : _sizeOf(source);
+      if (!size) {
+        console.error('[webgpu.tree] texture: a source is required — an element, a bitmap, or { data, width, height }.');
+        return null;
+      }
+      const format = _formatOf(source, o);
+      if (format === 'rgba32float' && device.features && !device.features.has('float32filterable') && !device.features.has('float32-filterable')) {
+        console.error('[webgpu.tree] texture: this device has no `float32-filterable`, so sampling an rgba32float ' +
+          'texture with the twin\'s sampler is invalid and draws nothing — use `float: true` (16F) or a format ' +
+          'the device filters.');
+      }
+      if (!_formatOk(format)) {
+        console.error('[webgpu.tree] texture: `' + format + '` is not a texture format the twin takes.');
+        return null;
+      }
+      const volume = !!pixels && typeof pixels.depth === 'number';
+      const layers = volume ? Math.max(1, pixels.depth | 0) : (pixels && typeof pixels.layers === 'number' ? Math.max(1, pixels.layers | 0) : 1);
+      const mips = o.mips === true;
+      if (mips && volume) console.error('[webgpu.tree] texture: a 3d texture takes no mip chain — the chain is 2D and cube.');
+      const levels = mips && !volume ? numMipLevels([size[0], size[1]], '2d') : 1;
+      const tex = backend.createTextureFromDescriptor(ctx, {
+        width: size[0],
+        height: size[1],
+        depthOrArrayLayers: layers,
+        dimension: volume ? '3d' : '2d',
+        viewDimension: volume ? '3d' : (layers > 1 ? '2d-array' : undefined),
+        mips: levels,
+        format,
+        usage: o.usage,
+        label: o.label,
+      });
+      ctx.sizes.set(tex, [tex.width, tex.height]);          // the layer's uTexelSize reads it
+      backend.uploadTexture(ctx, tex, source);
+      if (mips && !volume) generateMipmap(device, tex.gpu);
+      return tex;
+    },
+
+    /** A cube map from six sources in the cube's order, each its own layer, unflipped. */
+    createCubeTexture(ctx, faces, opts) {
+      const o = opts || {};
+      const first = faces[0];
+      const size = _isPixels(first) ? [first.width, first.height] : _sizeOf(first);
+      if (!size) {
+        console.error('[webgpu.tree] cubemap: a face must be an element, a bitmap, or { data, width, height }.');
+        return null;
+      }
+      const format = _formatOf(_isPixels(first) ? first : null, o);
+      if (!_formatOk(format)) {
+        console.error('[webgpu.tree] cubemap: `' + format + '` is not a texture format the twin takes.');
+        return null;
+      }
+      const mips = o.mips === true;
+      const levels = mips ? numMipLevels(size, '2d') : 1;
+      const tex = backend.createTextureFromDescriptor(ctx, {
+        width: size[0],
+        height: size[1],
+        depthOrArrayLayers: 6,
+        dimension: '2d',
+        viewDimension: 'cube',
+        mips: levels,
+        format,
+        usage: o.usage,
+        label: o.label,
+      });
+      ctx.sizes.set(tex, [tex.width, tex.height]);
+      for (let i = 0; i < 6; i++) {
+        const face = faces[i];
+        backend.uploadTexture(ctx, tex, _isPixels(face) ? _bytes(face.data) : face, { z: i });
+      }
+      if (mips) generateMipmap(device, tex.gpu);
+      return tex;
+    },
+
+
+    /** The descriptor's own path — the shape the bridge's callers hand it. @ignore */
+    createTextureFromDescriptor(ctx, descriptor) {
       const d = descriptor || {};
       const width = d.width || 1;
       const height = d.height || 1;
@@ -542,6 +677,7 @@ export function createBackend(opts) {
 
     uploadTexture(ctx, texture, source, origin) {
       if (!texture || !texture.gpu) return;
+      if (!origin && _isPixels(source)) return _writeSlices(ctx, texture, source);   // a volume or an array, slice by slice
       const z = origin && origin.z ? origin.z : 0;
       const mipLevel = origin && origin.mipLevel ? origin.mipLevel : 0;
       if (source && (ArrayBuffer.isView(source) || source instanceof ArrayBuffer)) {
