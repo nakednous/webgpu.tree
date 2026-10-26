@@ -37,19 +37,17 @@
  * sets the geometry's buffers on the open pass and the pipeline decides what
  * they mean.
  *
- * The transforms are computed into the context's scratch (`ctx.MV`, `ctx.MVP`,
- * `ctx.N`, sized by `init`) and each is uploaded **only if the program declares
- * it**, read off `uniformsOf` once per program; a fullscreen pass declares none
- * and gets none, and the bridge never sets a name outside this table. They go
- * through the backend's `setUniforms` — the member `idiom` calls — so a mat3
- * travels as nine floats and the backend pads its columns, and the values apply
- * to the draw that follows. `bind`'s bag is uploaded first, so a draw's
- * transforms win where both name one.
+ * The transforms are the layer's: `idiom` owns the six names and the arithmetic
+ * that fills `ctx.MV`, `ctx.MVP` and `ctx.N` (sized by `init`), and uploads each
+ * **only if the program declares it**, read off `uniformsOf` once per program; a
+ * fullscreen pass declares none and gets none, and neither package sets a name
+ * outside that table. The values travel through the backend's `setUniforms` — a
+ * mat3 as nine floats, the backend padding its columns — and apply to the draw
+ * that follows. `bind`'s bag is uploaded first, so a draw's transforms win where
+ * both name one.
  *
- * The arithmetic is the bridge's until `idiom`'s draw policy lands (§7 #109's
- * R2 gives the six names to `idiom`; S2 deferred the policy). It is one deletion
- * when it does: the policy calls the same `setUniforms`, and nothing here
- * reaches the interface.
+ * `drawInstanced` is the layer's `install` plus the backend's instanced member,
+ * which is what one geometry repeated is for: one install, one draw call.
  *
  * `opts` is `{ count, offset }`: a partial draw, `count` vertices (or indices)
  * from `offset` — WebGPU's own units, a first vertex or a first index, where
@@ -58,85 +56,23 @@
 
 'use strict';
 
-import { mat3NormalFromMat4, mat4Mul } from '@nakednous/tree';
+import { TRANSFORMS, declaredTransforms, draw as drawOf, install } from '@nakednous/idiom';
 
-/** The transform names a program may declare, in the order the bridge fills them. */
-export const TRANSFORMS = ['uModelMatrix', 'uViewMatrix', 'uModelViewMatrix', 'uProjectionMatrix', 'uModelViewProjectionMatrix', 'uNormalMatrix'];
-
-/** The key each transform's flag takes. @ignore */
-const KEYS = ['model', 'view', 'mv', 'proj', 'mvp', 'normal'];
-
-/**
- * Which of the six transforms a program declares.
- * @param {string[]} names  The uniform names a program declares, `uniformsOf`'s answer.
- * @returns {{ model:boolean, view:boolean, mv:boolean, proj:boolean, mvp:boolean, normal:boolean, any:boolean }}
- * @ignore
- */
-export function declaredTransforms(names) {
-  const d = {};
-  let any = false;
-  for (let i = 0; i < TRANSFORMS.length; i++) {
-    const declared = Array.isArray(names) && names.indexOf(TRANSFORMS[i]) >= 0;
-    d[KEYS[i]] = declared;
-    if (declared) any = true;
-  }
-  d.any = any;
-  return d;
-}
-
-const _declaredBy = new WeakMap();
-const _declared = (ctx, prog) => {
-  let d = _declaredBy.get(prog);
-  if (!d) {
-    d = declaredTransforms(ctx.backend.uniformsOf(prog));
-    _declaredBy.set(prog, d);
-  }
-  return d;
-};
-
-const _now = new WeakMap();
-const _valuesOf = (prog) => {
-  let values = _now.get(prog);
-  if (!values) {
-    values = {};
-    _now.set(prog, values);
-  }
-  return values;
-};
+export { TRANSFORMS, declaredTransforms };
 
 const _isMat4 = (m) => m != null && typeof m === 'object' && typeof m.length === 'number' && m.length >= 16;
-const IDENTITY = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 
 /**
  * Upload the transforms the bound program declares, for a model matrix M (null
- * for identity), from the context's installed V and P.
+ * for identity), from the context's installed V and P — the layer's `install`,
+ * which owns the six names, their arithmetic and the bag it writes.
  * @param {object} ctx  The context record.
  * @param {object} prog  A program record.
  * @param {ArrayLike<number>|null} M  A model mat4, or null for identity.
  * @ignore
  */
 export function uploadTransforms(ctx, prog, M) {
-  const d = _declared(ctx, prog);
-  if (!d.any) return;
-  const V = ctx.V;
-  const P = ctx.P;
-  const MV = M ? mat4Mul(ctx.MV, V, M) : V;
-  const values = _valuesOf(prog);
-  const all = {
-    model: M || IDENTITY,
-    view: V,
-    mv: MV,
-    proj: P,
-    mvp: M ? mat4Mul(ctx.MVP, P, MV) : ctx.PV,
-    normal: mat3NormalFromMat4(ctx.N, MV),
-  };
-  // the bag carries the declared names only, and no name a former draw left behind
-  for (let i = 0; i < TRANSFORMS.length; i++) {
-    const key = KEYS[i];
-    if (d[key]) values[TRANSFORMS[i]] = all[key];
-    else delete values[TRANSFORMS[i]];
-  }
-  ctx.backend.setUniforms(ctx, prog, values);
+  return install(ctx, prog, M);
 }
 
 /**
@@ -162,6 +98,7 @@ export function uploadTransforms(ctx, prog, M) {
  * struct U {
  *   uModelViewProjectionMatrix: mat4x4f,
  *   uNormalMatrix: mat3x3f,
+ *   uSpread: f32,
  *   uColor: vec3f,
  * };
  * @group(0) @binding(0) var<uniform> u: U;
@@ -493,19 +430,27 @@ function _named(arrays) {
  */
 export function draw(ctx, obj, M, opts) {
   if (M != null && !_isMat4(M)) { opts = M; M = null; }   // draw(ctx, obj, opts)
-  return _draw(ctx, obj, M || null, opts, 1);
+  if (!ctx || !ctx.backend) return null;
+  if (!ctx.prog) {
+    console.error('[webgpu.tree] draw: no program bound — call bind(ctx, prog) first.');
+    return null;
+  }
+  return drawOf(ctx, obj, M || null, opts);        // the layer installs the declared transforms
 }
 
 /**
- * Draw n instances of the geometry; the vertex stage reads `@builtin(instance_index)`.
+ * Draw n instances of the geometry; the vertex stage reads
+ * `@builtin(instance_index)`. The repeated-geometry path: one geometry, one
+ * install, one draw call — a field of one mesh beside the objects a scene draws
+ * one at a time.
  * @param {object} ctx  The context record.
  * @param {object} obj  A geometry from `buffer(ctx, arrays)`.
  * @param {number} n  Instance count.
  * @param {ArrayLike<number>|object} [M]  A model mat4, or an `opts` object.
  * @param {{ count?:number, offset?:number }} [opts]
  * @example
- * <caption>Five yellow cubes in a row from one call; the vertex stage spaces them by @builtin(instance_index).</caption>
- * import { init, endFrame, image, renderTarget, SCREEN, setCamera, bind, buffer, drawInstanced, program, tree } from 'webgpu.tree'
+ * <caption>A field of ten yellow cubes from one call, spaced by @builtin(instance_index), and a magenta cube drawn beside it under the same camera — the camera is installed once for both.</caption>
+ * import { init, endFrame, image, renderTarget, SCREEN, setCamera, bind, buffer, draw, drawInstanced, program, tree } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
  * canvas.style.width = '400px'
@@ -532,7 +477,9 @@ export function draw(ctx, obj, M, opts) {
  * fn vs(@location(0) aPosition: vec3f, @location(1) aNormal: vec3f,
  *       @builtin(instance_index) i: u32) -> VOut {
  *   var out: VOut;
- *   let offset = vec4f((f32(i) - 2.0) * 70.0, 0.0, 0.0, 0.0);
+ *   let col = f32(i % 5u) - 2.0;
+ *   let row = f32(i / 5u) - 0.5;
+ *   let offset = u.uSpread * vec4f(col * 70.0, row * 70.0, 0.0, 0.0);
  *   out.position = u.uModelViewProjectionMatrix * (vec4f(aPosition, 1.0) + offset);
  *   out.normal = u.uNormalMatrix * aNormal;
  *   return out;
@@ -546,12 +493,15 @@ export function draw(ctx, obj, M, opts) {
  * ```
  * `
  * const prog = program(ctx, WGSL, { buffers: solid.bufferLayouts })
+ * const M = tree.mat4()
  *
  * ctx.backend.bindTarget(ctx, scene)
  * ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
  * setCamera(ctx, tree.createCamera({ eye: [99, 131, 263] }))
- * bind(ctx, prog, { uColor: [1, 0.82, 0.4] })
- * drawInstanced(ctx, solid, 5)
+ * bind(ctx, prog, { uColor: [1, 0.82, 0.4], uSpread: 1 })
+ * drawInstanced(ctx, solid, 10)                                  // the field: one install, one call
+ * bind(ctx, prog, { uColor: [1, 0.31, 0.85], uSpread: 0 })
+ * draw(ctx, solid, tree.mat4FromTRS(M, 0, -110, 0, 0, 0, 0, 1, 1, 1, 1))   // one object, the usual path
  * ctx.backend.bindTarget(ctx, SCREEN)
  * image(ctx, scene.color)
  * endFrame(ctx)
@@ -560,11 +510,8 @@ export function draw(ctx, obj, M, opts) {
  */
 export function drawInstanced(ctx, obj, n, M, opts) {
   if (M != null && !_isMat4(M)) { opts = M; M = null; }
-  return _draw(ctx, obj, M || null, opts, n || 1);
-}
-
-/** @ignore */
-function _draw(ctx, obj, M, opts, instances) {
+  const count = n || 1;
+  if (count === 1) return draw(ctx, obj, M || null, opts);
   if (!ctx || !ctx.backend) return null;
   const prog = ctx.prog;
   if (!prog) {
@@ -575,8 +522,7 @@ function _draw(ctx, obj, M, opts, instances) {
     console.error('[webgpu.tree] draw: `obj` must be a geometry from buffer(ctx, arrays).');
     return null;
   }
-  uploadTransforms(ctx, prog, M);
-  return instances > 1
-    ? ctx.backend.drawInstanced(ctx, prog, obj, instances, opts)
-    : ctx.backend.draw(ctx, prog, obj, opts);
+  uploadTransforms(ctx, prog, M || null);
+  return ctx.backend.drawInstanced(ctx, prog, obj, count, opts);
 }
+
