@@ -562,7 +562,13 @@ export function createBackend(opts) {
 
     // --------------------------------------------------------------- picking
 
-    readPixels(ctx, target, x, y, width, height) {
+    /**
+     * Read a block of a target back: a copy into a `MAP_READ` buffer, a map, a
+     * promise. `opts` is the interface's, and this API has no synchronous form —
+     * a read is asynchronous by construction, so `opts.sync` resolves a frame
+     * later like every other read.
+     */
+    readPixels(ctx, target, x, y, width, height, opts) {
       return readback(ctx, target, x, y, width, height);
     },
 

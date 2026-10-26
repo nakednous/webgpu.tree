@@ -34,6 +34,11 @@
  * multisampled target needs no explicit resolve: resolving is the pass's end,
  * which the submit performs.
  *
+ * The protocol — the cached 1 × 1 target, the narrowed projection, the id codec
+ * and the restore — is the layer's since 0.0.5 (§7 #125); what stays this
+ * bridge's is the refusal of the canvas below and `canvasViewport`, the mapping
+ * a pointer's coordinates belong to.
+ *
  * **The id program.** `pick` renders into a cached 1 × 1 `rgba8unorm` +
  * `depth24plus` target, cleared black, under the installed projection narrowed
  * by `tree.mat4Pick` onto the query pixel; `paint(id)` writes the program's
@@ -53,35 +58,8 @@
 
 'use strict';
 
-import { idToRgba, mat4Pick, rgbaToId } from '@nakednous/tree';
-import { renderTarget } from '@nakednous/idiom';
+import { pick as pickOf, readPixel as readPixelOf } from '@nakednous/idiom';
 import { canvasViewport } from './space.js';
-
-const _rgba = [0, 0, 0, 1];
-const _V = new Float32Array(16);
-const _P = new Float32Array(16);
-const _Ppick = new Float32Array(16);
-
-const _declared = new WeakMap();
-
-/** The pick-relevant uniform names a program declares, read once per program. @ignore */
-function _declares(ctx, prog) {
-  let d = _declared.get(prog);
-  if (!d) {
-    const names = ctx.backend.uniformsOf(prog) || [];
-    d = { color: names.indexOf('uColor') >= 0, texture: names.indexOf('uUseTexture') >= 0 };
-    _declared.set(prog, d);
-  }
-  return d;
-}
-
-const _warned = new WeakSet();
-
-/** The 1 × 1 target a pick draws into, made once per context. @ignore */
-function pickTargetOf(ctx) {
-  if (!ctx.pickTarget) ctx.pickTarget = renderTarget(ctx, { width: 1, height: 1 });
-  return ctx.pickTarget;
-}
 
 /**
  * Read one pixel of a target back — its own device pixels, row 0 at the top.
@@ -133,12 +111,13 @@ function pickTargetOf(ctx) {
 export function readPixel(ctx, target, x, y) {
   if (!ctx || !ctx.backend) return Promise.resolve(new Uint8Array(4));
   if (!target) {
+    // a WebGPU canvas is a presentation surface: its pixels are the compositor's, and this
+    // machine's Chromium cannot map a buffer once a canvas frame was presented
     console.error('[webgpu.tree] readPixel: a target is required — a WebGPU canvas is a presentation ' +
-      'surface, so its pixels are the compositor\'s (and this Chromium cannot map a buffer once a canvas ' +
-      'frame was presented). Draw the frame into a target and read that.');
+      'surface, so its pixels are the compositor\'s. Draw the frame into a target and read that.');
     return Promise.resolve(new Uint8Array(4));
   }
-  return ctx.backend.readPixels(ctx, target, x | 0, y | 0, 1, 1);
+  return readPixelOf(ctx, target, x, y);
 }
 
 /**
@@ -253,46 +232,5 @@ export function readPixel(ctx, target, x, y) {
 export function pick(ctx, x, y, drawFn, opts) {
   if (!ctx || !ctx.backend) return Promise.resolve(0);
   const o = opts || {};
-  if (typeof drawFn !== 'function') {
-    console.error('[webgpu.tree] pick: `drawFn` draws the scene, calling paint(id) before each object.');
-    return Promise.resolve(0);
-  }
-  const backend = ctx.backend;
-  const target = o.target || pickTargetOf(ctx);
-  const viewport = o.vp || canvasViewport(ctx);
-  _V.set(ctx.V);
-  _P.set(ctx.P);
-  _Ppick.set(ctx.P);
-  mat4Pick(_Ppick, x, y, viewport);
-
-  const prevTarget = backend.bindTarget(ctx);
-  const prevViewport = backend.setViewport(ctx);
-  const prevState = backend.setState(ctx, { depth: true });
-  const prevProg = ctx.prog;
-  const prog = o.program || backend.imageProgram(ctx);
-  const declares = _declares(ctx, prog);
-  if (!declares.color && !_warned.has(prog)) {
-    _warned.add(prog);
-    console.error('[webgpu.tree] pick: the id program declares no `uColor`, so paint(id) sets no id.');
-  }
-
-  backend.bindTarget(ctx, target);
-  backend.clear(ctx, [0, 0, 0, 1]);
-  backend.setCamera(ctx, _V, _Ppick);
-  ctx.prog = prog;
-  if (declares.texture) backend.setUniforms(ctx, prog, { uUseTexture: 0 });
-  // each paint is consumed by the draw that follows it: its own arena slot
-  const paint = (id) => {
-    if (declares.color) backend.setUniforms(ctx, prog, { uColor: idToRgba(_rgba, id) });
-  };
-  try {
-    drawFn(paint);
-  } finally {
-    backend.setCamera(ctx, _V, _P);
-    backend.bindTarget(ctx, prevTarget);
-    backend.setViewport(ctx, prevViewport);
-    backend.setState(ctx, prevState);
-    ctx.prog = prevProg;
-  }
-  return readPixel(ctx, target, 0, 0).then((px) => rgbaToId(px[0], px[1], px[2]));
+  return pickOf(ctx, x, y, drawFn, { ...o, vp: o.vp || canvasViewport(ctx) });
 }
