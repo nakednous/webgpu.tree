@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  init, setCamera, tree, renderTarget, program, endFrame,
+  init, setCamera, tree, renderTarget, program, endFrame, buffer,
   axes, grid, hermite, viewFrustum, trackPath, handleLocus, cross, bullsEye, beginHUD, endHUD, pane,
 } from '../src/index.js';
 import { LINE_COLOR_LAYOUT, LINE_LAYOUT, TRIS_LAYOUT, WIDE_COLOR_LAYOUT, WIDE_LAYOUT } from '../src/programs.js';
@@ -219,4 +219,25 @@ test('the gizmo layouts are the arrays shapes\': one buffer an attribute, locati
   assert.deepEqual(WIDE_LAYOUT.map((layout) => [layout.arrayStride, layout.attributes[0].shaderLocation]), [[12, 0], [12, 1], [4, 2], [4, 3]]);
   assert.deepEqual(WIDE_COLOR_LAYOUT.map((layout) => layout.attributes[0].shaderLocation), [0, 1, 2, 3, 4]);
   assert.deepEqual(TRIS_LAYOUT, LINE_LAYOUT);
+});
+
+test('drawGizmo: the kind picks the program, states the topology, and restores the depth state', async () => {
+  const { ctx, calls } = await setup();
+  const geo = buffer(ctx, { position: new Float32Array([0, 0, 0, 10, 0, 0]), color: { numComponents: 4, data: new Float32Array([1, 0, 0, 1, 1, 0, 0, 1]) } });
+
+  const depthBefore = ctx.backend.setState(ctx).depth;
+  ctx.backend.drawGizmo(ctx, 'line', geo, { color: [1, 0, 0, 1], useColor: true, depth: false, count: 2 });
+  const line = pipelineOf(calls, allOf(calls, 'createRenderPipeline').length - 1);
+  assert.equal(line.primitive.topology, 'line-list', 'a line kind states the line list');
+  assert.deepEqual(line.vertex.buffers, LINE_COLOR_LAYOUT, 'and the colour program bakes the colour layout');
+  assert.equal(allOf(calls, 'pass.drawIndexed').length + allOf(calls, 'pass.draw').length > 0, true, 'a draw happened');
+  assert.equal(ctx.backend.setState(ctx).depth, depthBefore, 'the depth state it changed is put back');
+
+  ctx.backend.drawGizmo(ctx, 'wide', geo, { color: [1, 0, 0, 1], depth: true, width: 3, vp: [0, 240, 320, -240] });
+  const wide = pipelineOf(calls, allOf(calls, 'createRenderPipeline').length - 1);
+  assert.equal(wide.primitive.topology, 'triangle-list', 'the wide kind states the quads');
+
+  ctx.backend.drawGizmo(ctx, 'pane', geo, { color: [1, 1, 1, 1], texture: null });
+  const pane = pipelineOf(calls, allOf(calls, 'createRenderPipeline').length - 1);
+  assert.equal(pane.primitive.topology, 'triangle-list', 'a pane is triangles');
 });

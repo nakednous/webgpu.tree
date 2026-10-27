@@ -58,7 +58,11 @@ import {
 import { TEXTURE_USAGE } from './flags.js';
 import { declare } from './uniforms.js';
 import { BASE_STATE, createPipeline, pipelineKey, resolveState } from './pipeline.js';
-import { QUAD_LAYOUT, FLAT, entriesOf, sourceOf } from './programs.js';
+import {
+  QUAD_LAYOUT, FLAT, entriesOf, sourceOf,
+  LINE, LINE_COLOR, LINE_COLOR_LAYOUT, LINE_LAYOUT, PANE, PANE_LAYOUT,
+  WIDE, WIDE_COLOR, WIDE_COLOR_LAYOUT, WIDE_LAYOUT,
+} from './programs.js';
 import { createArena } from './arena.js';
 import { readPixels as readback, paddedRows } from './readback.js';
 import {
@@ -141,6 +145,37 @@ function textureViewOf(tex) {
  *        format: the canvas's format; width / height: its size in device pixels.
  * @returns {object} The backend `idiom`'s context record nests.
  */
+// The gizmo programs, made on first use and kept in the bridge's own cache, so a
+// verb that still draws its cache shares the pipeline this member draws through.
+const IDENTITY = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+const WHITE = [1, 1, 1, 1];
+
+/** The programs' cache — the bridge's, shared with its verbs. @ignore */
+const _gizmoPrograms = (ctx) => ctx.gizmoPrograms || (ctx.gizmoPrograms = { line: Object.create(null), wide: Object.create(null), tris: null, pane: null });
+
+/** @ignore */
+function _lineProgramOf(ctx, backend, colored) {
+  const p = _gizmoPrograms(ctx);
+  const key = colored ? 'color' : 'plain';
+  if (!p.line[key]) p.line[key] = backend.createProgram(ctx, colored ? LINE_COLOR : LINE, { buffers: colored ? LINE_COLOR_LAYOUT : LINE_LAYOUT, label: 'webgpu.tree line' + (colored ? ' (colour)' : '') });
+  return p.line[key];
+}
+
+/** @ignore */
+function _wideProgramOf(ctx, backend, colored) {
+  const p = _gizmoPrograms(ctx);
+  const key = colored ? 'color' : 'plain';
+  if (!p.wide[key]) p.wide[key] = backend.createProgram(ctx, colored ? WIDE_COLOR : WIDE, { buffers: colored ? WIDE_COLOR_LAYOUT : WIDE_LAYOUT, label: 'webgpu.tree wide line' + (colored ? ' (colour)' : '') });
+  return p.wide[key];
+}
+
+/** @ignore */
+function _paneProgramOf(ctx, backend) {
+  const p = _gizmoPrograms(ctx);
+  if (!p.pane) p.pane = backend.createProgram(ctx, PANE, { buffers: PANE_LAYOUT, label: 'webgpu.tree pane' });
+  return p.pane;
+}
+
 // ── The texture ceremony ─────────────────────────────────────────────────
 // What a source becomes is this API's question: a size, a format, a dimension
 // and a view, then an upload (a queue write per slice) and, where asked, a mip
@@ -570,6 +605,46 @@ export function createBackend(opts) {
      */
     readPixels(ctx, target, x, y, width, height, opts) {
       return readback(ctx, target, x, y, width, height);
+    },
+
+    // -------------------------------------------------------------- gizmos
+
+    /**
+     * Draw a gizmo geometry — the layer's semantic spec translated into this
+     * API's programs, uniforms, topology and state. `'line'` and `'wide'` take
+     * the line or wide-line program for whether the geometry carries colour,
+     * `'pane'` the world-space quad's; the topology is the pipeline's, so it is
+     * stated to `setState` first; the depth test is off for a spec that says so.
+     * The program cache is the bridge's own (`ctx.gizmoPrograms`), so a verb that
+     * still draws its own cache shares these pipelines rather than making twins.
+     */
+    drawGizmo(ctx, kind, geometry, spec) {
+      const sp = spec || {};
+      if (!geometry) return null;
+      const colored = !!sp.useColor;
+      const prog = kind === 'pane' ? _paneProgramOf(ctx, backend) :
+        kind === 'wide' ? _wideProgramOf(ctx, backend, colored) : _lineProgramOf(ctx, backend, colored);
+      if (!prog) return null;
+      const priorState = backend.setState(ctx, {
+        depth: sp.depth !== false,
+        topology: kind === 'line' ? 'line-list' : 'triangle-list',   // the pipeline bakes the topology
+      });
+      const priorProg = ctx.prog;
+      const uniforms = kind === 'pane'
+        ? { uColor: sp.color || WHITE, uUseTexture: sp.texture ? 1 : 0 }
+        : { uPV: ctx.PV, uModel: sp.M || IDENTITY, uColor: sp.color || WHITE, uUseColor: colored ? 1 : 0 };
+      if (kind === 'pane' && sp.texture) uniforms.uTexture = sp.texture;
+      if (kind === 'wide') {
+        const vp = sp.vp || setFrameViewport(ctx) || null;
+        uniforms.uViewport = vp ? [vp[2], vp[3]] : [0, 0];
+        uniforms.uWidth = sp.width || 1;
+      }
+      backend.setUniforms(ctx, prog, uniforms);
+      ctx.prog = prog;
+      const answer = backend.draw(ctx, prog, geometry, sp.count === undefined ? undefined : { count: sp.count });
+      ctx.prog = priorProg;
+      backend.setState(ctx, priorState);
+      return answer;
     },
 
     // -------------------------------------------------------------- textures
