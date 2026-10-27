@@ -22,8 +22,8 @@ state, and readback is asynchronous by construction.
 > reference does not have — a cube / layered render target (§7 #104) and compute (§7 #85) — is not on
 > it either. `twin-design.md` is the differences table against `webgl.tree`.
 >
-> Pins `@nakednous/tree` ^0.0.34, `@nakednous/host` ^0.0.12, `@nakednous/idiom` ^0.0.2;
-> `webgpu-utils` ^2.1.1 is a peer. Gates: `npm test` (119 cases, against the recording device in
+> Pins `@nakednous/tree` ^0.0.34, `@nakednous/host` ^0.0.12, `@nakednous/idiom` ^0.0.8;
+> `webgpu-utils` ^2.1.1 is a peer. Gates: `npm test` (121 cases, against the recording device in
 > `test/gpu.js`), `npm run build`, and `npm run docs` (the API site below, 0 warnings — every
 > documented name and a function's parameters checked against the build, and every example's imports
 > resolved). The browser is the maintainer's gate: the geometry path, the uploaded texture, a scene's
@@ -310,17 +310,25 @@ beginHUD(ctx) · cross(ctx, opts) · bullsEye(ctx, opts) · endHUD(ctx)
 The line pipe draws tree's generators by name, each call running its generator into a cached arrays
 record and drawing it under the installed camera — `{ M, color, bits, size, depth, width }` as the
 reference takes them, the state and the bound program restored after every draw. Colour is semantic
-where the generator writes a palette (axes, the helm rig) and `opts.color` elsewhere.
+where the generator writes a palette (axes, the helm rig) and `opts.color` elsewhere. The pipe itself
+is `idiom`'s — the cache, the expansion, the width policy and the HUD — and the twin supplies its
+programs and the vertex-layout statement a WebGPU pipeline needs.
 
+- **The geometry is the program's.** A pipeline bakes the vertex layout when it is made, so a gizmo's
+  geometry is built to the layout its program states (`createBuffer` with `{ program }`), never to the
+  order the arrays happen to have: the two are one statement, and an arrays shape the layout cannot
+  read is refused rather than validated at the first draw.
 - **The width.** `width` counts logical pixels, default 1, times the device ratio. WebGPU rasterizes
   a `line-list` one device pixel, so at or below one the line list draws and above it each segment
   becomes a window-space quad of that width (`uViewport`, `uWidth`): the twin's wide line is built
-  geometry, not a GL line width.
+  geometry, not a GL line width. The expansion is in device pixels, so it divides by the pass's
+  viewport, which the backend holds.
 - **A slot per draw, per frame.** A geometry's data goes up with `queue.writeBuffer`, which is ordered
   with *submissions*, not inside a command buffer — so two gizmos of one name drawn in a frame must not
-  share a buffer. Each draw takes a slot of the frame's pool (the cursor restarts at the frame's
-  submit), the geometries are non-interleaved so a frame's update is one write per attribute, and
-  nothing is allocated once warm.
+  share a buffer. A cache's geometry is such a *stream*: `createBuffer` with `{ program, stream: true }`
+  answers a record whose slots the frame's writes take in turn, and `drawGizmo` draws the slot the last
+  write took, with that slot's count. The slots are one pool a program, non-interleaved, so a frame's
+  update is one write per attribute and nothing is allocated once warm.
 - **The HUD** is an orthographic projection over the canvas's *logical* viewport — y down, depth off —
   with an identity view, so a mark's coordinates are the pointer's; the camera and the state come back
   at `endHUD`. `cross` and `bullsEye` wrap themselves in one when called outside it.

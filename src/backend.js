@@ -12,10 +12,10 @@
  * ```
  * targets   createTarget · destroyTarget · bindTarget · clear
  * programs  createProgram · imageProgram · uniformsOf · samplersOf · setUniforms
- * draws     setCamera · draw · drawInstanced
+ * draws     setCamera · draw · drawInstanced · drawGizmo
  * buffers   createBuffer · updateBuffer · writeBuffer
  * picking   readPixels
- * textures  createTexture · uploadTexture · destroyTexture · textureSize
+ * textures  createTexture · uploadTexture · createCubeTexture · destroyTexture · textureSize
  * state     setViewport · setState
  * context   dispose
  * ```
@@ -26,7 +26,7 @@
  * run the same way — `framebufferY` is `'down'`, the target's row 0 being its
  * top, and `format` is the canvas's preferred one.
  *
- * Three shapes are the twin's own answer to WebGPU's model, and each is the
+ * Four shapes are the twin's own answer to WebGPU's model, and each is the
  * least surprising reading of `idiom`'s contract (§7 #111):
  *
  * - `bindTarget` records the target; the render pass is begun lazily, on the
@@ -36,6 +36,11 @@
  *   `draw` picks the variant, uploads the uniforms into the frame's arena and
  *   binds one group.
  * - `readPixels` answers a promise; a pixel read is a copy and a map.
+ * - a geometry is built to the vertex layout its pipeline bakes, never to the
+ *   order the arrays happen to state (§7 #127), and a *stream* — `createBuffer`
+ *   with `{ program, stream: true }` — is a record whose slots a frame's writes
+ *   take in turn, because a queue write is ordered with submissions rather than
+ *   inside a command buffer (§7 #113).
  *
  * WGSL has no include, so `createProgram(ctx, frag)` compiles the twin's vertex
  * stage *concatenated* with the caller's fragment source — one module, two
@@ -46,16 +51,19 @@
 'use strict';
 
 import { WEBGPU, mat4Mul } from '@nakednous/tree';
+import { install } from '@nakednous/idiom';
 import {
   createBufferLayoutsFromArrays,
   createBuffersAndAttributesFromArrays,
   generateMipmap,
+  getNumComponents,
+  interleaveVertexData,
   makeBindGroupLayoutDescriptors,
   makeTypedArrayFromArrayUnion,
   numMipLevels,
   setVertexAndIndexBuffers,
 } from 'webgpu-utils';
-import { TEXTURE_USAGE } from './flags.js';
+import { BUFFER_USAGE, TEXTURE_USAGE } from './flags.js';
 import { declare } from './uniforms.js';
 import { BASE_STATE, createPipeline, pipelineKey, resolveState } from './pipeline.js';
 import {
@@ -229,6 +237,10 @@ export function createBackend(opts) {
   const { device, context, format } = opts;
   const arena = opts.arena || createArena(device);
   const resources = { buffers: new Set(), textures: new Set(), programs: new Set() };
+  // A stream's slots, one pool a program: a queue write is ordered with
+  // submissions rather than inside a command buffer, so a frame's i-th write of
+  // a geometry has to reach its own buffer (§7 #113, #127).
+  const streams = new WeakMap();
   let seq = 0;
   const samplerIds = new WeakMap();
   const samplerId = (chosen) => {
@@ -424,6 +436,242 @@ export function createBackend(opts) {
     return program;
   }
 
+  // ── geometry ─────────────────────────────────────────────────────────────
+  // A geometry is built to the vertex layout its pipeline bakes, never to the
+  // order the arrays happen to state: a WebGPU pipeline fixes the vertex state
+  // when it is made, so the two are one statement only when the geometry is the
+  // program's (§7 #127). The twin's own gizmo programs bake a layout derived
+  // from the same arrays shape, which is why the two agree — and the draw is a
+  // validation error, not a stale attribute, the day they would not.
+
+  /** A layout's attributes, in location order. @ignore */
+  const attributesOf = (layout) => {
+    const out = [];
+    for (const entry of layout) for (const attribute of entry.attributes) out.push(attribute);
+    return out;
+  };
+
+  /** The components a vertex format carries: `float32x3` reads 3. @ignore */
+  const componentsOf = (format) => {
+    const found = /x(\d)$/.exec(String(format));
+    return found ? Number(found[1]) : 1;
+  };
+
+  /** The arrays' attributes, in key order, under the names the shader's locations are in. @ignore */
+  const attributesIn = (arrays) => {
+    const out = [];
+    for (const name of Object.keys(arrays)) {
+      if (name === 'indices') continue;
+      const array = arrays[name];
+      if (array === null || typeof array !== 'object') continue;
+      out.push({ name, data: makeTypedArrayFromArrayUnion(array, name), numComponents: getNumComponents(array, name) });
+    }
+    return out;
+  };
+
+  /**
+   * A geometry from the arrays shape and a baked layout: one buffer an entry of
+   * that layout, the arrays' attributes pairing with its attributes in order.
+   * `null` where the two cannot be one statement, named once.
+   * @ignore
+   */
+  function buildGeometry(arrays, layout, usage) {
+    const declared = attributesOf(layout);
+    const entries = attributesIn(arrays);
+    if (entries.length !== declared.length) {
+      console.error('[webgpu.tree] createBuffer: this program\'s vertex layout declares ' + declared.length +
+        ' attribute(s) and the arrays carry ' + entries.length + ' — a geometry is built to the layout it is drawn with.');
+      return null;
+    }
+    for (let i = 0; i < entries.length; i++) {
+      if (entries[i].numComponents !== componentsOf(declared[i].format)) {
+        console.error('[webgpu.tree] createBuffer: `' + entries[i].name + '` carries ' + entries[i].numComponents +
+          ' component(s) and the layout\'s attribute ' + i + ' reads ' + declared[i].format + '.');
+        return null;
+      }
+    }
+    const count = entries.length ? (entries[0].data.length / entries[0].numComponents) | 0 : 0;
+    const buffers = [];
+    let next = 0;
+    for (const entry of layout) {
+      const stride = entry.arrayStride;
+      const gpu = device.createBuffer({
+        size: Math.max(4, stride * count),
+        usage: (usage || 0) | BUFFER_USAGE.VERTEX,
+        mappedAtCreation: true,
+        label: 'webgpu.tree geometry',
+      });
+      const mapped = gpu.getMappedRange();
+      const slice = entries.slice(next, next + entry.attributes.length);
+      if (slice.length === 1 && stride === slice[0].data.BYTES_PER_ELEMENT * slice[0].numComponents) {
+        // one attribute a buffer: its bytes, as they are
+        const view = new (Object.getPrototypeOf(slice[0].data).constructor)(mapped, 0, slice[0].data.length);
+        view.set(slice[0].data);
+      } else {
+        interleaveVertexData(entry.attributes, slice.map((a) => ({ data: a.data, offset: 0, stride: a.numComponents })), stride, mapped);
+      }
+      gpu.unmap();
+      resources.buffers.add(gpu);
+      buffers.push(gpu);
+      next += entry.attributes.length;
+    }
+    const geometry = { id: ++seq, numElements: count, bufferLayouts: layout, buffers, arrays };
+    if (arrays.indices !== undefined) {
+      const indices = makeTypedArrayFromArrayUnion(arrays.indices, 'indices');
+      geometry.indexBuffer = indexBufferOf(indices);
+      geometry.indexFormat = indices instanceof Uint16Array ? 'uint16' : 'uint32';
+      geometry.numElements = indices.length;
+    }
+    return geometry;
+  }
+
+  /** An index buffer holding `indices`, filled at creation. @ignore */
+  function indexBufferOf(indices) {
+    const gpu = device.createBuffer({
+      size: Math.max(4, indices.byteLength),
+      usage: BUFFER_USAGE.INDEX | BUFFER_USAGE.COPY_DST,
+      mappedAtCreation: true,
+      label: 'webgpu.tree indices',
+    });
+    const view = new (Object.getPrototypeOf(indices).constructor)(gpu.getMappedRange(), 0, indices.length);
+    view.set(indices);
+    gpu.unmap();
+    resources.buffers.add(gpu);
+    return gpu;
+  }
+
+  /** A geometry whose buffers are a layout's, sized for `capacity` vertices, and zero. @ignore */
+  function emptyGeometry(layout, capacity) {
+    const buffers = [];
+    for (const entry of layout) {
+      const gpu = device.createBuffer({
+        size: Math.max(4, entry.arrayStride * capacity),
+        usage: BUFFER_USAGE.VERTEX | BUFFER_USAGE.COPY_DST,
+        label: 'webgpu.tree stream slot',
+      });
+      resources.buffers.add(gpu);      // a fresh buffer is zero, which is the shape's default
+      buffers.push(gpu);
+    }
+    return { id: ++seq, numElements: capacity, bufferLayouts: layout, buffers, arrays: null };
+  }
+
+  /**
+   * A stream: a pooled record whose slots are written a draw and drawn a slot.
+   * Its geometry is the program's layout, one buffer an attribute; the record's
+   * `known` arrays seed every slot a frame makes, so the attributes that do not
+   * move (a wide line's pattern, its indices) are in each of them.
+   * @ignore
+   */
+  function streamOf(ctx, arrays, o) {
+    const program = o.program;
+    const layout = program && program.vertexLayouts;
+    if (!layout || !layout.length) {
+      console.error('[webgpu.tree] createBuffer: a stream is built to the vertex layout of the program it draws through — `opts.program` is required.');
+      return null;
+    }
+    if (!layout.every((entry) => entry.attributes.length === 1)) {
+      console.error('[webgpu.tree] createBuffer: a stream\'s in-place write is one attribute a buffer; this program\'s layout is interleaved.');
+      return null;
+    }
+    const declared = attributesOf(layout);
+    const entries = attributesIn(arrays);
+    if (entries.length !== declared.length) {
+      console.error('[webgpu.tree] createBuffer: this program\'s vertex layout declares ' + declared.length +
+        ' attribute(s) and the arrays carry ' + entries.length + ' — a stream is built to the layout it is drawn with.');
+      return null;
+    }
+    let pool = streams.get(program);
+    if (!pool) {
+      pool = { layout, slots: [], cursor: 0, frame: -1 };
+      streams.set(program, pool);
+    }
+    const record = {
+      id: ++seq,
+      stream: true,
+      program,
+      pool,
+      attrs: entries.map((entry, index) => ({ name: entry.name, index, numComponents: entry.numComponents })),
+      known: Object.create(null),
+      current: null,
+      indexBuffer: null,
+      indexFormat: null,
+    };
+    for (const key of Object.keys(arrays)) {
+      if (key === 'indices') continue;
+      record.known[key] = arrays[key];
+    }
+    if (arrays.indices !== undefined) {
+      const indices = makeTypedArrayFromArrayUnion(arrays.indices, 'indices');
+      record.indexBuffer = indexBufferOf(indices);    // static: the pattern does not move
+      record.indexFormat = indices instanceof Uint16Array ? 'uint16' : 'uint32';
+      record.known.indices = arrays.indices;
+    }
+    return writeStream(ctx, record, arrays);
+  }
+
+  /** The slot a write takes: the frame's next, made or grown where it is not big enough. @ignore */
+  function slotOf(ctx, record, vertices) {
+    const pool = record.pool;
+    const frame = frameOf(ctx).submissions;
+    if (pool.frame !== frame) {          // the submission count is the frame's boundary
+      pool.frame = frame;
+      pool.cursor = 0;
+    }
+    const index = pool.cursor;
+    pool.cursor = index + 1;
+    let slot = pool.slots[index];
+    if (!slot) slot = pool.slots[index] = { geometry: null, capacity: 0, count: 0, fresh: true };
+    const needed = Math.max(vertices, 16);
+    if (!slot.geometry || slot.capacity < needed) {
+      const capacity = Math.max(needed, slot.capacity * 2);
+      if (slot.geometry) for (const gpu of slot.geometry.buffers) { gpu.destroy(); resources.buffers.delete(gpu); }
+      slot.geometry = emptyGeometry(record.pool.layout, capacity);
+      slot.capacity = capacity;
+      slot.count = 0;
+      slot.fresh = true;                 // every attribute a slot does not inherit has to be written into it
+    }
+    slot.geometry.indexBuffer = record.indexBuffer;
+    slot.geometry.indexFormat = record.indexFormat;
+    return slot;
+  }
+
+  /** Write a stream record's arrays into the slot this write takes, and draw it here. @ignore */
+  function writeStream(ctx, record, arrays) {
+    let vertices = 0;
+    for (const attr of record.attrs) {
+      const value = arrays[attr.name];
+      if (value === undefined) continue;
+      const data = makeTypedArrayFromArrayUnion(value, attr.name);
+      vertices = Math.max(vertices, data.length / attr.numComponents | 0);
+      record.known[attr.name] = value;
+    }
+    if (arrays.indices !== undefined) record.known.indices = arrays.indices;
+    const slot = slotOf(ctx, record, vertices);
+    const source = slot.fresh ? record.known : arrays;    // a fresh slot needs every attribute, not only this draw's
+    for (const attr of record.attrs) {
+      const value = source[attr.name];
+      if (value === undefined) continue;
+      const data = makeTypedArrayFromArrayUnion(value, attr.name);
+      if (data.byteLength > slot.geometry.buffers[attr.index].size) {
+        console.error('[webgpu.tree] writeBuffer: a stream slot was written past its size — the cache grew without a rebuild.');
+        continue;
+      }
+      device.queue.writeBuffer(slot.geometry.buffers[attr.index], 0, data);
+      if (attr.index === 0) slot.count = (data.length / attr.numComponents) | 0;
+    }
+    if (source.indices !== undefined && record.indexBuffer) {
+      const indices = makeTypedArrayFromArrayUnion(source.indices, 'indices');
+      if (indices.byteLength > record.indexBuffer.size) {
+        console.error('[webgpu.tree] writeBuffer: a stream\'s index buffer was written past its size — the pattern does not fit the geometry.');
+      } else {
+        device.queue.writeBuffer(record.indexBuffer, 0, indices);
+      }
+    }
+    slot.fresh = false;
+    record.current = slot;
+    return record;
+  }
+
   const backend = {
     ndcZMin: WEBGPU,
     uvOrientation: 'top-down',
@@ -545,8 +793,17 @@ export function createBackend(opts) {
     // ---------------------------------------------------------------- buffers
 
     createBuffer(ctx, arrays, opts) {
-      // `opts` is the twin's own (non-interleaved arrays for a per-frame stream);
-      // `idiom` calls the member with `arrays` alone
+      // `opts` is the twin's own: `{ program }` names the layout the geometry is
+      // built to (a pipeline bakes one), `{ stream: true }` a pooled record whose
+      // slots are written a draw, `{ interleave: false }` one buffer an
+      // attribute, `{ usage }` the API's own bits
+      const o = opts || {};
+      if (o.stream === true) return streamOf(ctx, arrays, o);
+      if (o.program && o.program.vertexLayouts) {
+        const built = buildGeometry(arrays, o.program.vertexLayouts, o.usage);
+        if (built) return built;
+        return null;
+      }
       const buffer = createBuffersAndAttributesFromArrays(device, arrays, opts);
       buffer.id = ++seq;
       buffer.arrays = arrays;
@@ -556,6 +813,10 @@ export function createBackend(opts) {
     },
 
     updateBuffer(ctx, buffer, arrays, opts) {
+      if (buffer && buffer.stream) {
+        console.error('[webgpu.tree] updateBuffer: a stream record grows its own slots — write it with writeBuffer.');
+        return buffer;
+      }
       const rebuilt = createBuffersAndAttributesFromArrays(device, arrays, opts);
       for (const gpu of buffer.buffers) gpu.destroy();
       if (buffer.indexBuffer) buffer.indexBuffer.destroy();
@@ -570,8 +831,10 @@ export function createBackend(opts) {
     // is one `queue.writeBuffer` per attribute, ordered with submissions rather
     // than inside a command buffer. The shape is the geometry's: a different set
     // of attributes, or one of another width, is a rebuild (`updateBuffer`), and
-    // says so instead of writing bytes under a layout the pipeline baked.
+    // says so instead of writing bytes under a layout the pipeline baked. A
+    // stream record writes its own slots and takes the next one a frame (§127).
     writeBuffer(ctx, buffer, arrays) {
+      if (buffer && buffer.stream) return writeStream(ctx, buffer, arrays);
       const layouts = buffer.bufferLayouts || [];
       if (!layouts.length || layouts.some((layout) => layout.attributes.length !== 1)) {
         console.error('[webgpu.tree] writeBuffer: the geometry is interleaved — the in-place write is for a stream, so rebuild it with updateBuffer.');
@@ -615,12 +878,17 @@ export function createBackend(opts) {
      * the line or wide-line program for whether the geometry carries colour,
      * `'pane'` the world-space quad's; the topology is the pipeline's, so it is
      * stated to `setState` first; the depth test is off for a spec that says so.
-     * The program cache is the bridge's own (`ctx.gizmoPrograms`), so a verb that
-     * still draws its own cache shares these pipelines rather than making twins.
+     * A stream draws the slot its last write took, and a draw without a count
+     * draws that slot's vertices. The program cache is the bridge's own
+     * (`ctx.gizmoPrograms`), so a verb that fills a cache names the same
+     * pipelines here rather than making twins.
      */
     drawGizmo(ctx, kind, geometry, spec) {
       const sp = spec || {};
       if (!geometry) return null;
+      const slot = geometry.stream ? geometry.current : null;
+      const drawn = slot ? slot.geometry : geometry;
+      if (!drawn) return null;
       const colored = !!sp.useColor;
       const prog = kind === 'pane' ? _paneProgramOf(ctx, backend) :
         kind === 'wide' ? _wideProgramOf(ctx, backend, colored) : _lineProgramOf(ctx, backend, colored);
@@ -640,8 +908,13 @@ export function createBackend(opts) {
         uniforms.uWidth = sp.width || 1;
       }
       backend.setUniforms(ctx, prog, uniforms);
+      // the pane's program declares `uModelViewProjectionMatrix`, one of the draw
+      // policy's six: the layer installs it from the spec's model matrix, as it
+      // does for any program that names one
+      if (kind === 'pane') install(ctx, prog, sp.M || null);
       ctx.prog = prog;
-      const answer = backend.draw(ctx, prog, geometry, sp.count === undefined ? undefined : { count: sp.count });
+      const count = sp.count !== undefined ? sp.count : (slot ? slot.count : undefined);
+      const answer = backend.draw(ctx, prog, drawn, count === undefined ? undefined : { count });
       ctx.prog = priorProg;
       backend.setState(ctx, priorState);
       return answer;

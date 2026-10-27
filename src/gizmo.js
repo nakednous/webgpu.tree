@@ -15,43 +15,43 @@
  * ```
  *
  * @details
- * The pipe: the twin's two line programs (`programs.js`'s `LINE` and `WIDE`)
- * and, for a handle's dot, `TRIS`. Each gizmo owns one cached arrays record per
- * context (`tree.createArrays`), grown when the generator needs more and filled
- * in place every call.
+ * The pipe is `idiom`'s: a cache a gizmo name a context, its generators run into
+ * the cache's arrays, the geometry rebuilt when the cache grows and written in
+ * place otherwise, the wide line's expansion four vertices and six indices a
+ * segment, and the HUD an ortho over the viewport in logical pixels. What the
+ * twin states is its own: the two line programs and the pane program (a shader
+ * source is per API), the slot-per-draw rule (a queue write is ordered with
+ * submissions, so a frame's i-th write of a geometry reaches its own buffer —
+ * the backend's, §7 #127), and the density and viewport the pipe's width needs.
  *
- * **A slot per draw, per frame.** A geometry's vertex data is uploaded with
- * `queue.writeBuffer`, which is ordered with *submissions*, not inside a command
- * buffer — the rule the uniform arena exists for. Two gizmos of one name drawn
- * in a frame would therefore both read the second write were they to share a
- * buffer, so each draw takes a slot of the frame's pool; the cursor restarts
- * when the frame's submission count changes. A slot's geometry is
- * **non-interleaved**, so a frame's update is one write per attribute and
- * nothing is allocated once warm; it is rebuilt only when a draw needs more
- * room than the slot has.
+ * **A slot per draw, per frame.** Each cache's creation options name the program
+ * its geometry is built to — the pipeline bakes the vertex layout, so the
+ * geometry is the program's (§7 #127) — and `{ stream: true }`, which makes the
+ * record a pool the frame's writes take in turn. Two gizmos of one name drawn in
+ * a frame therefore each read their own write.
  *
  * **The width.** `width` counts logical pixels, default 1, times the device
  * ratio. WebGPU rasterizes a `line-list` one device pixel wide, so at or below
  * one the line list draws (`LINE`) and above it each segment becomes a
  * window-space quad of that width (`WIDE`), the generators untouched. Both paths
- * are real: the twin has no other way to a wider line than the quads.
+ * are real: the twin has no other way to a wider line than the quads. The
+ * expansion is in device pixels, so the viewport it divides by is the pass's —
+ * the backend's own — and not the HUD's logical one.
  *
  * Depth is on by default, `{ depth: false }` for overlays; the state and the
  * program the pipe found are restored after every draw. Colour is semantic
  * where the generator writes a palette (axes, the helm rig) and `opts.color`
- * elsewhere (white by default). The cache, the slot and the width policy are
- * `idiom`'s per its §2, so the twin carries them until the layer's gizmo stage,
- * as S4 carried the draw policy.
+ * elsewhere (white by default).
  *
- * **The HUD** is an orthographic projection over the canvas's *logical* screen
+ * **The HUD** is `beginHUD` / `endHUD` over the canvas's *logical* screen
  * viewport — left 0, right w, bottom h, top 0, so y runs down like a pointer's —
  * with an identity view and the depth test off; the camera and the state come
  * back at `endHUD`. `cross` and `bullsEye` wrap themselves in one when called
  * outside it.
  *
- * Not on this surface yet — the pane's textured quad, the frustum's
- * `nearTexture` / `farTexture` faces, the helm rig's HUD form and its `identify`
- * labels — each with the texture or label seam it needs.
+ * A handle's dot draws through the pane's program as a flat quad of triangles,
+ * with no texture; the frustum's `nearTexture` / `farTexture` faces are panes,
+ * and the helm rig's `identify` labels go to the host's own label layer.
  */
 
 'use strict';
@@ -60,21 +60,21 @@ import * as T from './tree.js';
 import { helmBasis } from '@nakednous/host';
 import {
   LINE, LINE_COLOR, LINE_COLOR_LAYOUT, LINE_LAYOUT, PANE, PANE_LAYOUT,
-  TRIS, TRIS_LAYOUT, WIDE, WIDE_COLOR, WIDE_COLOR_LAYOUT, WIDE_LAYOUT,
+  WIDE, WIDE_COLOR, WIDE_COLOR_LAYOUT, WIDE_LAYOUT,
 } from './programs.js';
-import { NORMAL, image, renderTarget } from '@nakednous/idiom';
-import { bind, draw } from './draw.js';
+import {
+  NORMAL, beginHUD as beginHUDOf, drawLines as drawLinesOf, drawPane as drawPaneOf,
+  endHUD as endHUDOf, fill as fillOf, gizmo as gizmoOf, image, inHUD as inHUDOf, renderTarget,
+} from '@nakednous/idiom';
 import { setCamera } from './camera.js';
 import { viewOf } from './context.js';
-import { frameOf, viewportOf } from './frame.js';
+import { viewportOf } from './frame.js';
 import { canvasScale, canvasViewport } from './space.js';
 import { BUFFER_USAGE } from './flags.js';
 
-const IDENTITY = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
-const WHITE = [1, 1, 1, 1];
 const _M = new Float32Array(16);      // a composed model matrix
 const _R = new Float32Array(16);      // a basis' rotation block
-const _P = new Float32Array(16);      // the HUD projection
+const _P = new Float32Array(16);      // the rig's own projection
 const _E = new Float32Array(16);      // an eye matrix
 const _Mk = new Float32Array(16);     // a keyframe's frame
 const _p = [0, 0, 0];                 // a handle's point
@@ -88,101 +88,7 @@ const _AZ_ISO = Math.PI / 4, _EL_ISO = Math.atan(1 / Math.SQRT2), _RIG_D = 240;
 let _rigSeq = 0;
 const _corner = (out, i) => { out[0] = _c24[3 * i]; out[1] = _c24[3 * i + 1]; out[2] = _c24[3 * i + 2]; return out; };
 
-/** The creation options of a stream geometry: non-interleaved, writable in place. @ignore */
-const STREAM = Object.freeze({ interleave: false, usage: BUFFER_USAGE.COPY_DST });
-
-const _cache = (ctx) => ctx.gizmos || (ctx.gizmos = Object.create(null));
-const _programs = (ctx) => ctx.gizmoPrograms || (ctx.gizmoPrograms = { line: Object.create(null), wide: Object.create(null), tris: null, pane: null });
-
-/** The gizmo names the pipe caches, one arrays record each. @ignore */
-function _keyed(ctx, name, opts) {
-  const cache = _cache(ctx);
-  let g = cache[name];
-  if (!g) g = cache[name] = { arrays: T.createArrays(64, opts), wide: null };
-  // a cache first made without a label array may be asked for one later (the
-  // helm rig's identify), and the generator fills whatever array exists
-  if (opts && opts.labels && !g.arrays.labels) g.arrays.labels = [];
-  return g;
-}
-
-const _poolOf = (ctx) => ctx.gizmoPool || (ctx.gizmoPool = { slots: Object.create(null) });
-
-/** Four vertices and six indices a segment, for `cap` segments. @ignore */
-function _patternOf(cap) {
-  const t = new Float32Array(4 * cap), s = new Float32Array(4 * cap), indices = new Uint32Array(6 * cap);
-  for (let i = 0; i < cap; i++) {
-    const v = 4 * i;
-    t[v] = 0; t[v + 1] = 0; t[v + 2] = 1; t[v + 3] = 1;
-    s[v] = -1; s[v + 1] = 1; s[v + 2] = -1; s[v + 3] = 1;
-    const k = 6 * i;
-    indices[k] = v; indices[k + 1] = v + 1; indices[k + 2] = v + 2;
-    indices[k + 3] = v + 1; indices[k + 4] = v + 3; indices[k + 5] = v + 2;
-  }
-  return { t, s, indices };
-}
-
-/** The arrays a pooled geometry is created with, sized to `cap` vertices (or segments, for the wide kinds). @ignore */
-function _arraysFor(kind, cap) {
-  const n = Math.max(1, cap | 0);
-  if (kind === 'line' || kind === 'tris') {
-    return { aPosition: { numComponents: 3, data: new Float32Array(3 * n) } };
-  }
-  if (kind === 'lineColor') {
-    return {
-      aPosition: { numComponents: 3, data: new Float32Array(3 * n) },
-      aColor: { numComponents: 4, data: new Float32Array(4 * n) },
-    };
-  }
-  if (kind === 'pane') {
-    return {
-      aPosition: { numComponents: 3, data: new Float32Array(3 * n) },
-      aTexCoord: { numComponents: 2, data: new Float32Array(2 * n) },
-    };
-  }
-  const pattern = _patternOf(n);
-  const a = {
-    aA: { numComponents: 3, data: new Float32Array(12 * n) },
-    aB: { numComponents: 3, data: new Float32Array(12 * n) },
-    aT: { numComponents: 1, data: pattern.t },
-    aSide: { numComponents: 1, data: pattern.s },
-  };
-  if (kind === 'wideColor') a.aColor = { numComponents: 4, data: new Float32Array(16 * n) };
-  a.indices = { numComponents: 3, data: pattern.indices };
-  return a;
-}
-
-/** The slot `kind` that this draw takes, big enough for `capacity`. @ignore */
-function _slot(ctx, kind, capacity) {
-  const pool = _poolOf(ctx);
-  let list = pool.slots[kind];
-  if (!list) list = pool.slots[kind] = { slots: [], cursor: 0, frame: -1 };
-  const frame = frameOf(ctx).submissions;   // the submission count is the frame's boundary
-  if (list.frame !== frame) {
-    list.frame = frame;
-    list.cursor = 0;
-  }
-  const i = list.cursor;                    // the frame's i-th draw of this kind
-  list.cursor = i + 1;
-  let slot = list.slots[i];
-  if (!slot) slot = list.slots[i] = { geometry: null, capacity: 0, arrays: null };
-  if (!slot.geometry || slot.capacity < capacity) {
-    slot.capacity = Math.max(capacity, slot.capacity * 2, 16);
-    slot.arrays = _arraysFor(kind, slot.capacity);
-    if (slot.geometry) ctx.backend.updateBuffer(ctx, slot.geometry, slot.arrays, STREAM);
-    else slot.geometry = ctx.backend.createBuffer(ctx, slot.arrays, STREAM);
-  }
-  return slot;
-}
-
-/** Run a generator into a gizmo's cached arrays, growing them when the count exceeds the capacity. @ignore */
-function _generate(ctx, g, gen) {
-  let n = gen(g.arrays);
-  if (n > T.capacityOf(g.arrays)) {
-    T.growArrays(g.arrays, n);
-    gen(g.arrays);
-  }
-  return g.arrays.count;
-}
+const _programs = (ctx) => ctx.gizmoPrograms || (ctx.gizmoPrograms = { line: Object.create(null), wide: Object.create(null), pane: null });
 
 /** The line program, per a colour attribute's presence. @ignore */
 function _lineProgram(ctx, colored) {
@@ -217,101 +123,41 @@ function _paneProgram(ctx) {
   return p.pane;
 }
 
-/** The quads program a handle's dot draws through. @ignore */
-function _trisProgram(ctx) {
-  const p = _programs(ctx);
-  if (!p.tris) p.tris = ctx.backend.createProgram(ctx, TRIS, { buffers: TRIS_LAYOUT, label: 'webgpu.tree gizmo quads' });
-  return p.tris;
+/**
+ * A cache's creation options: the program its geometry is built to — a pipeline
+ * bakes the vertex layout, so the geometry is the program's (§7 #127) — and a
+ * stream, whose slots the frame's writes take in turn (§7 #113). A texcoord
+ * cache is the pane program's; a colour cache the line pipe's colour variants.
+ * @ignore
+ */
+function _creation(ctx, pane, colored) {
+  const nonInterleaved = { interleave: false, stream: true, usage: BUFFER_USAGE.COPY_DST };
+  if (pane) return { program: _paneProgram(ctx), ...nonInterleaved };
+  return {
+    program: _lineProgram(ctx, colored),
+    ...nonInterleaved,
+    wide: { program: _wideProgram(ctx, colored), ...nonInterleaved },   // the quads' program, for a width past one
+  };
 }
 
 /**
- * Expand a gizmo's line list into the wide-line quads' source arrays: four
- * vertices per segment carrying both endpoints, which end they sit at and their
- * side, plus the endpoint's colour when the arrays carry one.
- * @param {object} g  A cached gizmo entry.
- * @returns {object} `{ A, B, color?, capacity, segments }`, grown in place.
+ * Run a generator into a cache and (re)upload its geometry — the layer's `fill`
+ * with this bridge's creation options, which stay the cache's own after the
+ * first call, so a verb allocates nothing once warm.
  * @ignore
  */
-function _expand(g) {
-  const segs = (g.arrays.count / 2) | 0;
-  const colored = !!g.arrays.color;
-  let w = g.wide;
-  if (!w || w.capacity < segs) {
-    const cap = Math.max(segs, w ? w.capacity * 2 : 16);
-    g.wide = {
-      A: new Float32Array(12 * cap), B: new Float32Array(12 * cap),
-      color: colored ? new Float32Array(16 * cap) : null,
-      capacity: cap, segments: 0,
-    };
-    w = g.wide;
-  }
-  const p = g.arrays.position.data, c = g.arrays.color ? g.arrays.color.data : null;
-  for (let i = 0; i < segs; i++) {
-    const a = 6 * i, b = a + 3;
-    for (let v = 0; v < 4; v++) {
-      const o = 12 * i + 3 * v;
-      w.A[o] = p[a]; w.A[o + 1] = p[a + 1]; w.A[o + 2] = p[a + 2];
-      w.B[o] = p[b]; w.B[o + 1] = p[b + 1]; w.B[o + 2] = p[b + 2];
-      if (c && w.color) {
-        const src = v < 2 ? 4 * (2 * i) : 4 * (2 * i + 1), dst = 16 * i + 4 * v;
-        w.color[dst] = c[src]; w.color[dst + 1] = c[src + 1];
-        w.color[dst + 2] = c[src + 2]; w.color[dst + 3] = c[src + 3];
-      }
-    }
-  }
-  w.segments = segs;
-  return w;
+function _fill(ctx, g, gen) {
+  return fillOf(ctx, g, gen, g.opts || _creation(ctx, !!g.arrays.texcoord, !!g.arrays.color));
 }
 
-/** Draw a filled gizmo's lines under M: the line list, or the quads past a device pixel. @ignore */
+/** Draw a filled cache's lines under M — the layer's policy, this bridge's density. @ignore */
 function _drawLines(ctx, g, M, color, depth, width) {
-  const count = g.arrays.count;
-  if (!count) return;
-  const px = (typeof width === 'number' ? width : 1) * canvasScale(ctx);   // logical pixels → device pixels
-  const wide = px > 1;
-  const colored = !!g.arrays.color;
-  const kind = wide ? (colored ? 'wideColor' : 'wide') : (colored ? 'lineColor' : 'line');
-  const prog = wide ? _wideProgram(ctx, colored) : _lineProgram(ctx, colored);
-  if (!prog) return;
-  const priorState = ctx.backend.setState(ctx, {
-    depth: depth !== false,
-    topology: wide ? 'triangle-list' : 'line-list',   // the pipeline bakes the topology
-  });
-  const priorProg = ctx.prog;
-  bind(ctx, prog, { uPV: ctx.PV, uModel: M || IDENTITY, uColor: color || WHITE, uUseColor: colored ? 1 : 0 });
-  if (wide) {
-    const w = _expand(g);
-    const slot = _slot(ctx, kind, w.segments);
-    const vp = viewportOf(ctx);
-    bind(ctx, prog, { uViewport: [vp[2], vp[3]], uWidth: px });
-    ctx.device.queue.writeBuffer(slot.geometry.buffers[0], 0, w.A, 0, 12 * w.segments);
-    ctx.device.queue.writeBuffer(slot.geometry.buffers[1], 0, w.B, 0, 12 * w.segments);
-    if (w.color) ctx.device.queue.writeBuffer(slot.geometry.buffers[4], 0, w.color, 0, 16 * w.segments);
-    draw(ctx, slot.geometry, null, { count: 6 * w.segments });
-  } else {
-    const slot = _slot(ctx, kind, count);
-    ctx.device.queue.writeBuffer(slot.geometry.buffers[0], 0, g.arrays.position.data, 0, 3 * count);
-    if (colored) ctx.device.queue.writeBuffer(slot.geometry.buffers[1], 0, g.arrays.color.data, 0, 4 * count);
-    draw(ctx, slot.geometry, null, { count });
-  }
-  ctx.prog = priorProg;
-  ctx.backend.setState(ctx, priorState);
+  return drawLinesOf(ctx, g, { M, color, depth, width, dpr: canvasScale(ctx) });
 }
 
-/** Draw a filled gizmo's triangles under M through the quads program. @ignore */
-function _drawTris(ctx, g, M, color, depth) {
-  const count = g.arrays.count;
-  if (!count) return;
-  const prog = _trisProgram(ctx);
-  if (!prog) return;
-  const priorState = ctx.backend.setState(ctx, { depth: depth !== false, topology: 'triangle-list' });
-  const priorProg = ctx.prog;
-  const slot = _slot(ctx, 'tris', count);
-  ctx.device.queue.writeBuffer(slot.geometry.buffers[0], 0, g.arrays.position.data, 0, 3 * count);
-  bind(ctx, prog, { uColor: color || WHITE });
-  draw(ctx, slot.geometry, M || null, { count });   // the draw installs uModelViewProjectionMatrix
-  ctx.prog = priorProg;
-  ctx.backend.setState(ctx, priorState);
+/** Draw a filled cache's triangles through the pane program. @ignore */
+function _drawTris(ctx, g, M, color, texture, depth) {
+  return drawPaneOf(ctx, g, { M, color, texture, depth });
 }
 
 /** The aspect a frustum is judged at: `opts.aspect`, or the canvas's. @ignore */
@@ -372,8 +218,8 @@ function _disc(a, cx, cy, cz, r, u, v) {
  */
 export function axes(ctx, opts) {
   const o = opts || {};
-  const g = _keyed(ctx, 'axes', { color: true });
-  _generate(ctx, g, (a) => T.axesLines(a, o));
+  const g = gizmoOf(ctx, 'axes', { color: true });
+  _fill(ctx, g, (a) => T.axesLines(a, o));
   _drawLines(ctx, g, o.M, null, o.depth, o.width);
 }
 
@@ -407,8 +253,8 @@ export function axes(ctx, opts) {
  */
 export function grid(ctx, opts) {
   const o = opts || {};
-  const g = _keyed(ctx, 'grid');
-  _generate(ctx, g, (a) => T.gridLines(a, o));
+  const g = gizmoOf(ctx, 'grid');
+  _fill(ctx, g, (a) => T.gridLines(a, o));
   _drawLines(ctx, g, o.M, o.color, o.depth, o.width);
 }
 
@@ -443,8 +289,8 @@ export function grid(ctx, opts) {
  */
 export function hermite(ctx, p0, t0, p1, t1, opts) {
   const o = opts || {};
-  const g = _keyed(ctx, 'hermite');
-  _generate(ctx, g, (a) => T.hermiteLines(a, p0, t0, p1, t1, o));
+  const g = gizmoOf(ctx, 'hermite');
+  _fill(ctx, g, (a) => T.hermiteLines(a, p0, t0, p1, t1, o));
   _drawLines(ctx, g, o.M, o.color, o.depth, o.width);
 }
 
@@ -502,8 +348,8 @@ export function viewFrustum(ctx, opts) {
       if ((bits & T.NEAR) && o.nearTexture) pane(ctx, _corner(_q0, 3), _corner(_q1, 2), _corner(_q2, 1), _corner(_q3, 0), { texture: o.nearTexture, depth: o.depth });
     }
   }
-  const g = _keyed(ctx, 'frustum');
-  _generate(ctx, g, (a) => T.frustumLines(a, cam, { aspect, ndcZMin: T.WEBGPU, bits, color: o.color }));
+  const g = gizmoOf(ctx, 'frustum');
+  _fill(ctx, g, (a) => T.frustumLines(a, cam, { aspect, ndcZMin: T.WEBGPU, bits, color: o.color }));
   _drawLines(ctx, g, null, o.color, o.depth, o.width);
   if (o.viewer === null) return;
   const E = cam === _matCam ? cam.mat4Eye : T.cameraEye(_E, cam);
@@ -522,8 +368,8 @@ function _poseMarker(ctx, kf, i, track, o) {
 
 /** The default marker of a camera track: a triad the size of near, the apex lines and the near rectangle. @ignore */
 function _cameraMarker(ctx, kf, i, track, o) {
-  const g = _keyed(ctx, 'marker');
-  _generate(ctx, g, (a) => T.frustumLines(a, kf, { aspect: _aspect(ctx, o), ndcZMin: T.WEBGPU, bits: T.NEAR | T.APEX, color: o.color }));
+  const g = gizmoOf(ctx, 'marker');
+  _fill(ctx, g, (a) => T.frustumLines(a, kf, { aspect: _aspect(ctx, o), ndcZMin: T.WEBGPU, bits: T.NEAR | T.APEX, color: o.color }));
   _drawLines(ctx, g, null, o.color, o.depth, o.width);
   axes(ctx, { M: track.mat4Eye(_E, i, 0), size: typeof kf.near === 'number' ? kf.near : 0.1, bits: T.X | T.Y | T._Z, depth: o.depth });
 }
@@ -568,8 +414,8 @@ export function trackPath(ctx, track, opts) {
   const o = opts || {};
   if (!track || !Array.isArray(track.keyframes)) return;
   const bits = o.bits ?? T.PATH;
-  const g = _keyed(ctx, 'path');
-  _generate(ctx, g, (a) => T.pathLines(a, track, {
+  const g = gizmoOf(ctx, 'path');
+  _fill(ctx, g, (a) => T.pathLines(a, track, {
     bits: bits & ~T.HANDLES, samples: o.samples, target: o.target,
     tangentScale: o.tangentScale, centerSize: o.centerSize, color: o.color,
   }));
@@ -647,8 +493,8 @@ export function helmRig(ctx, helm, opts) {
     _R[15] = 1;
     M = M ? T.mat4Mul(_M, M, _R) : _R;
   }
-  const g = _keyed(ctx, 'helmRig', { color: true, labels: true });
-  _generate(ctx, g, (a) => T.helmRigLines(a, helm, { size: o.size, bits: o.bits, identify: o.identify === true }));
+  const g = gizmoOf(ctx, 'helmRig', { color: true, labels: true });
+  _fill(ctx, g, (a) => T.helmRigLines(a, helm, { size: o.size, bits: o.bits, identify: o.identify === true }));
   _drawLines(ctx, g, M, null, o.depth, o.width);
   const host = ctx.host;
   if (o.identify === true && host && host.labels && g.arrays.labels.length) {
@@ -692,8 +538,8 @@ function _rigHud(ctx, helm, o) {
   ctx.backend.bindTarget(ctx, entry.target);
   ctx.backend.clear(ctx, [0, 0, 0, 0]);
   setCamera(ctx, T.cameraView(_E, _rigCam), T.cameraProj(_P, _rigCam, 1));
-  const g = _keyed(ctx, 'helmRig', { color: true });
-  _generate(ctx, g, (a) => T.helmRigLines(a, helm, { size: 100, bits: o.bits }));
+  const g = gizmoOf(ctx, 'helmRig', { color: true, labels: true });
+  _fill(ctx, g, (a) => T.helmRigLines(a, helm, { size: 100, bits: o.bits }));
   _drawLines(ctx, g, null, null, true, o.width);
   setCamera(ctx, V, P);
   ctx.backend.bindTarget(ctx, priorTarget);
@@ -755,8 +601,8 @@ export function handleLocus(ctx, h, opts) {
   if (!h || !h._constraint) return;
   const bits = o.bits ?? (T.HANDLE | T.AIM | T.LOCUS);
   h.value(_p, { report: T.POINT });
-  const g = _keyed(ctx, 'locus');
-  _generate(ctx, g, (a) => T.locusLines(a, h._constraint, {
+  const g = gizmoOf(ctx, 'locus');
+  _fill(ctx, g, (a) => T.locusLines(a, h._constraint, {
     bits: bits & (T.AIM | T.LOCUS | T.RING), mat4View: ctx.V, point: _p, color: o.color,
   }));
   _drawLines(ctx, g, null, o.color, o.depth, o.width);
@@ -767,9 +613,9 @@ export function handleLocus(ctx, h, opts) {
     const r = (o.size ?? h._grabPx ?? 12) * T.pixelRatio(ctx.P, height, eyeZ);
     _du[0] = V[0]; _du[1] = V[4]; _du[2] = V[8];   // the camera's right
     _dv[0] = V[1]; _dv[1] = V[5]; _dv[2] = V[9];   // the camera's up
-    const d = _keyed(ctx, 'dot');
-    _generate(ctx, d, (a) => _disc(a, _p[0], _p[1], _p[2], r, _du, _dv));
-    _drawTris(ctx, d, null, o.dotColor || o.color, o.depth);
+    const d = gizmoOf(ctx, 'dot', { texcoord: true });
+    _fill(ctx, d, (a) => _disc(a, _p[0], _p[1], _p[2], r, _du, _dv));
+    _drawTris(ctx, d, null, o.dotColor || o.color, null, o.depth);
   }
 }
 
@@ -821,23 +667,9 @@ const PANE_UVS = [0, 0, 1, 0, 1, 1, 0, 1];
  */
 export function pane(ctx, p0, p1, p2, p3, opts) {
   const o = opts || {};
-  const g = _keyed(ctx, 'pane', { texcoord: true });
-  _generate(ctx, g, (a) => T.paneTris(a, p0, p1, p2, p3, { uvs: o.uvs || PANE_UVS, color: o.color }));
-  const count = g.arrays.count;
-  if (!count) return;
-  const prog = _paneProgram(ctx);
-  if (!prog) return;
-  const priorState = ctx.backend.setState(ctx, { depth: o.depth !== false, topology: 'triangle-list' });
-  const priorProg = ctx.prog;
-  const slot = _slot(ctx, 'pane', count);
-  ctx.device.queue.writeBuffer(slot.geometry.buffers[0], 0, g.arrays.position.data, 0, 3 * count);
-  ctx.device.queue.writeBuffer(slot.geometry.buffers[1], 0, g.arrays.texcoord.data, 0, 2 * count);
-  const uniforms = { uColor: o.color || WHITE, uUseTexture: o.texture ? 1 : 0 };
-  if (o.texture) uniforms.uTexture = o.texture;
-  bind(ctx, prog, uniforms);
-  draw(ctx, slot.geometry, o.M || null, { count });   // the draw installs uModelViewProjectionMatrix
-  ctx.prog = priorProg;
-  ctx.backend.setState(ctx, priorState);
+  const g = gizmoOf(ctx, 'pane', { texcoord: true });
+  _fill(ctx, g, (a) => T.paneTris(a, p0, p1, p2, p3, { uvs: o.uvs || PANE_UVS, color: o.color }));
+  _drawTris(ctx, g, o.M, o.color, o.texture || null, o.depth);
 }
 
 // ── HUD ──────────────────────────────────────────────────────────────────
@@ -873,11 +705,7 @@ export function pane(ctx, p0, p1, p2, p3, opts) {
  *
  */
 export function beginHUD(ctx) {
-  if (!ctx || ctx.hud) return;
-  const vp = canvasViewport(ctx);
-  ctx.hud = { V: Float32Array.from(ctx.V), P: Float32Array.from(ctx.P), state: ctx.state };
-  ctx.backend.setState(ctx, { depth: false });
-  setCamera(ctx, IDENTITY, T.mat4Ortho(_P, vp[0], vp[0] + vp[2], vp[1], vp[1] + vp[3], -1, 1));
+  return beginHUDOf(ctx, { vp: canvasViewport(ctx) });
 }
 
 /**
@@ -907,18 +735,12 @@ export function beginHUD(ctx) {
  *
  */
 export function endHUD(ctx) {
-  if (!ctx || !ctx.hud) return;
-  setCamera(ctx, ctx.hud.V, ctx.hud.P);
-  ctx.backend.setState(ctx, ctx.hud.state);
-  ctx.hud = null;
+  return endHUDOf(ctx);
 }
 
 /** Run a HUD gizmo inside beginHUD / endHUD unless HUD mode is already on. @ignore */
 function _inHud(ctx, drawFn) {
-  const wrap = !ctx.hud;
-  if (wrap) beginHUD(ctx);
-  drawFn();
-  if (wrap) endHUD(ctx);
+  return inHUDOf(ctx, { vp: canvasViewport(ctx) }, drawFn);
 }
 
 /**
@@ -948,8 +770,8 @@ function _inHud(ctx, drawFn) {
  */
 export function cross(ctx, opts) {
   const o = opts || {};
-  const g = _keyed(ctx, 'cross');
-  _generate(ctx, g, (a) => T.crossLines(a, o));
+  const g = gizmoOf(ctx, 'cross');
+  _fill(ctx, g, (a) => T.crossLines(a, o));
   _inHud(ctx, () => _drawLines(ctx, g, null, o.color, false, o.width));
 }
 
@@ -980,7 +802,7 @@ export function cross(ctx, opts) {
  */
 export function bullsEye(ctx, opts) {
   const o = opts || {};
-  const g = _keyed(ctx, 'bullsEye');
-  _generate(ctx, g, (a) => T.bullsEyeLines(a, o));
+  const g = gizmoOf(ctx, 'bullsEye');
+  _fill(ctx, g, (a) => T.bullsEyeLines(a, o));
   _inHud(ctx, () => _drawLines(ctx, g, null, o.color, false, o.width));
 }

@@ -13,7 +13,7 @@ import {
   init, setCamera, tree, renderTarget, program, endFrame, buffer,
   axes, grid, hermite, viewFrustum, trackPath, handleLocus, cross, bullsEye, beginHUD, endHUD, pane,
 } from '../src/index.js';
-import { LINE_COLOR_LAYOUT, LINE_LAYOUT, TRIS_LAYOUT, WIDE_COLOR_LAYOUT, WIDE_LAYOUT } from '../src/programs.js';
+import { LINE_COLOR_LAYOUT, LINE_LAYOUT, PANE_LAYOUT, QUAD_LAYOUT, WIDE_COLOR_LAYOUT, WIDE_LAYOUT } from '../src/programs.js';
 import { canvasViewport } from '../src/space.js';
 import { createCanvas, createDevice, createGpu, allOf, lastOf } from './gpu.js';
 
@@ -37,34 +37,42 @@ test('a draw takes its own slot: two gizmos of one name in a frame do not share 
   const { ctx, calls } = await setup();
   grid(ctx, { size: 100 });
   grid(ctx, { size: 60 });
-  const slots = ctx.gizmoPool.slots.line.slots;
-  assert.equal(slots.length, 2);                             // one per draw, this frame
-  assert.notEqual(slots[0].geometry, slots[1].geometry);
-  assert.equal(slots[0].geometry.buffers.length, 1);         // non-interleaved: a buffer an attribute
+  const pool = ctx.gizmos.grid.buffer.pool;                   // the slots a program's stream takes
+  assert.equal(pool.slots.length, 2);                         // one per draw, this frame
+  assert.notEqual(pool.slots[0].geometry, pool.slots[1].geometry);
+  assert.equal(pool.slots[0].geometry.buffers.length, 1);     // non-interleaved: a buffer an attribute
+  // and the two draws bind different buffers: the second write did not overwrite the first's
+  const bound = allOf(calls, 'pass.setVertexBuffer').map((call) => call[2]);
+  assert.equal(bound.length, 2);
+  assert.notEqual(bound[0], bound[1]);
   const made = allOf(calls, 'createBuffer').length;
-  endFrame(ctx);                                             // the frame's boundary: the cursor restarts
+  const first = pool.slots[0];
+  endFrame(ctx);                                              // the frame's boundary: the cursor restarts
   grid(ctx, { size: 100 });
   grid(ctx, { size: 60 });
-  assert.equal(allOf(calls, 'createBuffer').length, made);   // the same slots, nothing allocated
-  assert.equal(ctx.gizmoPool.slots.line.slots[0], slots[0]);
+  assert.equal(allOf(calls, 'createBuffer').length, made);    // the same slots, nothing allocated
+  assert.equal(pool.slots[0], first);
 });
 
 test('a gizmo\'s geometry and its program bake the same layout: non-interleaved, a buffer per attribute', async () => {
   const { ctx, calls } = await setup();
   axes(ctx, { size: 50 });
-  const geometry = ctx.gizmoPool.slots.lineColor.slots[0].geometry;
-  assert.deepEqual(geometry.bufferLayouts, LINE_COLOR_LAYOUT);
+  const geometry = ctx.gizmos.axes.buffer.current.geometry;
+  assert.equal(geometry.bufferLayouts, LINE_COLOR_LAYOUT);   // the program's own array, not a copy
+  assert.equal(ctx.gizmos.axes.buffer.pool.layout, LINE_COLOR_LAYOUT);
   assert.deepEqual(pipelineOf(calls, 0).vertex.buffers, LINE_COLOR_LAYOUT);
   assert.equal(LINE_COLOR_LAYOUT.length, 2);                // aPosition then aColor
   assert.ok(LINE_COLOR_LAYOUT.every((layout) => layout.attributes.length === 1));
 
   grid(ctx, { size: 50 });
-  assert.deepEqual(ctx.gizmoPool.slots.line.slots[0].geometry.bufferLayouts, LINE_LAYOUT);
+  assert.equal(ctx.gizmos.grid.buffer.current.geometry.bufferLayouts, LINE_LAYOUT);
   assert.deepEqual(pipelineOf(calls, 1).vertex.buffers, LINE_LAYOUT);
   assert.equal(LINE_LAYOUT.length, 1);
 
-  // the palette rides axes: uUseColor is on; the grid's is off
-  const floats = allOf(calls, 'queue.writeBuffer').map((call) => Array.from(new Float32Array(Uint8Array.from(call[4]).buffer)));
+  // the palette rides axes: uUseColor is on; the grid's is off — the line struct is 40 floats
+  const floats = allOf(calls, 'queue.writeBuffer')
+    .map((call) => Array.from(new Float32Array(Uint8Array.from(call[4]).buffer)))
+    .filter((f) => f.length === 40);
   const useColor = floats.map((f) => f[36]);                 // uUseColor, after uPV · uModel · uColor
   assert.ok(useColor.indexOf(1) >= 0 && useColor.indexOf(0) >= 0);
 });
@@ -94,20 +102,26 @@ test('the pipe bakes the topology its geometry is: a line list for lines, triang
 
 test('a width past one device pixel goes through the expand: four vertices and six indices a segment', async () => {
   const { ctx, calls } = await setup();
+  const before = allOf(calls, 'queue.writeBuffer').length;
   cross(ctx, { x: 100, y: 100, size: 50, width: 3 });
   const wide = ctx.gizmos.cross.wide;
-  const slot = ctx.gizmoPool.slots.wide.slots[0];
+  const slot = wide.buffer.current;                          // the layer's wide cache is its own stream
   assert.equal(wide.segments, 2);
   assert.equal(wide.capacity, 16);
   // 4 vertices a segment, every one carrying the segment's endpoints
   assert.deepEqual(Array.from(wide.A.slice(0, 12)), [75, 100, 0, 75, 100, 0, 75, 100, 0, 75, 100, 0]);
   assert.deepEqual(Array.from(wide.B.slice(0, 12)), [125, 100, 0, 125, 100, 0, 125, 100, 0, 125, 100, 0]);
-  assert.deepEqual(Array.from(slot.arrays.aT.data.slice(0, 4)), [0, 0, 1, 1]);
-  assert.deepEqual(Array.from(slot.arrays.aSide.data.slice(0, 4)), [-1, 1, -1, 1]);
-  assert.deepEqual(Array.from(slot.arrays.indices.data.slice(0, 6)), [0, 1, 2, 1, 3, 2]);
+  // the pattern is the expansion's, and it reached the slot: a write an attribute it carries
+  assert.deepEqual(Array.from(wide.T.slice(0, 4)), [0, 0, 1, 1]);
+  assert.deepEqual(Array.from(wide.S.slice(0, 4)), [-1, 1, -1, 1]);
+  assert.deepEqual(Array.from(wide.indices.slice(0, 6)), [0, 1, 2, 1, 3, 2]);
+  // the pattern and the endpoints reached the slot: a write an attribute, the index buffer with them
+  const owned = new Set(slot.geometry.buffers.map((gpu) => gpu.id).concat(wide.buffer.indexBuffer.id));
+  const writes = allOf(calls, 'queue.writeBuffer').slice(before).filter((call) => owned.has(call[1]));
+  assert.deepEqual(writes.map((call) => call[1]), slot.geometry.buffers.map((gpu) => gpu.id).concat(wide.buffer.indexBuffer.id));
   const drawCall = lastOf(calls, 'pass.drawIndexed');
   assert.equal(drawCall[1], 12);                             // six indices a segment
-  assert.deepEqual(slot.geometry.bufferLayouts, WIDE_LAYOUT);
+  assert.equal(slot.geometry.bufferLayouts, WIDE_LAYOUT);
   assert.deepEqual(pipelineOf(calls, 0).vertex.buffers, WIDE_LAYOUT);
   assert.equal(pipelineOf(calls, 0).primitive.topology, 'triangle-list');   // the quads, not the line list
 });
@@ -127,12 +141,13 @@ test('the wide program gets the pass\'s viewport and the width in device pixels'
 test('a growing generator grows the arrays, rebuilds the slot and frees the old buffers', async () => {
   const { ctx, calls } = await setup();
   hermite(ctx, [0, 0, 0], [0, 10, 0], [10, 0, 0], [0, 0, 0], { samples: 4 });   // 8 vertices, capacity 64
-  const slot = ctx.gizmoPool.slots.line.slots[0];
-  assert.ok(slot.capacity >= 8);                             // the slot's own capacity, at least 16
+  const pool = ctx.gizmos.hermite.buffer.pool;
+  const slot = pool.slots[0];
+  assert.ok(slot.capacity >= 8);                             // the slot's own capacity, at least the cache's 64
   endFrame(ctx);                                             // a new frame takes the same slot again
   hermite(ctx, [0, 0, 0], [0, 10, 0], [10, 0, 0], [0, 0, 0], { samples: 400 });  // 800 vertices
   assert.equal(ctx.gizmos.hermite.arrays.count, 800);
-  assert.ok(slot.capacity >= 800);                           // the slot grew
+  assert.ok(pool.slots[0].capacity >= 800);                  // the slot grew with the cache
   assert.ok(allOf(calls, 'buffer.destroy').length >= 1);     // and its old buffers were freed
   // the draw counts the generated vertices, not the slot's capacity
   assert.equal(lastOf(calls, 'pass.draw')[1], 800);
@@ -188,7 +203,7 @@ test('the frustum draws its twelve edges and a viewer\'s axes; a track its path 
   assert.ok(ctx.gizmos.axes.arrays.count > 0);               // a marker per keyframe
 });
 
-test('a handle\'s locus draws its constraint and, at HANDLE, a disc through the quads program', async () => {
+test('a handle\'s locus draws its constraint and, at HANDLE, a disc through the pane program', async () => {
   const { ctx, calls } = await setup();
   const constraint = {
     locus(out, o) {
@@ -201,24 +216,72 @@ test('a handle\'s locus draws its constraint and, at HANDLE, a disc through the 
   handleLocus(ctx, h, { bits: tree.HANDLE | tree.LOCUS });
   assert.equal(ctx.gizmos.locus.arrays.count, 2);
   assert.equal(ctx.gizmos.dot.arrays.count, 48);             // 16 triangles
-  assert.deepEqual(ctx.gizmoPool.slots.tris.slots[0].geometry.bufferLayouts, TRIS_LAYOUT);
+  assert.equal(ctx.gizmos.dot.buffer.current.geometry.bufferLayouts, PANE_LAYOUT);   // a flat quad, no texture
   const trisDraw = lastOf(calls, 'pass.draw');
-  assert.equal(trisDraw[1], 48);
+  assert.equal(trisDraw[1], 48);                             // the disc's own vertices, not the cache's 64
   assert.equal(pipelineOf(calls, allOf(calls, 'createRenderPipeline').length - 1).primitive.topology, 'triangle-list');
-  // the quads program's MVP is the installed camera's, installed by the draw
+  // the pane program's MVP is the installed camera's, installed by the draw — 24 floats, padded
   const floats = allOf(calls, 'queue.writeBuffer')
     .map((call) => Array.from(new Float32Array(Uint8Array.from(call[4]).buffer)))
-    .filter((f) => f.length === 20);
+    .filter((f) => f.length === 24);
   assert.ok(floats.length >= 1);
   const mvp = floats.at(-1).slice(0, 16);
   const expected = Array.from(ctx.PV);
   mvp.forEach((value, i) => assert.ok(Math.abs(value - expected[i]) < 1e-5, 'mvp ' + i));
 });
 
+test('a geometry under a program is built to that pipeline\'s baked layout, or refused', async () => {
+  const { ctx, calls } = await setup();
+  const wgsl = '@fragment fn fs() -> @location(0) vec4f { return vec4f(1.0); }';
+  const position = { numComponents: 3, data: new Float32Array([0, 0, 0, 1, 0, 0]) };
+  const color = { numComponents: 4, data: new Float32Array([1, 0, 0, 1, 0, 1, 0, 1]) };
+
+  // the layout is the program's, not the arrays': one buffer an attribute, in its order
+  const line = program(ctx, wgsl, { buffers: LINE_COLOR_LAYOUT });
+  const geo = ctx.backend.createBuffer(ctx, { aPosition: position, aColor: color }, { program: line });
+  assert.equal(geo.bufferLayouts, LINE_COLOR_LAYOUT);
+  assert.equal(geo.buffers.length, 2);
+  assert.equal(geo.numElements, 2);
+  assert.deepEqual(Array.from(new Float32Array(geo.buffers[0].bytes.buffer)).slice(0, 6), [0, 0, 0, 1, 0, 0]);
+  assert.deepEqual(Array.from(new Float32Array(geo.buffers[1].bytes.buffer)).slice(0, 8), [1, 0, 0, 1, 0, 1, 0, 1]);
+
+  // interleaved: one buffer, each attribute at the offset the layout states
+  const QUAD_WGSL = `
+@vertex fn vs(@location(0) aPosition: vec2f, @location(1) aTexCoord: vec2f) -> @builtin(position) vec4f {
+  return vec4f(aPosition, 0.0, 1.0);
+}
+@fragment fn fs() -> @location(0) vec4f { return vec4f(1.0); }
+`;
+  const quad = program(ctx, QUAD_WGSL, { buffers: QUAD_LAYOUT });
+  const mesh = ctx.backend.createBuffer(ctx, {
+    aPosition: { numComponents: 2, data: new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]) },
+    aTexCoord: { numComponents: 2, data: new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]) },
+  }, { program: quad });
+  assert.equal(mesh.bufferLayouts, QUAD_LAYOUT);
+  assert.equal(mesh.buffers.length, 1);
+  assert.deepEqual(Array.from(new Float32Array(mesh.buffers[0].bytes.buffer)).slice(0, 8), [-1, -1, 0, 0, 1, -1, 1, 0]);
+
+  // an arrays shape the layout cannot read is refused, and nothing is built
+  const before = allOf(calls, 'createBuffer').length;
+  const refused = [];
+  const original = console.error;
+  console.error = (...args) => refused.push(args.join(' '));
+  let answer;
+  try {
+    answer = ctx.backend.createBuffer(ctx, { aPosition: position }, { program: line });
+  } finally {
+    console.error = original;
+  }
+  assert.equal(answer, null);
+  assert.equal(refused.length, 1);
+  assert.match(refused[0], /declares 2 attribute\(s\) and the arrays carry 1/);
+  assert.equal(allOf(calls, 'createBuffer').length, before);
+});
+
 test('the gizmo layouts are the arrays shapes\': one buffer an attribute, locations in key order', async () => {
   assert.deepEqual(WIDE_LAYOUT.map((layout) => [layout.arrayStride, layout.attributes[0].shaderLocation]), [[12, 0], [12, 1], [4, 2], [4, 3]]);
   assert.deepEqual(WIDE_COLOR_LAYOUT.map((layout) => layout.attributes[0].shaderLocation), [0, 1, 2, 3, 4]);
-  assert.deepEqual(TRIS_LAYOUT, LINE_LAYOUT);
+  assert.deepEqual(PANE_LAYOUT.map((layout) => layout.attributes[0].format), ['float32x3', 'float32x2']);
 });
 
 test('drawGizmo: the kind picks the program, states the topology, and restores the depth state', async () => {

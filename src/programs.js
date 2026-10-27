@@ -21,11 +21,12 @@
  * `QUAD_LAYOUT` the vertex layout its arrays imply — derived from the same
  * arrays shape, so the pass pipelines and the geometry cannot disagree.
  *
- * The gizmos' two line programs are here too, and the quads one the handles'
- * dots draw through: `LINE` and `WIDE` (each with and without a colour
- * attribute, because a pipeline bakes its vertex layout), and `TRIS`. Their
- * layouts are the generator arrays' shapes, non-interleaved — one buffer per
- * attribute, so a gizmo's per-frame update is a write, not a rebuild.
+ * The gizmos' programs are here too: the line pipe's `LINE` and `WIDE` (each
+ * with and without a colour attribute, because a pipeline bakes its vertex
+ * layout) and the world-space quad's `PANE`, which a handle's dot draws through
+ * flat, with no texture. Their layouts are the generator arrays' shapes,
+ * non-interleaved — one buffer per attribute, so a gizmo's per-frame update is
+ * a write, not a rebuild.
  */
 
 'use strict';
@@ -260,23 +261,6 @@ fn fs(@location(0) vTexCoord: vec2f) -> @location(0) vec4f {
 }
 `;
 
-/** The quads' program behind a handle's dot: the six declared transforms' MVP and a colour. */
-export const TRIS = `
-struct TrisU {
-  uModelViewProjectionMatrix: mat4x4f,
-  uColor: vec4f,
-};
-@group(0) @binding(0) var<uniform> u: TrisU;
-
-@vertex
-fn vs(@location(0) aPosition: vec3f) -> @builtin(position) vec4f {
-  return u.uModelViewProjectionMatrix * vec4f(aPosition, 1.0);
-}
-
-@fragment
-fn fs() -> @location(0) vec4f { return u.uColor; }
-`;
-
 /** A shape of `numComponents` floats per attribute, for a layout's derivation. @ignore */
 const floats = (components) => {
   const shape = {};
@@ -295,9 +279,6 @@ export const WIDE_LAYOUT = createBufferLayoutsFromArrays(floats({ aA: 3, aB: 3, 
 
 /** The coloured wide pipe's: the same, and `aColor`. */
 export const WIDE_COLOR_LAYOUT = createBufferLayoutsFromArrays(floats({ aA: 3, aB: 3, aT: 1, aSide: 1, aColor: 4 }), { interleave: false }).bufferLayouts;
-
-/** The quads' layout: `aPosition` alone. */
-export const TRIS_LAYOUT = LINE_LAYOUT;
 
 /** The pane's layout: a world position and its texture coordinate. */
 export const PANE_LAYOUT = createBufferLayoutsFromArrays(floats({ aPosition: 3, aTexCoord: 2 }), { interleave: false }).bufferLayouts;

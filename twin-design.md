@@ -1,11 +1,11 @@
 # `webgpu.tree` — the twin (design)
 
 > Target: `webgpu.tree` 0.0.1 on `@nakednous/tree` ^0.0.34, `@nakednous/host` ^0.0.12,
-> `@nakednous/idiom` ^0.0.2, and `webgpu-utils` ^2.1.1 as a peer. The reference surface is
+> `@nakednous/idiom` ^0.0.8, and `webgpu-utils` ^2.1.1 as a peer. The reference surface is
 > `webgl.tree`'s (`bridge-design.md`); this doc is the **differences table** against it and nothing
 > more. Status: **the render surface is built, and the package has an API site of its own**
-> (2026-10-23/24) — `init`, the backend behind `idiom`'s interface (its twenty-three members,
-> `writeBuffer` among them), the composites over it (`renderTarget`, `program`, `fullscreen`, `filter`,
+> (2026-10-23/24, the gizmo verbs on the layer 2026-10-26) — `init`, the backend behind `idiom`'s
+> interface (its twenty-five members, `writeBuffer` and `drawGizmo` among them), the composites over it (`renderTarget`, `program`, `fullscreen`, `filter`,
 > `image`, `pipe`, `releasePipe`, `state`, `setCamera`, `endFrame`), the figure's own path (`bind`,
 > `buffer`, `updateBuffer`, `draw`, `drawInstanced` with the six declared transforms, `texture`,
 > `upload`), picking (`readPixel`, `pick`), the space mappings (`mapLocation`, `mapDirection`,
@@ -54,7 +54,7 @@ blend and depth state." The twin realizes those two sentences.
 | `program(frag)` | fixed pass-through vertex stage | the same, as a WGSL vertex entry the twin supplies |
 | `bind(prog, uniforms)` | `useProgram` + `setUniforms` per name | `makeShaderDataDefinitions(wgsl)` once per pipeline; `makeStructuredView` per uniform struct; `bind` writes the named fields into the view and `queue.writeBuffer`s the struct; bind groups cached per pipeline. Bare names still resolve one field each |
 | declared transforms | read off `programInfo.uniformSetters` | read off the definitions: any uniform struct field named `uModelViewMatrix` … receives its value; the fixed set is `idiom`'s six, the same on both bridges |
-| geometry | `createBufferInfoFromArrays` | `createBuffersAndAttributesFromArrays` (webgpu-utils) from the same `arrays` shape — the core's gizmo arrays upload unchanged. The geometry's layout is that shape's (`buffer`'s `bufferLayouts`: attributes in key order, interleaved), and it is what the program's `opts.buffers` states to the pipeline |
+| geometry | `createBufferInfoFromArrays` | `createBuffersAndAttributesFromArrays` (webgpu-utils) from the same `arrays` shape — the core's gizmo arrays upload unchanged — and, under `{ program }`, a geometry built to that program's *baked* layout instead, which is the same statement a WebGPU pipeline makes. A `{ stream: true }` creation answers a pooled record whose slots a frame's writes take in turn (a queue write is ordered with submissions), and its draw draws the slot it just wrote |
 | `draw(obj, M)` | `drawBufferInfo` | **the layer's policy**, as on the reference: `install` uploads the declared transforms through `setUniforms`, then `pass.setVertexBuffer` / `setIndexBuffer` / `draw` / `drawIndexed` on the current render pass. The bridge keeps the names its suite pins (`TRANSFORMS`, `declaredTransforms`, `uploadTransforms`) and holds no arithmetic of its own (§7 #120). There is no attribute settling: the vertex state is the pipeline's, fixed when it is made |
 | `drawInstanced` | `drawBufferInfo(…, instanceCount)` | native `draw(…, n)` — `install` plus the backend's instanced member, the layer having no instanced verb; the repeated-geometry path (§7 #120) |
 | `renderTarget` | `createFramebufferInfo`, `drawBuffers` for MRT | textures with `RENDER_ATTACHMENT | TEXTURE_BINDING`; a depth texture for `depth` / `depthTexture`; MRT is the pass descriptor's `colorAttachments` list, fragment `@location(i)` in list order |
@@ -182,8 +182,9 @@ notebook column may use; the bridge does not).
   camera: the generators filled `12 · 44 · 64 · 24 · 132 · 318` vertices, the hermite's midpoint read
   `255 79 217` (its colour) at the mapped pixel, and the track's first keyframe `255 209 102` (its
   own). Two gizmos of one name in one frame do not share a buffer: each draw takes a slot of the
-  frame's stream, because `queue.writeBuffer` is ordered with submissions and not inside a command
-  buffer.
+  frame's stream — now the backend's pooled record, one pool a program, whose write takes the next
+  slot and whose draw draws the one it wrote — because `queue.writeBuffer` is ordered with
+  submissions and not inside a command buffer.
 - *The width.* A 0.5-logical line — one device pixel at a ratio of two — drew through the line list and
   covered two rows (a pixel landing on a row boundary); a 3-logical one covered six through the quads,
   measured as the covered rows of a column through each arm.

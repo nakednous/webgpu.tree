@@ -102,6 +102,9 @@ export function createDevice(opts) {
         return buffer.mapped;
       },
       unmap() {
+        // the bytes a mapped write left, kept: a geometry built to a layout is
+        // read through them
+        if (buffer.mapped) buffer.bytes = new Uint8Array(buffer.mapped.slice(0));
         buffer.mapped = null;
         record('buffer.unmap', buffer.id);
       },

@@ -33,6 +33,12 @@ const floatsOf = (calls, index) => {
   const bytes = Uint8Array.from(write[4]);
   return Array.from(new Float32Array(bytes.buffer, 0, Math.floor(bytes.length / 4)));
 };
+// the pane program's uniform struct: a mat4, a vec4 and a float, padded to 24 floats
+const UNIFORM = 24;
+const uniformOf = (calls) => allOf(calls, 'queue.writeBuffer')
+  .map((call) => Array.from(new Float32Array(Uint8Array.from(call[4]).buffer)))
+  .filter((f) => f.length === UNIFORM)
+  .at(-1);
 
 test('a pane is six vertices with the twin\'s uvs: p0 reads (0, 0)', async () => {
   const { ctx } = await setup();
@@ -41,7 +47,7 @@ test('a pane is six vertices with the twin\'s uvs: p0 reads (0, 0)', async () =>
   assert.equal(g.arrays.count, 6);
   assert.deepEqual(Array.from(g.arrays.texcoord.data.slice(0, 12)), [0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1]);
   assert.deepEqual(Array.from(g.arrays.position.data.slice(0, 6)), [-40, 40, 0, 40, 40, 0]);
-  assert.deepEqual(ctx.gizmoPool.slots.pane.slots[0].geometry.bufferLayouts, PANE_LAYOUT);
+  assert.equal(ctx.gizmos.pane.buffer.current.geometry.bufferLayouts, PANE_LAYOUT);
 });
 
 test('a textured pane binds the texture, turns useTexture on, and takes the draw\'s MVP', async () => {
@@ -52,7 +58,7 @@ test('a textured pane binds the texture, turns useTexture on, and takes the draw
   const group = lastOf(calls, 'createBindGroup')[2];
   const entry = group.entries.find((e) => e.binding === 1);
   assert.equal(entry.resource.id, tex.view.id);
-  const floats = floatsOf(calls, -1);
+  const floats = uniformOf(calls);
   assert.deepEqual(Array.from(floats.slice(16, 21).map((v) => +v.toFixed(2))), [1, 0.5, 0.25, 1, 1]);   // uColor, uUseTexture
   const expected = tree.mat4Mul(new Float32Array(16), ctx.PV, M);
   floats.slice(0, 16).forEach((v, i) => assert.ok(Math.abs(v - expected[i]) < 1e-5, 'mvp ' + i));
@@ -62,7 +68,7 @@ test('a textured pane binds the texture, turns useTexture on, and takes the draw
 test('a flat pane draws the colour alone', async () => {
   const { ctx, calls } = await setup();
   pane(ctx, ...CORNERS, { color: [0.2, 0.4, 0.6, 1] });
-  const floats = floatsOf(calls, -1);
+  const floats = uniformOf(calls);
   const expected = [0.2, 0.4, 0.6, 1, 0];
   floats.slice(16, 21).forEach((v, i) => assert.ok(Math.abs(v - expected[i]) < 1e-6, 'uniform ' + i));
 });
@@ -81,7 +87,7 @@ test('the frustum\'s faces are panes, the far one first, and they keep their out
   assert.ok(draws.includes(24));                                // and the twelve edges
   const paneWrites = allOf(calls, 'queue.writeBuffer')
     .map((c) => Array.from(new Float32Array(Uint8Array.from(c[4]).buffer)))
-    .filter((f) => f.length === 24);                            // the pane's struct, padded
+    .filter((f) => f.length === UNIFORM);                       // the pane's struct, padded
   assert.equal(paneWrites.length, 2);
 });
 
