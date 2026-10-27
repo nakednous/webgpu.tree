@@ -1,7 +1,7 @@
 # `webgpu.tree` — the twin (design)
 
 > Target: `webgpu.tree` 0.0.1 on `@nakednous/tree` ^0.0.34, `@nakednous/host` ^0.0.12,
-> `@nakednous/idiom` ^0.0.8, and `webgpu-utils` ^2.1.1 as a peer. The reference surface is
+> `@nakednous/idiom` ^0.0.9, and `webgpu-utils` ^2.1.1 as a peer. The reference surface is
 > `webgl.tree`'s (`bridge-design.md`); this doc is the **differences table** against it and nothing
 > more. Status: **the render surface is built, and the package has an API site of its own**
 > (2026-10-23/24, the gizmo verbs on the layer 2026-10-26) — `init`, the backend behind `idiom`'s
