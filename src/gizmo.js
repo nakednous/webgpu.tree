@@ -15,7 +15,7 @@
  * ```
  *
  * @details
- * The pipe is `idiom`'s: a cache a gizmo name a context, its generators run into
+ * The pipe is the layer's: a cache a gizmo name a context, its generators run into
  * the cache's arrays, the geometry rebuilt when the cache grows and written in
  * place otherwise, the wide line's expansion four vertices and six indices a
  * segment, and the HUD an ortho over the viewport in logical pixels. What the
