@@ -881,7 +881,9 @@ export function createBackend(opts) {
      * A stream draws the slot its last write took, and a draw without a count
      * draws that slot's vertices. The program cache is the bridge's own
      * (`ctx.gizmoPrograms`), so a verb that fills a cache names the same
-     * pipelines here rather than making twins.
+     * pipelines here rather than making twins. A spec that carries `labels`
+     * hands each of them to its `identify` sink — resolved by the layer, which
+     * states the anchors and the ids.
      */
     drawGizmo(ctx, kind, geometry, spec) {
       const sp = spec || {};
@@ -915,6 +917,12 @@ export function createBackend(opts) {
       ctx.prog = prog;
       const count = sp.count !== undefined ? sp.count : (slot ? slot.count : undefined);
       const answer = backend.draw(ctx, prog, drawn, count === undefined ? undefined : { count });
+      if (sp.identify && sp.labels) {
+        for (let i = 0; i < sp.labels.length; i++) {
+          const l = sp.labels[i];
+          sp.identify(l.id, l.text, l.x, l.y, l.z);
+        }
+      }
       ctx.prog = priorProg;
       backend.setState(ctx, priorState);
       return answer;

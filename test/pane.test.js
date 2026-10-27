@@ -124,15 +124,25 @@ test('identify forwards the rig\'s lanes to the host\'s labels, a world anchor e
   const host = { labels: { set: (id, text, x, y, z, opts) => labels.push({ id, text, x, y, z, opts }) } };
   const { ctx } = await setup(null, host);
   const helm = new tree.PoseHelm();
-  helmRig(ctx, helm, { size: 80, identify: true });
-  assert.ok(labels.length > 0);
-  assert.ok(labels.every((l) => /^helmRig\d+:/.test(l.id) && typeof l.text === 'string' && l.opts.frame === true && l.opts.class === 'helm-rig'));
+  const M = tree.mat4FromTRS(tree.mat4(), 10, 20, 30, 0, 0, 0, 1, 1, 1, 1);
+  helmRig(ctx, helm, { size: 80, M, identify: true });
+  assert.equal(labels.length, 6, 'three translation lanes and three rotation ones');
+  assert.ok(labels.every((l) => /^helmRig\d+:\d+$/.test(l.id)), 'the id is the rig\'s cache and the label\'s index');
+  assert.ok(labels.every((l) => typeof l.text === 'string' && l.opts.frame === true && l.opts.class === 'helm-rig'));
   assert.ok(labels.every((l) => Number.isFinite(l.x) && Number.isFinite(l.y) && Number.isFinite(l.z)));
+  assert.ok(labels.some((l) => Math.abs(l.x - 10) > 1), 'the anchor is the generator\'s, taken to world space by M');
+
+  // two rigs identify into ids of their own: a cache a helm
+  labels.length = 0;
+  helmRig(ctx, helm, { size: 80, identify: true });
+  helmRig(ctx, new tree.PoseHelm(), { size: 80, identify: true });
+  assert.equal(new Set(labels.map((l) => l.id.split(':')[0])).size, 2, 'each helm keeps its own label namespace');
 });
 
 test('without a host the rig draws and says nothing about labels', async () => {
   const { ctx } = await setup();
   const helm = new tree.PoseHelm();
   helmRig(ctx, helm, { size: 80, identify: true });
-  assert.ok(ctx.gizmos.helmRig.arrays.count > 0);
+  const rig = Object.keys(ctx.gizmos).find((name) => name.startsWith('helmRig'));
+  assert.ok(rig && ctx.gizmos[rig].arrays.count > 0, 'the rig\'s own cache, and no sink');
 });

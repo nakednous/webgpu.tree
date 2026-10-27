@@ -304,6 +304,7 @@ depth convention is bound to `WEBGPU` in the `tree` namespace, so no call names 
 ```js
 axes(ctx, opts) · grid(ctx, opts) · hermite(ctx, p0, t0, p1, t1, opts)
 viewFrustum(ctx, opts) · trackPath(ctx, track, opts) · helmRig(ctx, helm, opts) · handleLocus(ctx, h, opts)
+lines(ctx, segments, opts)                    // the caller's own batch, one call
 beginHUD(ctx) · cross(ctx, opts) · bullsEye(ctx, opts) · endHUD(ctx)
 ```
 
@@ -338,7 +339,13 @@ programs and the vertex-layout statement a WebGPU pipeline needs.
   frustum's `nearTexture` / `farTexture` are panes, the far one first.
 - **The helm rig's HUD form.** `helmRig(ctx, helm, { x, y, size, tilt, tint })` renders the rig into a
   per-helm cached square target through its own iso camera and composites it with `image` at its
-  logical rect, tinted. `identify` forwards the six lanes to `host.labels`, a world anchor each.
+  logical rect, tinted. `identify` is the layer's label seam — it resolves each anchor to world space
+  and states its id — and the bridge supplies the sink: the six lanes reach `host.labels` as one-frame
+  labels.
+- **`lines`** is the same pipe for geometry the caller writes: ten numbers a segment — its two
+  endpoints and its colour — into a cache a context, one draw a call, the same width policy, and the
+  colour's alpha blended over what is drawn already. A batch of a frame takes its own slot, so two
+  batches of one frame read their own writes.
 
 ## Conventions
 

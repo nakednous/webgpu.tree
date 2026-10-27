@@ -47,7 +47,7 @@
   },
   "dependencies": {
     "@nakednous/host": "^0.0.12",
-    "@nakednous/idiom": "^0.0.9",
+    "@nakednous/idiom": "^0.0.10",
     "@nakednous/tree": "^0.0.34"
   },
   "devDependencies": {

@@ -10,9 +10,10 @@
 > `buffer`, `updateBuffer`, `draw`, `drawInstanced` with the six declared transforms, `texture`,
 > `upload`), picking (`readPixel`, `pick`), the space mappings (`mapLocation`, `mapDirection`,
 > `unproject`, `fragCoord`, `pixelRatio`, `mat4Viewport`), the line pipe with the HUD (`axes`, `grid`,
-> `hermite`, `viewFrustum`, `trackPath`, `helmRig`, `handleLocus`, `beginHUD`, `endHUD`, `cross`,
-> `bullsEye`), `pane` with the frustum's textured faces and the helm rig's HUD form with its
-> `identify` labels, and the texture shapes (`cubemap`, mips, the 3D / 2D-array sources). **The
+> `hermite`, `viewFrustum`, `trackPath`, `helmRig`, `handleLocus`, `lines`, `beginHUD`, `endHUD`,
+> `cross`, `bullsEye`), `pane` with the frustum's textured faces and the helm rig's HUD form with its
+> `identify` labels through the layer's sink, and the texture shapes (`cubemap`, mips, the 3D /
+> 2D-array sources). **The
 > surface is the reference's.** What the reference does not have — a cube / layered render target (§7
 > #104) and compute (§7 #85) — is not on it either. Names inherit the bridge's.
 >
@@ -205,7 +206,17 @@ notebook column may use; the bridge does not).
 - *The helm rig's HUD form.* Two composites of one cached 119-pixel target at their logical rects read
   `110 0 0` under a red tint and `0 110 0` under a green one, with the frame outside them black.
 - *`identify`.* The rig's six lanes (`L0 L1 L2` twice — the translation arrows and the rotation rings)
-  reached the host's label layer as DOM labels, a world anchor each.
+  reached the host's label layer as DOM labels, a world anchor each. (The anchors are the layer's
+  since 2026-10-28: the pipe resolves them and states the ids, and the twin wires the sink.)
+
+**Read 2026-10-28, with the labels' seam and `lines` built, on the Arc at a device ratio of two.**
+
+- *The labels' seam.* A helm rig's six lanes reached `host.labels` with ids `helmRig1:0` … `helmRig1:5`
+  — the rig's own cache and the label's index — and each label's DOM centre sat on its anchor's
+  projected position to 0.2 logical pixels, on the adapter `intel · xe-2lpg`.
+- *`lines`.* A batch of coloured segments drew in one call through the colour line program, its
+  geometry built to that pipeline's baked layout and written into the frame's slot; a second batch of
+  the same frame took the next slot and read its own write.
 
 **Read 2026-10-24, with the texture shapes built.**
 

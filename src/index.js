@@ -56,7 +56,7 @@ export { decodeRGBE, encodeRGBE, loadHDR } from './hdr.js';
 export { readPixel, pick } from './pick.js';
 export { mapLocation, mapDirection, unproject, fragCoord, pixelRatio, mat4Viewport } from './space.js';
 export {
-  axes, grid, hermite, pane, viewFrustum, trackPath, helmRig, handleLocus,
+  axes, grid, hermite, lines, pane, viewFrustum, trackPath, helmRig, handleLocus,
   beginHUD, endHUD, cross, bullsEye,
 } from './gizmo.js';
 export { renderTarget, SCREEN } from '@nakednous/idiom';

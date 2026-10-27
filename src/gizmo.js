@@ -50,8 +50,17 @@
  * outside it.
  *
  * A handle's dot draws through the pane's program as a flat quad of triangles,
- * with no texture; the frustum's `nearTexture` / `farTexture` faces are panes,
- * and the helm rig's `identify` labels go to the host's own label layer.
+ * with no texture; the frustum's `nearTexture` / `farTexture` faces are panes.
+ *
+ * **The label seam.** `helmRig`'s `identify` is the pipe's, not this bridge's:
+ * the layer resolves each anchor in world space and its id, and hands it to a
+ * sink, and what this bridge supplies is the sink itself — the host's label
+ * layer. A rig's cache carries the helm's id, so a helm's lanes keep the ids
+ * they had.
+ *
+ * **A caller's own lines.** `lines` is the same pipe for geometry the caller
+ * writes: ten numbers a segment into a cache of its own, one draw, the same
+ * width policy, and alpha blending over what is drawn already.
  */
 
 'use strict';
@@ -151,8 +160,22 @@ function _fill(ctx, g, gen) {
 }
 
 /** Draw a filled cache's lines under M — the layer's policy, this bridge's density. @ignore */
-function _drawLines(ctx, g, M, color, depth, width) {
-  return drawLinesOf(ctx, g, { M, color, depth, width, dpr: canvasScale(ctx) });
+function _drawLines(ctx, g, M, color, depth, width, identify) {
+  return drawLinesOf(ctx, g, { M, color, depth, width, dpr: canvasScale(ctx), identify });
+}
+
+/**
+ * The sink the pipe hands a labelled item to: the host's label layer, a frame
+ * label a re-set, the class this bridge's own. One sink a context, so a rig
+ * drawn every frame allocates nothing.
+ * @ignore
+ */
+function _sinkOf(ctx) {
+  const host = ctx.host;
+  if (!host || !host.labels) return null;
+  return ctx.labelSink || (ctx.labelSink = (id, text, x, y, z) => {
+    host.labels.set(id, text, x, y, z, { frame: true, class: 'helm-rig' });
+  });
 }
 
 /** Draw a filled cache's triangles through the pane program. @ignore */
@@ -493,18 +516,19 @@ export function helmRig(ctx, helm, opts) {
     _R[15] = 1;
     M = M ? T.mat4Mul(_M, M, _R) : _R;
   }
-  const g = gizmoOf(ctx, 'helmRig', { color: true, labels: true });
+  const g = _rigCache(ctx, helm);
   _fill(ctx, g, (a) => T.helmRigLines(a, helm, { size: o.size, bits: o.bits, identify: o.identify === true }));
-  _drawLines(ctx, g, M, null, o.depth, o.width);
-  const host = ctx.host;
-  if (o.identify === true && host && host.labels && g.arrays.labels.length) {
-    const id = helm._rigId || (helm._rigId = ++_rigSeq);
-    g.arrays.labels.forEach((l, i) => {
-      if (M) T.mat4MulPoint(_p, M, l.x, l.y, l.z);
-      else { _p[0] = l.x; _p[1] = l.y; _p[2] = l.z; }
-      host.labels.set('helmRig' + id + ':' + i, l.text, _p[0], _p[1], _p[2], { frame: true, class: 'helm-rig' });
-    });
-  }
+  _drawLines(ctx, g, M, null, o.depth, o.width, o.identify === true ? _sinkOf(ctx) : null);
+}
+
+/**
+ * The rig's cache: one a helm, so the lanes' label ids — the cache's name and
+ * the label's index — belong to the helm that drew them.
+ * @ignore
+ */
+function _rigCache(ctx, helm) {
+  const id = helm._rigId || (helm._rigId = ++_rigSeq);
+  return gizmoOf(ctx, 'helmRig' + id, { color: true, labels: true });
 }
 
 /**
@@ -538,7 +562,7 @@ function _rigHud(ctx, helm, o) {
   ctx.backend.bindTarget(ctx, entry.target);
   ctx.backend.clear(ctx, [0, 0, 0, 0]);
   setCamera(ctx, T.cameraView(_E, _rigCam), T.cameraProj(_P, _rigCam, 1));
-  const g = gizmoOf(ctx, 'helmRig', { color: true, labels: true });
+  const g = _rigCache(ctx, helm);
   _fill(ctx, g, (a) => T.helmRigLines(a, helm, { size: 100, bits: o.bits }));
   _drawLines(ctx, g, null, null, true, o.width);
   setCamera(ctx, V, P);
@@ -670,6 +694,93 @@ export function pane(ctx, p0, p1, p2, p3, opts) {
   const g = gizmoOf(ctx, 'pane', { texcoord: true });
   _fill(ctx, g, (a) => T.paneTris(a, p0, p1, p2, p3, { uvs: o.uvs || PANE_UVS, color: o.color }));
   _drawTris(ctx, g, o.M, o.color, o.texture || null, o.depth);
+}
+
+// ── The caller's own lines ──────────────────────────────────────────────
+
+/**
+ * Write `n` segments of ten numbers into a cache's arrays, and answer the
+ * vertices the batch needs — the generator contract `fill` takes.
+ * @ignore
+ */
+function _writeSegments(a, segments, n) {
+  const pos = a.position.data, col = a.color.data;
+  const m = Math.min(n, (pos.length / 6) | 0);          // a segment is two vertices
+  for (let i = 0; i < m; i++) {
+    const s = 10 * i, p = 6 * i, c = 8 * i;
+    pos[p] = segments[s]; pos[p + 1] = segments[s + 1]; pos[p + 2] = segments[s + 2];
+    pos[p + 3] = segments[s + 3]; pos[p + 4] = segments[s + 4]; pos[p + 5] = segments[s + 5];
+    col[c] = col[c + 4] = segments[s + 6];
+    col[c + 1] = col[c + 5] = segments[s + 7];
+    col[c + 2] = col[c + 6] = segments[s + 8];
+    col[c + 3] = col[c + 7] = segments[s + 9];
+  }
+  a.count = 2 * m;
+  return 2 * n;
+}
+
+/**
+ * A batch of coloured segments — the caller's own geometry, rebuilt a frame —
+ * drawn in one call under `opts.M`: ten numbers a segment, its two endpoints
+ * and its colour.
+ * @details The batch goes into a cache of the pipe's, one a context, built to
+ * this bridge's colour program and written a draw into the slot the frame's
+ * submission takes, so a figure that rewrites one array a frame allocates
+ * nothing and two batches of a frame read their own writes. `width` counts
+ * logical pixels as every gizmo's does — the bridge's density carries it to
+ * device pixels, and above one each segment expands into a quad, so a batch
+ * states its width in page pixels and never in device ones. The colour's alpha
+ * blends over what is drawn already, and the blend state and the depth test the
+ * call found are restored after it.
+ * @param {object} ctx  The context record.
+ * @param {ArrayLike<number>} segments  The batch: `x0 y0 z0 x1 y1 z1 r g b a` a segment.
+ * @param {{ count?:number, M?:ArrayLike<number>, width?:number, depth?:boolean }} [opts]
+ *        `count` segments are drawn; the array's own length is the default.
+ * @example
+ * <caption>A ring rebuilt every frame into the same array, drawn in one call a frame — at a width of three logical pixels, so each segment is a quad.</caption>
+ * import { init, endFrame, image, renderTarget, SCREEN, setCamera, lines, tree } from 'webgpu.tree'
+ *
+ * const canvas = document.body.appendChild(document.createElement('canvas'))
+ * canvas.style.width = '400px'
+ * canvas.style.height = '300px'
+ * const ctx = await init(canvas, { width: 400, height: 300 })
+ * const scene = renderTarget(ctx)
+ * const cam = tree.createCamera({ eye: [164, 186, 243] })
+ * const N = 64
+ * const batch = new Float32Array(10 * N)
+ *
+ * function frame() {
+ *   for (let i = 0; i < N; i++) {
+ *     const a = 2 * Math.PI * i / N, b = 2 * Math.PI * (i + 1) / N, o = 10 * i
+ *     batch[o] = 100 * Math.cos(a); batch[o + 1] = 100 * Math.sin(a); batch[o + 2] = 0
+ *     batch[o + 3] = 100 * Math.cos(b); batch[o + 4] = 100 * Math.sin(b); batch[o + 5] = 0
+ *     batch[o + 6] = 1; batch[o + 7] = 0.82; batch[o + 8] = 0.4; batch[o + 9] = 1
+ *   }
+ *   ctx.backend.bindTarget(ctx, scene)
+ *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   setCamera(ctx, cam)
+ *   lines(ctx, batch, { width: 3 })
+ *   ctx.backend.bindTarget(ctx, SCREEN)
+ *   image(ctx, scene.color)
+ *   endFrame(ctx)
+ *   requestAnimationFrame(frame)
+ * }
+ * requestAnimationFrame(frame)
+ *
+ *
+ */
+export function lines(ctx, segments, opts) {
+  const o = opts || {};
+  if (!segments) return;
+  const n = o.count === undefined ? ((segments.length / 10) | 0) : Math.max(0, o.count | 0);
+  const g = gizmoOf(ctx, 'lines', { color: true });
+  _fill(ctx, g, (a) => _writeSegments(a, segments, n));
+  const prior = ctx.backend.setState(ctx, { blend: NORMAL });
+  try {
+    _drawLines(ctx, g, o.M, null, o.depth, o.width);
+  } finally {
+    ctx.backend.setState(ctx, prior);
+  }
 }
 
 // ── HUD ──────────────────────────────────────────────────────────────────

@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 
 import {
   init, setCamera, tree, renderTarget, program, endFrame, buffer,
-  axes, grid, hermite, viewFrustum, trackPath, handleLocus, cross, bullsEye, beginHUD, endHUD, pane,
+  axes, grid, hermite, lines, viewFrustum, trackPath, handleLocus, cross, bullsEye, beginHUD, endHUD, pane,
 } from '../src/index.js';
 import { LINE_COLOR_LAYOUT, LINE_LAYOUT, PANE_LAYOUT, QUAD_LAYOUT, WIDE_COLOR_LAYOUT, WIDE_LAYOUT } from '../src/programs.js';
 import { canvasViewport } from '../src/space.js';
@@ -303,4 +303,43 @@ test('drawGizmo: the kind picks the program, states the topology, and restores t
   ctx.backend.drawGizmo(ctx, 'pane', geo, { color: [1, 1, 1, 1], texture: null });
   const pane = pipelineOf(calls, allOf(calls, 'createRenderPipeline').length - 1);
   assert.equal(pane.primitive.topology, 'triangle-list', 'a pane is triangles');
+});
+
+test('lines: ten numbers a segment, one geometry a context, one draw a call', async () => {
+  const { ctx, calls } = await setup();
+  const batch = new Float32Array([
+    0, 0, 0, 10, 0, 0, 1, 0, 0, 1,                    // a red segment along x
+    0, 0, 0, 0, 10, 0, 0, 1, 0, 0.5,                  // a green one along y, half transparent
+  ]);
+  lines(ctx, batch);
+  const g = ctx.gizmos.lines;
+  assert.equal(g.arrays.count, 4, 'two vertices a segment');
+  assert.deepEqual(Array.from(g.arrays.position.data.slice(0, 6)), [0, 0, 0, 10, 0, 0], 'the endpoints in order');
+  assert.deepEqual(Array.from(g.arrays.color.data.slice(12, 16)), [0, 1, 0, 0.5], 'a colour a vertex, alpha included');
+  assert.equal(g.buffer.current.geometry.bufferLayouts, LINE_COLOR_LAYOUT, 'the geometry is the colour program\'s');
+  assert.equal(allOf(calls, 'pass.draw').length, 1, 'one draw a call');
+
+  // a batch blends: the pipeline the draw picks carries one
+  const pipeline = allOf(calls, 'createRenderPipeline').at(-1)[2];
+  assert.ok(pipeline.fragment.targets[0].blend, 'the colour\'s alpha blends over what is drawn');
+  assert.equal(pipeline.primitive.topology, 'line-list');
+
+  // count states the live segments; the tail of the array is not drawn
+  lines(ctx, batch, { count: 1 });
+  assert.equal(g.arrays.count, 2);
+
+  // the width: at or below one device pixel the line list, above it the quads
+  lines(ctx, batch, { width: 3, depth: false });
+  assert.ok(g.wide, 'a width past one device pixel expands the batch');
+  assert.equal(allOf(calls, 'pass.drawIndexed').length, 1, 'the quads are indexed');
+  assert.equal(ctx.gizmos.lines, g, 'one cache a context, not a cache a call');
+});
+
+test('a batch this frame and another read their own writes: the stream\'s slots', async () => {
+  const { ctx } = await setup();
+  lines(ctx, new Float32Array(10 * 4));
+  const first = ctx.gizmos.lines.buffer.current;
+  lines(ctx, new Float32Array(10 * 8));
+  const second = ctx.gizmos.lines.buffer.current;
+  assert.notEqual(first, second, 'a write a call takes the frame\'s next slot');
 });
