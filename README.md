@@ -8,8 +8,8 @@ realized where uniforms are fields of a buffer bound as a group, a program is a 
 state, and readback is asynchronous by construction.
 
 > **Status: the render surface is built, and it has an API site of its own.** `init` and the backend
-> behind `idiom`'s interface — the twenty-three members (the in-place `writeBuffer` among them) and the
-> four conventions — with the composites over it: `renderTarget`, `SCREEN`,
+> behind `idiom`'s interface — the twenty-five members (the in-place `writeBuffer` and `drawGizmo`
+> among them) and the four conventions — with the composites over it: `renderTarget`, `SCREEN`,
 > `program`, `fullscreen`, `filter`, `image`, `pipe`, `releasePipe`, `state`, `setCamera`, `endFrame`,
 > `viewOf`, `dispose`; the figure's own path: `bind`, `buffer`, `updateBuffer`, `draw`,
 > `drawInstanced` with the six declared transforms, `texture`, `upload`; picking: `readPixel`, `pick`;
