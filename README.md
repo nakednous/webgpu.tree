@@ -19,7 +19,7 @@ state, and readback is asynchronous by construction.
 > frustum's textured faces and the helm rig's HUD form and `identify` labels; the texture shapes —
 > `cubemap`, mips, and the 3D / 2D-array sources; and the Radiance path: `decodeRGBE`, `encodeRGBE`,
 > `loadHDR`. The twin's surface is the reference's; what the
-> reference does not have — a cube / layered render target (§7 #104) and compute (§7 #85) — is not on
+> reference does not have — a cube / layered render target and compute — is not on
 > it either. `twin-design.md` is the differences table against `webgl.tree`.
 >
 > Pins `@nakednous/tree` ^0.0.34, `@nakednous/host` ^0.0.12, `@nakednous/idiom` ^0.0.9;
@@ -80,13 +80,13 @@ function frame() {
 requestAnimationFrame(frame)
 ```
 
-`endFrame(ctx)` is the twin's, not the layer's (§7 #107): it submits the frame's command encoder, and
+`endFrame(ctx)` is the twin's, not the layer's: it submits the frame's command encoder, and
 it is what the host's `afterFrame` calls when a host is attached —
 `host.createHost(canvas, { afterFrame: () => endFrame(ctx) })` — after `pointer.flush()`, so a pointer
 handler's draw lands in the frame.
 
 > **Status: 0.0.x, experimental.** The twin's surface is `webgl.tree`'s; WebGPU is not yet the default
-> on Linux stable, so a figure's API stays an authoring choice (§7 #86, #108).
+> on Linux stable, so a figure's API stays an authoring choice.
 
 ## The API site
 
@@ -110,7 +110,7 @@ once as it nears the viewport and is hidden when it leaves it; a hidden iframe's
 throttled, and the WebGPU device stays, because a device made after an earlier one was destroyed
 renders nothing in this Chromium. A figure that draws geometry binds its target with
 `ctx.backend.bindTarget` and clears it with `ctx.backend.clear` — the layer's member, the twin's flat
-bind (§7 #110), where the reference calls twgl's `bindFramebufferInfo` and `gl.clear`.
+bind, where the reference calls twgl's `bindFramebufferInfo` and `gl.clear`.
 Serve it locally, from the repository root:
 
 ```
@@ -123,14 +123,13 @@ pages of their own: `pass` (`fullscreen`, `filter`, `image`, `pipe`, `releasePip
 blend constants), `target` (`renderTarget`, `SCREEN`) and `state`; and **the two namespaces it
 re-exports**, on the reference's eight: `host`, `host.handles`, `host.tracks`, `tree.camera`,
 `tree.matrices`, `tree.projection`, `tree.quaternions` and `tree.visibility` — twenty module pages
-beside the README, the reference's page set and anchors (§7 #116). The composites' and the
+beside the README, the reference's page set and anchors. The composites' and the
 namespaces' pages are `@nakednous/idiom`'s and `@nakednous/tree`'s / `@nakednous/host`'s verbs,
 documented here as the bridge re-exports them, from doc-only files in `docs/`, as `webgl.tree`
 documents the surface it re-exports — each doclet's figure the reference's own figure translated to
 the twin, so the two sites read side by side. `hdr` is the Radiance path — `decodeRGBE` and
 `encodeRGBE` are `@nakednous/host`'s, re-exported, and `loadHDR` fetches and decodes a file, rows in
-the file's own order, which is what a texture here takes; the reference hands back GL's order instead
-(§7 #119).
+the file's own order, which is what a texture here takes; the reference hands back GL's order instead.
 
 Its gate is two halves. `npm run docs` is the structural one — every documented name and a function's
 parameters against the build, every example's imports resolved, every fence's language — and it fails
@@ -138,11 +137,11 @@ on an error. The other half mounts **every figure** in this machine's Chromium w
 `--enable-unsafe-webgpu`, at device scale factors **1 and 2**: the headless compositor drops its WebGPU
 instance when a canvas is first presented, so a page carries one figure per load, a figure that reads
 back reads before it presents, and a figure passes when it acquires a device, draws, logs nothing, and
-its canvas is its page size times the density (§7 #115's first rule; the twin's `init` states the
-density, so the figures take it). The browser's look is the maintainer's gate.
+its canvas is its page size times the density (the rule the reference's gate states first; the
+twin's `init` sets the density, so the figures take it). The browser's look is the maintainer's gate.
 
-It is **not deployed**: the repositories' GitHub home, and the sites' deployment, is §7 #77's pending
-ground, and #56's "the `*.tree` bridges only" gives this bridge a site, not an address.
+It is **not deployed**: the repositories' GitHub home, and the sites' deployment, are not settled;
+this bridge has a site of its own, and no address yet.
 
 ---
 
@@ -187,7 +186,7 @@ function frame() {
 
 `init` asks for the adapter and the device, so it is a promise — the one surface difference a caller
 sees from `webgl.tree`, where `init(gl)` is a plain call. `endFrame` is the twin's own and is the
-host's `afterFrame` client (§7 #107): the submit happens after `pointer.flush()`, so a pointer
+host's `afterFrame` client: the submit happens after `pointer.flush()`, so a pointer
 handler's draws are in the frame. Without a host, the application calls it.
 
 ## The draw
@@ -215,8 +214,8 @@ draw(ctx, geo, M)
 - **The six declared transforms** are uploaded by `draw`, each only if the program declares it, into
   the program's own uniform struct: `uModelMatrix` `uViewMatrix` `uModelViewMatrix`
   `uProjectionMatrix` `uModelViewProjectionMatrix` `uNormalMatrix` (`(V · M)⁻ᵀ`, a `mat3x3f` — nine
-  floats in, twelve bytes a column out). Nothing outside that table is set. The arithmetic is the
-  bridge's until `idiom`'s draw policy lands (§7 #109's R2 gives the six names to `idiom`).
+  floats in, twelve bytes a column out). Nothing outside that table is set: the six transforms are the
+  layer's draw policy, and the twin supplies the upload path its API needs.
 - **Depth.** `draw` picks the pipeline the state selects; a state's depth field is a pipeline
   variant, cached by state and attachment.
 - **`opts`** on `draw` is `{ count, offset }`, a partial draw in WebGPU's own units — a first vertex
@@ -265,7 +264,7 @@ the nearer of two overlapping ones.
 - **The id program.** `opts.program`. A pipeline bakes its vertex state, so the default (the twin's
   flat program) serves the covering quad only: a scene of meshes passes an id WGSL of its own, built
   with the geometry's layout (`program(ctx, wgsl, { buffers: geometry.bufferLayouts })`), declaring
-  `uColor: vec4f` — §7 #112's shape again.
+  `uColor: vec4f` — the layout a scene program is built from is its own statement, as anywhere.
 - **Readback.** A copy must be ordered after the frame's draws, so a read **ends the frame** (the
   backend submits, then copies and maps); a pick inside a frame submits what is drawn and the frame
   continues — one extra submit, the cost of an asynchronous read on WebGPU. There is no `sync` form.
@@ -358,7 +357,7 @@ programs and the vertex-layout statement a WebGPU pipeline needs.
   fullscreen pass's `vTexCoord` all run the way a decoded image's rows do. `image`'s rect is in target
   pixels, origin bottom-left; the viewport is WebGPU's own, origin top-left.
 - **Depth.** The compare is a pipeline field, `'less'` unless a state names `'less-equal'` for a far
-  plane pinned at `z/w = 1` (§7 #93). A pass with no depth attachment never bakes one in.
+  plane pinned at `z/w = 1`. A pass with no depth attachment never bakes one in.
 - **WGSL, one module.** `program(ctx, wgsl, opts)` compiles the twin's vertex stage *concatenated*
   with the caller's fragment source — WGSL has no include, and varyings match by location — unless
   the source brings its own `@vertex` stage. That is how one file carries both stages without a

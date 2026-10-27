@@ -35,9 +35,9 @@
  * which the submit performs.
  *
  * The protocol — the cached 1 × 1 target, the narrowed projection, the id codec
- * and the restore — is the layer's since 0.0.5 (§7 #125); what stays this
- * bridge's is the refusal of the canvas below and `canvasViewport`, the mapping
- * a pointer's coordinates belong to.
+ * and the restore — is the layer's; what stays this bridge's is the refusal of
+ * the canvas below and `canvasViewport`, the mapping a pointer's coordinates
+ * belong to.
  *
  * **The id program.** `pick` renders into a cached 1 × 1 `rgba8unorm` +
  * `depth24plus` target, cleared black, under the installed projection narrowed

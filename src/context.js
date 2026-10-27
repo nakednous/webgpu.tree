@@ -18,7 +18,7 @@
  * dispose(ctx)                                        // the layer's targets, then the device's
  * ```
  *
- * `endFrame` is the twin's own, not `idiom`'s (§7 #107): the frame-scoped
+ * `endFrame` is the twin's own, not the layer's: the frame-scoped
  * command encoder is submitted there, from the host's `afterFrame` — after
  * `pointer.flush()`, so a pointer handler's draw is in the frame — or by the
  * application itself where no host runs.

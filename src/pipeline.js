@@ -31,7 +31,7 @@ import { COLOR_WRITE } from './flags.js';
 
 /**
  * The state a context starts in and the token `setState` hands back: the
- * platform's depth compare (`'less'`, stated rather than inherited, §7 #93),
+ * platform's depth compare (`'less'`, stated rather than inherited),
  * no blend, every channel written, no cull, triangles.
  */
 export const BASE_STATE = Object.freeze({

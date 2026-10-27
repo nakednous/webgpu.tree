@@ -27,7 +27,7 @@
  * top, and `format` is the canvas's preferred one.
  *
  * Four shapes are the twin's own answer to WebGPU's model, and each is the
- * least surprising reading of `idiom`'s contract (§7 #111):
+ * least surprising reading of `idiom`'s contract:
  *
  * - `bindTarget` records the target; the render pass is begun lazily, on the
  *   next draw, so the `clear` that `pipe` and `state` issue straight after a
@@ -37,10 +37,10 @@
  *   binds one group.
  * - `readPixels` answers a promise; a pixel read is a copy and a map.
  * - a geometry is built to the vertex layout its pipeline bakes, never to the
- *   order the arrays happen to state (§7 #127), and a *stream* — `createBuffer`
+ *   order the arrays happen to state, and a *stream* — `createBuffer`
  *   with `{ program, stream: true }` — is a record whose slots a frame's writes
  *   take in turn, because a queue write is ordered with submissions rather than
- *   inside a command buffer (§7 #113).
+ *   inside a command buffer.
  *
  * WGSL has no include, so `createProgram(ctx, frag)` compiles the twin's vertex
  * stage *concatenated* with the caller's fragment source — one module, two
@@ -239,7 +239,7 @@ export function createBackend(opts) {
   const resources = { buffers: new Set(), textures: new Set(), programs: new Set() };
   // A stream's slots, one pool a program: a queue write is ordered with
   // submissions rather than inside a command buffer, so a frame's i-th write of
-  // a geometry has to reach its own buffer (§7 #113, #127).
+  // a geometry has to reach its own buffer.
   const streams = new WeakMap();
   let seq = 0;
   const samplerIds = new WeakMap();
@@ -440,7 +440,7 @@ export function createBackend(opts) {
   // A geometry is built to the vertex layout its pipeline bakes, never to the
   // order the arrays happen to state: a WebGPU pipeline fixes the vertex state
   // when it is made, so the two are one statement only when the geometry is the
-  // program's (§7 #127). The twin's own gizmo programs bake a layout derived
+  // program's. The twin's own gizmo programs bake a layout derived
   // from the same arrays shape, which is why the two agree — and the draw is a
   // validation error, not a stale attribute, the day they would not.
 

@@ -22,13 +22,13 @@
  * twin states is its own: the two line programs and the pane program (a shader
  * source is per API), the slot-per-draw rule (a queue write is ordered with
  * submissions, so a frame's i-th write of a geometry reaches its own buffer —
- * the backend's, §7 #127), and the density and viewport the pipe's width needs.
+ * the backend's), and the density and viewport the pipe's width needs.
  *
  * **A slot per draw, per frame.** Each cache's creation options name the program
  * its geometry is built to — the pipeline bakes the vertex layout, so the
- * geometry is the program's (§7 #127) — and `{ stream: true }`, which makes the
- * record a pool the frame's writes take in turn. Two gizmos of one name drawn in
- * a frame therefore each read their own write.
+ * geometry is the program's — and `{ stream: true }`, which makes the record a
+ * pool the frame's writes take in turn. Two gizmos of one name drawn in a frame
+ * therefore each read their own write.
  *
  * **The width.** `width` counts logical pixels, default 1, times the device
  * ratio. WebGPU rasterizes a `line-list` one device pixel wide, so at or below
@@ -134,8 +134,8 @@ function _paneProgram(ctx) {
 
 /**
  * A cache's creation options: the program its geometry is built to — a pipeline
- * bakes the vertex layout, so the geometry is the program's (§7 #127) — and a
- * stream, whose slots the frame's writes take in turn (§7 #113). A texcoord
+ * bakes the vertex layout, so the geometry is the program's — and a
+ * stream, whose slots the frame's writes take in turn. A texcoord
  * cache is the pane program's; a colour cache the line pipe's colour variants.
  * @ignore
  */

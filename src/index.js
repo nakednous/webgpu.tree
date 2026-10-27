@@ -41,7 +41,7 @@
  * `uModelViewProjectionMatrix`, `uColor`, `uUseTexture` and `uTexture`.
  *
  * The surface is the reference's. What the reference does not have — a cube /
- * layered render target (§7 #104) and compute (§7 #85) — is not on this surface
+ * layered render target and compute — is not on this surface
  * either; the backend implements what the composite verbs call, and the twin
  * publishes a verb when the figure corpus asks for it.
  */

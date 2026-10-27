@@ -23,7 +23,7 @@
  * array and writes a value's columns back to back, while WGSL pads a column of
  * three rows to 16 bytes (`mat3x3f` is 48 bytes, not 36). So a matrix with three
  * rows is written column by column here, at the stride the layout gives it —
- * nine floats in, twelve bytes a column out, as §7 #109's R2 states.
+ * nine floats in, twelve bytes a column out.
  *
  * Nothing here touches a device: reflection is a property of the source, so it
  * runs under `node --test` as it runs in a browser.

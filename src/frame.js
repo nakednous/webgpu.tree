@@ -27,7 +27,7 @@
  * attachment starts over, at once.
  *
  * `endFrame` submits the frame's encoder and resets the uniform arena. The host
- * calls it from `afterFrame` (§7 #107), after `pointer.flush()`, so a pointer
+ * calls it from `afterFrame`, after `pointer.flush()`, so a pointer
  * handler's draws are in the frame; without a host the application calls it
  * itself.
  */
@@ -170,7 +170,7 @@ export function endPass(ctx) {
 /**
  * Submit the frame's encoder and start the next frame's arena — the implementation
  * of the public `endFrame(ctx)`, which is `context.js`'s wrapper. The host's
- * `afterFrame` calls that one (§7 #107), or the application does.
+ * `afterFrame` calls that one, or the application does.
  * @param {object} ctx  The context record.
  * @returns {boolean} Whether a command buffer was submitted.
  * @ignore
