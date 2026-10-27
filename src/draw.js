@@ -465,6 +465,7 @@ export function draw(ctx, obj, M, opts) {
  *   uModelViewProjectionMatrix: mat4x4f,
  *   uNormalMatrix: mat3x3f,
  *   uColor: vec3f,
+ *   uSpread: f32,          // 1 for the field, 0 for a single draw
  * };
  * @group(0) @binding(0) var<uniform> u: U;
  *
