@@ -18,9 +18,9 @@ state, and readback is asynchronous by construction.
 > `trackPath`, `helmRig`, `handleLocus`, `beginHUD`, `endHUD`, `cross`, `bullsEye`; `pane`, with the
 > frustum's textured faces and the helm rig's HUD form and `identify` labels; the texture shapes —
 > `cubemap`, mips, and the 3D / 2D-array sources; and the Radiance path: `decodeRGBE`, `encodeRGBE`,
-> `loadHDR`. The twin's surface is the reference's; what the
-> reference does not have — a cube / layered render target and compute — is not on
-> it either. `twin-design.md` is the differences table against `webgl.tree`.
+> `loadHDR`. The twin's surface is the reference's; what the reference does not have — a cube /
+> layered render target and compute — is not on it either. `twin-design.md` is the differences table
+> against `webgl.tree`.
 >
 > Pins `@nakednous/tree` ^0.0.34, `@nakednous/host` ^0.0.12, `@nakednous/idiom` ^0.0.9;
 > `webgpu-utils` ^2.1.1 is a peer. Gates: `npm test` (121 cases, against the recording device in
@@ -85,8 +85,8 @@ it is what the host's `afterFrame` calls when a host is attached —
 `host.createHost(canvas, { afterFrame: () => endFrame(ctx) })` — after `pointer.flush()`, so a pointer
 handler's draw lands in the frame.
 
-> **Status: 0.0.x, experimental.** The twin's surface is `webgl.tree`'s; WebGPU is not yet the default
-> on Linux stable, so a figure's API stays an authoring choice.
+> **Status: 0.0.x, experimental.** The twin's surface is `webgl.tree`'s. Not every browser offers an
+> adapter — this Chromium needs `--enable-unsafe-webgpu` — so a figure's API stays an authoring choice.
 
 ## The API site
 
@@ -137,11 +137,11 @@ on an error. The other half mounts **every figure** in this machine's Chromium w
 `--enable-unsafe-webgpu`, at device scale factors **1 and 2**: the headless compositor drops its WebGPU
 instance when a canvas is first presented, so a page carries one figure per load, a figure that reads
 back reads before it presents, and a figure passes when it acquires a device, draws, logs nothing, and
-its canvas is its page size times the density (the rule the reference's gate states first; the
-twin's `init` sets the density, so the figures take it). The browser's look is the maintainer's gate.
+its canvas is its page size times the density (the reference's gate states the rule; the twin's
+`init` sets the density, so the figures take it). The browser's look is the maintainer's gate.
 
-It is **not deployed**: the repositories' GitHub home, and the sites' deployment, are not settled;
-this bridge has a site of its own, and no address yet.
+It is **deployed** from a `v*` tag: `pages.yml` builds the site on the runner from the tag's gates and
+publishes it to GitHub Pages — https://jpcharalambosh.co/webgpu.tree/; a `workflow_dispatch` redeploys.
 
 ---
 
@@ -341,10 +341,8 @@ programs and the vertex-layout statement a WebGPU pipeline needs.
   logical rect, tinted. `identify` is the layer's label seam — it resolves each anchor to world space
   and states its id — and the bridge supplies the sink: the six lanes reach `host.labels` as one-frame
   labels.
-- **`lines`** is the same pipe for geometry the caller writes: ten numbers a segment — its two
-  endpoints and its colour — into a cache a context, one draw a call, the same width policy, and the
-  colour's alpha blended over what is drawn already. A batch of a frame takes its own slot, so two
-  batches of one frame read their own writes.
+- **`lines`** is the pipe for the caller's own geometry: ten numbers a segment, one draw a call, the
+  same width policy, alpha blended. Two batches in one frame each read their own write.
 
 ## Conventions
 

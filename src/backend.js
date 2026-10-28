@@ -826,13 +826,13 @@ export function createBackend(opts) {
       return buffer;
     },
 
-    // The in-place write `idiom`'s draw policy calls for a stream (#113): the
+    // The in-place write `idiom`'s draw policy calls for a stream: the
     // geometry is non-interleaved — one buffer an attribute — so a frame's update
     // is one `queue.writeBuffer` per attribute, ordered with submissions rather
     // than inside a command buffer. The shape is the geometry's: a different set
     // of attributes, or one of another width, is a rebuild (`updateBuffer`), and
     // says so instead of writing bytes under a layout the pipeline baked. A
-    // stream record writes its own slots and takes the next one a frame (§127).
+    // stream record writes its own slots and takes the next one a frame.
     writeBuffer(ctx, buffer, arrays) {
       if (buffer && buffer.stream) return writeStream(ctx, buffer, arrays);
       const layouts = buffer.bufferLayouts || [];

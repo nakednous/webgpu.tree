@@ -50,8 +50,9 @@
  * On WebGPU a pipeline's vertex state is baked, so **the default id program —
  * the twin's flat one — serves the covering quad only**: a scene of meshes
  * passes `opts.program`, an id WGSL of its own built with the geometry's layout
- * (`program(ctx, wgsl, { buffers: geometry.bufferLayouts })`), which is §7
- * #112's shape again. The id program declares `uColor: vec4f`; the flat one also
+ * (`program(ctx, wgsl, { buffers: geometry.bufferLayouts })`) — the layout a
+ * scene program is built from is its own statement, as everywhere. The id
+ * program declares `uColor: vec4f`; the flat one also
  * declares `uUseTexture`, which `pick` sets to 0. There is no `sync` form: a
  * WebGPU read is asynchronous by construction.
  */

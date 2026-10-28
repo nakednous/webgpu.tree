@@ -52,15 +52,11 @@
  * A handle's dot draws through the pane's program as a flat quad of triangles,
  * with no texture; the frustum's `nearTexture` / `farTexture` faces are panes.
  *
- * **The label seam.** `helmRig`'s `identify` is the pipe's, not this bridge's:
- * the layer resolves each anchor in world space and its id, and hands it to a
- * sink, and what this bridge supplies is the sink itself — the host's label
- * layer. A rig's cache carries the helm's id, so a helm's lanes keep the ids
- * they had.
+ * **The label seam.** `helmRig`'s `identify` is the pipe's: the layer resolves
+ * each anchor and its id, and this bridge wires the sink to `host.labels`. A
+ * rig's cache carries the helm's id, so a helm's lanes keep their ids.
  *
- * **A caller's own lines.** `lines` is the same pipe for geometry the caller
- * writes: ten numbers a segment into a cache of its own, one draw, the same
- * width policy, and alpha blending over what is drawn already.
+ * **`lines`** draws the caller's own batch through the same pipe.
  */
 
 'use strict';
@@ -165,9 +161,8 @@ function _drawLines(ctx, g, M, color, depth, width, identify) {
 }
 
 /**
- * The sink the pipe hands a labelled item to: the host's label layer, a frame
- * label a re-set, the class this bridge's own. One sink a context, so a rig
- * drawn every frame allocates nothing.
+ * The pipe's sink: each labelled item to the host's label layer, a frame label a
+ * re-set. One a context, so a frame allocates nothing.
  * @ignore
  */
 function _sinkOf(ctx) {
@@ -700,7 +695,7 @@ export function pane(ctx, p0, p1, p2, p3, opts) {
 
 /**
  * Write `n` segments of ten numbers into a cache's arrays, and answer the
- * vertices the batch needs — the generator contract `fill` takes.
+ * vertices `fill` wants.
  * @ignore
  */
 function _writeSegments(a, segments, n) {
@@ -723,15 +718,12 @@ function _writeSegments(a, segments, n) {
  * A batch of coloured segments — the caller's own geometry, rebuilt a frame —
  * drawn in one call under `opts.M`: ten numbers a segment, its two endpoints
  * and its colour.
- * @details The batch goes into a cache of the pipe's, one a context, built to
- * this bridge's colour program and written a draw into the slot the frame's
- * submission takes, so a figure that rewrites one array a frame allocates
- * nothing and two batches of a frame read their own writes. `width` counts
- * logical pixels as every gizmo's does — the bridge's density carries it to
- * device pixels, and above one each segment expands into a quad, so a batch
- * states its width in page pixels and never in device ones. The colour's alpha
- * blends over what is drawn already, and the blend state and the depth test the
- * call found are restored after it.
+ * @details One cache a context, built to this bridge's colour program and written
+ * in place: a figure that rewrites one array a frame allocates nothing, and two
+ * batches in one frame each read their own write. `width` counts logical pixels —
+ * the bridge's density carries it to device pixels, and above one each segment
+ * expands into a quad. The colour's alpha blends; the blend and depth state the
+ * call found are restored.
  * @param {object} ctx  The context record.
  * @param {ArrayLike<number>} segments  The batch: `x0 y0 z0 x1 y1 z1 r g b a` a segment.
  * @param {{ count?:number, M?:ArrayLike<number>, width?:number, depth?:boolean }} [opts]
