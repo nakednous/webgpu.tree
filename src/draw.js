@@ -76,10 +76,15 @@ export function uploadTransforms(ctx, prog, M) {
 }
 
 /**
- * Bind a program and set its uniforms — the program the next `draw` uses.
+ * Bind a program and set its uniforms — the program the next `draw` or
+ * `dispatch` uses. A storage buffer rides the same bag, by the name its WGSL
+ * declaration gives it: `bind(ctx, kernel, { values })` where the source says
+ * `var<storage, read_write> values`. A render program's vertex or fragment
+ * stage reads one the same way, with no texture between them.
  * @param {object} ctx  The context record.
  * @param {object} prog  A program record from `program(ctx, wgsl)`.
- * @param {object} [uniforms]  Values by name, as the program's uniform members.
+ * @param {object} [uniforms]  Values by name: the program's uniform members, its
+ *        textures and samplers, and its storage buffers.
  * @returns {object|null} prog, or null where there is none.
  * @example
  * <caption>One program bound twice: a magenta cube on the left, a yellow one on the right.</caption>
@@ -435,6 +440,10 @@ export function draw(ctx, obj, M, opts) {
     console.error('[webgpu.tree] draw: no program bound — call bind(ctx, prog) first.');
     return null;
   }
+  if (ctx.prog.kind === 'compute') {
+    console.error('[webgpu.tree] draw: the bound program is a compute program — bind a render program to draw.');
+    return null;
+  }
   return drawOf(ctx, obj, M || null, opts);        // the layer installs the declared transforms
 }
 
@@ -517,6 +526,10 @@ export function drawInstanced(ctx, obj, n, M, opts) {
   const prog = ctx.prog;
   if (!prog) {
     console.error('[webgpu.tree] draw: no program bound — call bind(ctx, prog) first.');
+    return null;
+  }
+  if (prog.kind === 'compute') {
+    console.error('[webgpu.tree] draw: the bound program is a compute program — bind a render program to draw.');
     return null;
   }
   if (!obj) {

@@ -39,12 +39,13 @@ const MATRIX = /^mat([234])x([234])[fhiu]$/;
  * Read a WGSL source's declarations and build a structured view per uniform.
  * @param {string} code  WGSL source, one module.
  * @returns {{ defs:object, views:Map, names:string[], fields:Map, textures:string[],
- *             samplers:string[], bindings:object[], unsupported:string[],
- *             set:function(object):void }}
+ *             samplers:string[], storages:string[], bindings:object[],
+ *             unsupported:string[], set:function(object):void }}
  *          `views`: uniform variable → `webgpu-utils` structured view; `fields`:
  *          member name → `{ variable, field }`; `bindings`: every resource by
- *          binding; `unsupported`: storage and external bindings, which the
- *          composite verbs do not bind.
+ *          binding; `storages`: the declared storage buffers, which `bind`
+ *          takes records for; `unsupported`: storage *textures* and external
+ *          bindings, which the surface does not bind.
  */
 export function declare(code) {
   const defs = makeShaderDataDefinitions(code);
@@ -68,6 +69,7 @@ export function declare(code) {
 
   const textures = Object.keys(defs.textures);
   const samplers = Object.keys(defs.samplers);
+  const storages = Object.keys(defs.storages);
   const bindings = [];
   const add = (kind, list) => {
     for (const name of Object.keys(list)) {
@@ -78,10 +80,12 @@ export function declare(code) {
   add('uniform', defs.uniforms);
   add('texture', defs.textures);
   add('sampler', defs.samplers);
+  add('storage', defs.storages);
   bindings.sort((a, b) => a.group - b.group || a.binding - b.binding);
 
+  // The storage buffers are the surface's now (a compute's read and write, a
+  // vertex stage's read); a storage *texture* and an external texture are not.
   const unsupported = [
-    ...Object.keys(defs.storages).map((n) => 'storage:' + n),
     ...Object.keys(defs.storageTextures).map((n) => 'storageTexture:' + n),
     ...Object.keys(defs.externalTextures).map((n) => 'externalTexture:' + n),
   ];
@@ -114,5 +118,5 @@ export function declare(code) {
     }
   }
 
-  return { defs, views, names, fields, textures, samplers, bindings, unsupported, set };
+  return { defs, views, names, fields, textures, samplers, storages, bindings, unsupported, set };
 }

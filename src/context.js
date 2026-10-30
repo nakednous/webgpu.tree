@@ -205,8 +205,10 @@ export function viewOf(ctx) {
 }
 
 /**
- * Submit the frame: end the open pass, submit the frame's command encoder, and
- * start the next frame's uniform slots. What the host's `afterFrame` calls, and
+ * Submit the frame: end the open passes — the render pass and a dispatch's
+ * compute pass alike — submit the frame's command encoder, and start the next
+ * frame's uniform slots. A `readBuffer`'s copy rides the same encoder, so its
+ * promise resolves after this call. What the host's `afterFrame` calls, and
  * what an application without a host calls itself.
  * @param {object} ctx  The context record.
  * @returns {boolean} Whether a command buffer was submitted.

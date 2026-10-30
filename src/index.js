@@ -40,10 +40,12 @@
  * `uTexelSize`, only where declared. `image`'s flat program names
  * `uModelViewProjectionMatrix`, `uColor`, `uUseTexture` and `uTexture`.
  *
- * The surface is the reference's. What the reference does not have — a cube /
- * layered render target and compute — is not on this surface
- * either; the backend implements what the composite verbs call, and the twin
- * publishes a verb when the figure corpus asks for it.
+ * The render surface is the reference's. Computation is the twin's own: WebGL 2
+ * has no storage buffers and no compute shaders, so `storage`, the compute
+ * `program`, `dispatch` and `readBuffer` have no counterpart to mirror — they
+ * are the paradigm's depth, and the twin publishes a verb when the figure
+ * corpus asks for it. A cube / layered render target is still not on the
+ * surface.
  */
 
 'use strict';
@@ -51,6 +53,7 @@
 export { init, dispose, endFrame, viewOf } from './context.js';
 export { setCamera } from './camera.js';
 export { bind, buffer, updateBuffer, draw, drawInstanced } from './draw.js';
+export { storage, dispatch, readBuffer } from './compute.js';
 export { texture, upload, cubemap } from './texture.js';
 export { decodeRGBE, encodeRGBE, loadHDR } from './hdr.js';
 export { readPixel, pick } from './pick.js';
@@ -77,10 +80,15 @@ export * as host from '@nakednous/host';
  * @param {object} ctx  The context record.
  * @param {string} wgsl  The fragment source, `vTexCoord` at `@location(0)`; the
  *        input by declaration, as every pass's is.
- * @param {{ vertex?:string, fragment?:string, buffers?:object[], label?:string }} [opts]
+ * @param {{ vertex?:string, fragment?:string, buffers?:object[], label?:string,
+ *           compute?:boolean|{ entry?:string, workgroup?:number[] } }} [opts]
+ *        `compute`: a compute program — one `@compute` entry, a compute pipeline;
+ *        the record carries `workgroup`, the source's `@workgroup_size` (or the
+ *        option's), the size a dispatch's counts are in units of. The render
+ *        options are ignored by a compute program.
  * @returns {object|null} The backend's program record, or null where it failed.
  * @example
- * <caption>A fragment shader alone: red grows to the right, green upward.</caption>
+ * <caption>A fragment shader alone: red grows to the right, green upward. A compute program is the same call with `{ compute: true }`.</caption>
  * import { init, endFrame, filter, program } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))

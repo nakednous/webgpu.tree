@@ -16,11 +16,11 @@ import { createBufferLayoutsFromArrays } from 'webgpu-utils';
 installGlobals();   // webgpu-utils reads the platform's flag globals as it reflects a source
 
 test('the pass-through vertex stage declares one entry: the vertex one', () => {
-  assert.deepEqual(entriesOf(PASS_VERT), { vertex: 'vs', fragment: null });
+  assert.deepEqual(entriesOf(PASS_VERT), { vertex: 'vs', fragment: null, compute: null });
 });
 
 test('the flat program declares both entries, and the three names image uploads', () => {
-  assert.deepEqual(entriesOf(FLAT), { vertex: 'vs', fragment: 'fs' });
+  assert.deepEqual(entriesOf(FLAT), { vertex: 'vs', fragment: 'fs', compute: null });
   const decl = declare(FLAT);
   assert.deepEqual(decl.names.sort(), ['uColor', 'uModelViewProjectionMatrix', 'uUseTexture']);
   assert.deepEqual(decl.textures, ['uTexture']);

@@ -1,10 +1,11 @@
 # `webgpu.tree` — the twin (design)
 
-> Target: `webgpu.tree` 0.0.1 on `@nakednous/tree` ^0.0.34, `@nakednous/host` ^0.0.12,
+> Target: `webgpu.tree` 0.0.4 on `@nakednous/tree` ^0.0.34, `@nakednous/host` ^0.0.12,
 > `@nakednous/idiom` ^0.0.9, and `webgpu-utils` ^2.1.1 as a peer. The reference surface is
 > `webgl.tree`'s (`bridge-design.md`); this doc is the **differences table** against it and nothing
-> more. Status: **the render surface is built, and the package has an API site of its own**
-> (2026-10-23/24, the gizmo verbs on the layer 2026-10-26) — `init`, the backend behind `idiom`'s
+> more. Status: **the render surface is built, the compute surface is built, and the package has an API
+site of its own** (2026-10-23/24, the gizmo verbs on the layer 2026-10-26, the compute surface
+2026-10-30) — `init`, the backend behind `idiom`'s
 > interface (its twenty-five members, `writeBuffer` and `drawGizmo` among them), the composites over it (`renderTarget`, `program`, `fullscreen`, `filter`,
 > `image`, `pipe`, `releasePipe`, `state`, `setCamera`, `endFrame`), the figure's own path (`bind`,
 > `buffer`, `updateBuffer`, `draw`, `drawInstanced` with the six declared transforms, `texture`,
@@ -13,18 +14,20 @@
 > `hermite`, `viewFrustum`, `trackPath`, `helmRig`, `handleLocus`, `lines`, `beginHUD`, `endHUD`,
 > `cross`, `bullsEye`), `pane` with the frustum's textured faces and the helm rig's HUD form with its
 > `identify` labels through the layer's sink, and the texture shapes (`cubemap`, mips, the 3D /
-> 2D-array sources). **The
-> surface is the reference's.** What the reference does not have — a cube / layered render target (§7
-> #104) and compute (§7 #85) — is not on it either. Names inherit the bridge's.
+> 2D-array sources), and the compute surface (`storage`, `program(…, { compute: true })`, `bind`'s
+> storage seam, `dispatch`, `readBuffer`; §6). **The render surface is the reference's; the compute
+> surface is the paradigm's depth.** A cube / layered render target (§7 #104) is still not on the
+> surface; compute is, deliberately, and §6 says why. Names inherit the bridge's.
 >
 > **The site.** `tools/docs` is this package's own copy — a third, after `webgl.tree`'s and p5.tree's
-> — and `npm run docs` writes `site/`: the README as the landing page, a page per module (nineteen:
-> the eight the package declares, the composites' three and the two namespaces' eight — the last two
+> — and `npm run docs` writes `site/`: the README as the landing page, a page per module (twenty:
+> the nine the package declares, the composites' three and the two namespaces' eight — the last two
 > groups from doc-only files in `docs/`), search, the ES build of the same commit and the builds it was
 > made against. It is **ESM-only**, as the package
 > is: an example imports from `webgpu.tree`, runs as a module script under the page's import map and
 > awaits `init`; a shader is a WGSL fence. **Every doclet's example is the reference's figure
-> translated** — the same camera, scene and caption, so the two sites read side by side — mounted once
+> translated** — the same camera, scene and caption, so the two sites read side by side — except the
+> compute page's, which have no reference to translate and are the twin's own, mounted once
 > as it nears the viewport and hidden (not torn down) when it leaves it. It does not deploy — #56 gives the bridge a site, #77's ground for an address
 > stays pending. §5's last reading is the site's gate.
 
@@ -304,10 +307,10 @@ notebook column may use; the bridge does not).
   The validator grew the reference's owner-scope branch — a doclet owned by a namespace is checked
   through `owners`, an ES module namespace exports its members as getters so the value is read
   through the descriptor, and a factory's methods are read off its source with the prototype chain
-  walked — while the bridge's own doclets keep the flat check. 22 pages, 213 doclets, 179 examples,
-  0 warnings, `hdr` among them (§7 #119). The examples' gate mounts all 180 figures — the 179 doclets'
-  and the index page's demo —
-  at device scale factors 1 and 2: 354 mounts, 0 failures, the four camera figures' denial allowed by
+  walked — while the bridge's own doclets keep the flat check. 23 pages, 217 doclets, 183 examples,
+  0 warnings, `hdr` among them (§7 #119) and `compute` (§6). The examples' gate mounts all 184 figures
+  — the 183 doclets' and the index page's demo —
+  at device scale factors 1 and 2: 368 mounts, 0 failures, the four camera figures' denial allowed by
   name since a headless browser has no camera, and three after-present figures tolerated by name. The
   harness fails a run that judges nothing: it had matched no figure at all, and its first
   `{"failures": 0}` was a pass over zero mounts. The figures'
@@ -326,3 +329,45 @@ notebook column may use; the bridge does not).
   attribute is one, so an example's WGSL is written between fence lines (` ```wgsl ` … ` ``` `) inside
   its template literal. The parser drops the fence lines: the example's code is the same text without
   them, so the page shows valid JS and the shader inside it.
+
+## 6 · Compute — the paradigm's depth
+
+WebGL 2 has no storage buffers and no compute shaders, so compute has no counterpart on the
+reference to mirror: a `webgl.tree` figure computes through a float render target and a fullscreen
+pass, and the pass is the kernel. The twin's compute surface is the one place the surface deliberately
+exceeds the reference's, and the asymmetry is stated wherever it could mislead — the render surface is
+the reference's, the compute surface is the paradigm's depth.
+
+**The verbs.**
+
+- `storage(ctx, data, opts)` — a buffer record `{ id, gpu, size }`, from a typed array, an
+  `ArrayBuffer` or a byte size; `STORAGE | COPY_DST | COPY_SRC` by default, so it seeds, the kernel
+  writes it, and a readback reads it.
+- `program(ctx, wgsl, { compute: true })` — one `@compute` entry, one compute pipeline; the record's
+  `workgroup` is the source's literal `@workgroup_size`, read by `workgroupOf`, the size a dispatch's
+  counts are in units of.
+- `bind(prog, { … })` — the storage seam beside the uniforms: a record by the shader's name, for a
+  kernel's read/read-write binding or a render stage's read-only one. The bind group's entries come
+  from the stage's declarations — a uniform a dynamic arena slot, a storage the caller's buffer.
+- `dispatch(ctx, [x, y, z])` — the bound compute program's pass; the counts in the API's workgroups.
+- `readBuffer(ctx, storage, { offset, size })` — a copy recorded on the frame's encoder, a `MAP_READ`
+  staging buffer, the map after the submit; the promise resolves with the bytes.
+
+**The frame.** One encoder carries one pass at a time. A `dispatch` opens the compute pass; the next
+render call ends it and begins the render pass on the recorded target; `endFrame` submits both — and
+the readback's copy — in one command buffer. A `readBuffer` ends the open pass at its call, because a
+copy is not a pass's command, and its copy is ordered after the dispatch it must see. The frame was
+the shape's first question (the `beginPass`-less flat model, §5's gate), and compute did not change
+it: the pass is the encoder's, not a block.
+
+**What the surface does not have.** Storage textures and external textures (the reflection names
+them unsupported); an indirect dispatch; more than one bind group; a workgroup size written as an
+override constant (`@workgroup_size`'s literal is what `program.workgroup` reads); a storage write in
+a render stage — WebGPU allows the read there and nothing more.
+
+**The first consumer.** `testing/fish` — the school: 3,072 fish, one lane a fish, two storage buffers
+in the double buffer the CPU hero describes, the render's vertex stage reading the same buffer
+read-only, the trails on the layer's `state`. On this machine's Arc through Chromium: 120 fps, no
+uncaptured error. The site's `compute` page carries the three examples — a storage, a dispatch, a
+readback — and `test/compute.test.js` the recording device's cases for the pipeline, the bindings,
+the pass's order, the readback and the dispose.

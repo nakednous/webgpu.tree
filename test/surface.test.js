@@ -80,6 +80,7 @@ test('the package exports the bridge surface', () => {
   const expected = [
     'init', 'dispose', 'endFrame', 'viewOf', 'setCamera',
     'bind', 'buffer', 'updateBuffer', 'draw', 'drawInstanced',
+    'storage', 'dispatch', 'readBuffer',
     'texture', 'upload', 'cubemap',
     'readPixel', 'pick',
     'mapLocation', 'mapDirection', 'unproject', 'fragCoord', 'pixelRatio', 'mat4Viewport',

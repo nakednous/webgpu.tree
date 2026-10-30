@@ -71,6 +71,7 @@ export function createDevice(opts) {
     height: o.height || 480,
     format: o.format || 'rgba8unorm',
     pass: null,
+    computePass: null,
     submitted: 0,
     destroyed: false,
     picked: null,          // the bytes a test wants a mapped readback to answer
@@ -191,6 +192,22 @@ export function createDevice(opts) {
 
   const encoder = () => {
     const state = { id: ++seq };
+    const computePass = {
+      id: ++seq,
+      setPipeline(pipeline) {
+        record('computePass.setPipeline', pipeline && pipeline.id);
+      },
+      setBindGroup(index, group, offsets) {
+        record('computePass.setBindGroup', index, group && group.id, offsets ? Array.from(offsets) : undefined);
+      },
+      dispatchWorkgroups(x, y, z) {
+        record('computePass.dispatchWorkgroups', x, y, z);
+      },
+      end() {
+        record('computePass.end', computePass.id);
+        world.computePass = null;
+      },
+    };
     const pass = {
       id: ++seq,
       setPipeline(pipeline) {
@@ -226,6 +243,15 @@ export function createDevice(opts) {
         record('beginRenderPass', descriptor);
         world.passEncoder = pass;
         return pass;
+      },
+      beginComputePass(descriptor) {
+        world.computePass = descriptor;
+        record('beginComputePass', descriptor);
+        world.computePassEncoder = computePass;
+        return computePass;
+      },
+      copyBufferToBuffer(source, sourceOffset, destination, destinationOffset, size) {
+        record('copyBufferToBuffer', source && source.id, sourceOffset, destination && destination.id, destinationOffset, size);
       },
       copyTextureToBuffer(source, destination, size) {
         record('copyTextureToBuffer', {
@@ -274,6 +300,11 @@ export function createDevice(opts) {
       const group = { id: ++seq, descriptor };
       record('createBindGroup', group.id, descriptor);
       return group;
+    },
+    createComputePipeline(descriptor) {
+      const pipeline = { id: ++seq, descriptor };
+      record('createComputePipeline', pipeline.id, descriptor);
+      return pipeline;
     },
     createRenderPipeline(descriptor) {
       const pipeline = {

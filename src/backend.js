@@ -67,7 +67,7 @@ import { BUFFER_USAGE, TEXTURE_USAGE } from './flags.js';
 import { declare } from './uniforms.js';
 import { BASE_STATE, createPipeline, pipelineKey, resolveState } from './pipeline.js';
 import {
-  QUAD_LAYOUT, FLAT, entriesOf, sourceOf,
+  QUAD_LAYOUT, FLAT, entriesOf, sourceOf, workgroupOf,
   LINE, LINE_COLOR, LINE_COLOR_LAYOUT, LINE_LAYOUT, PANE, PANE_LAYOUT,
   WIDE, WIDE_COLOR, WIDE_COLOR_LAYOUT, WIDE_LAYOUT,
 } from './programs.js';
@@ -78,6 +78,7 @@ import {
   clearTarget,
   endFrame,
   endPass,
+  ensureCompute,
   ensurePass,
   frameOf,
   setViewport as setFrameViewport,
@@ -353,6 +354,40 @@ export function createBackend(opts) {
   }
 
   /**
+   * The bind group layouts a program's declarations imply, its pipeline layout,
+   * and the resources group 0 binds. A uniform is a dynamic slot — the arena's
+   * offset travels with `setBindGroup` — while a storage buffer is the caller's
+   * record, bound whole. The stage map is `webgpu-utils`': `{ vertex, fragment }`
+   * for a render program, `{ compute }` for a kernel.
+   * @ignore
+   */
+  function layoutsOf(decl, stages, label) {
+    const descriptors = makeBindGroupLayoutDescriptors(decl.defs, stages);
+    const layouts = descriptors.map((descriptor) => {
+      const entries = (descriptor && descriptor.entries ? descriptor.entries : []).map((entry) => {
+        if (!entry.buffer) return entry;
+        // `webgpu-utils` omits the uniform's `type` (it is the API's default) and
+        // states a storage buffer's; the arena's offset must be dynamic either way
+        if (entry.buffer.type === 'read-only-storage' || entry.buffer.type === 'storage') return entry;
+        return { ...entry, buffer: { type: 'uniform', hasDynamicOffset: true, minBindingSize: entry.buffer.minBindingSize || 0 } };
+      });
+      return device.createBindGroupLayout({ entries, label });
+    });
+    if (!layouts.length) layouts.push(device.createBindGroupLayout({ entries: [], label }));
+    const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: layouts, label });
+    // the resources the pipeline's own layout has — a binding a stage declares
+    // and never uses is not in it, and a bind group entry it lacks is invalid
+    const group0 = descriptors[0] ? descriptors[0].entries : [];
+    const bound = group0
+      .map((entry) => {
+        const declared = decl.bindings.find((binding) => binding.group === 0 && binding.binding === entry.binding);
+        return declared ? { kind: declared.kind, name: declared.name, binding: entry.binding } : null;
+      })
+      .filter(Boolean);
+    return { layouts, pipelineLayout, bound };
+  }
+
+  /**
    * A program's pipelines are picked by state and attachment; the module and the
    * names it declares are the program.
    * @ignore
@@ -369,6 +404,7 @@ export function createBackend(opts) {
     }
     const program = {
       id: ++seq,
+      kind: 'render',
       code,
       module: device.createShaderModule({ code, label: o.label }),
       vs,
@@ -378,6 +414,7 @@ export function createBackend(opts) {
       uniformNames: decl.names,
       textures: new Map(),
       samplers: new Map(),
+      storages: new Map(),
       pipelines: new Map(),
       bindGroups: new Map(),
       vertexLayouts: o.buffers || QUAD_LAYOUT,
@@ -391,35 +428,87 @@ export function createBackend(opts) {
     // shape it leans on.
     program.program = program.module;
     if (decl.unsupported.length) {
-      warnOnce(ctx, 'unsupported-bindings', 'the composite verbs bind no storage or external resource, and this program declares ' + decl.unsupported.join(', ') + '.');
+      warnOnce(ctx, 'unsupported-bindings', 'the surface binds no storage texture or external resource, and this program declares ' + decl.unsupported.join(', ') + '.');
     }
     if (decl.bindings.some((binding) => binding.group !== 0)) {
       warnOnce(ctx, 'bind-groups', 'the composite verbs bind group 0 only; this program declares a resource in another group.');
     }
     try {
-      const descriptors = makeBindGroupLayoutDescriptors(decl.defs, { vertex: { entryPoint: vs }, fragment: { entryPoint: fs } });
-      program.layouts = descriptors.map((descriptor) => {
-        const entries = (descriptor && descriptor.entries ? descriptor.entries : []).map((entry) => {
-          if (!entry.buffer) return entry;
-          // a uniform is uploaded per draw into the frame's arena, so every
-          // uniform binding is dynamic; the bind group carries no offset
-          return { ...entry, buffer: { type: 'uniform', hasDynamicOffset: true, minBindingSize: entry.buffer.minBindingSize || 0 } };
-        });
-        return device.createBindGroupLayout({ entries });
-      });
-      if (!program.layouts.length) program.layouts = [device.createBindGroupLayout({ entries: [] })];
-      program.pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: program.layouts });
-      // the resources the pipeline's own layout has — a binding a stage declares
-      // and never uses is not in it, and a bind group entry it lacks is invalid
-      const group0 = descriptors[0] ? descriptors[0].entries : [];
-      program.bound = group0
-        .map((entry) => {
-          const declared = decl.bindings.find((binding) => binding.group === 0 && binding.binding === entry.binding);
-          return declared ? { kind: declared.kind, name: declared.name, binding: entry.binding } : null;
-        })
-        .filter(Boolean);
+      const { layouts, pipelineLayout, bound } = layoutsOf(decl, { vertex: { entryPoint: vs }, fragment: { entryPoint: fs } }, o.label);
+      program.layouts = layouts;
+      program.pipelineLayout = pipelineLayout;
+      program.bound = bound;
     } catch (error) {
       console.error('[webgpu.tree] createProgram: the bind group layout could not be derived — ' + (error && error.message));
+      program.failed = true;
+      return program;
+    }
+    const info = program.module.getCompilationInfo;
+    if (typeof info === 'function') {
+      program.module.getCompilationInfo().then((compiled) => {
+        for (const message of compiled.messages || []) {
+          if (message.type === 'error') {
+            console.error('[webgpu.tree] WGSL ' + message.type + ' at ' + message.lineNum + ':' + message.linePos + ' — ' + message.message);
+          }
+        }
+      }).catch(() => {});
+    }
+    return program;
+  }
+
+  /**
+   * A compute program: one `@compute` entry, one compute pipeline, and the
+   * bindings its declarations imply. `workgroup` is the size the caller divides
+   * its invocation count by — the source's literal `@workgroup_size` unless the
+   * options state one; the shader's attribute is what the pipeline runs.
+   * @ignore
+   */
+  function buildComputeProgram(ctx, code, o) {
+    const decl = declare(code);
+    const entry = o.entry || (o.compute && o.compute.entry) || entriesOf(code).compute;
+    const workgroup = o.workgroup || (o.compute && o.compute.workgroup) || workgroupOf(code) || [1, 1, 1];
+    if (!entry) {
+      console.error('[webgpu.tree] createProgram: a compute program needs a `@compute` entry; this source has none.');
+      return null;
+    }
+    const program = {
+      id: ++seq,
+      kind: 'compute',
+      code,
+      module: device.createShaderModule({ code, label: o.label }),
+      entry,
+      workgroup,
+      decl,
+      uniformNames: decl.names,
+      textures: new Map(),
+      samplers: new Map(),
+      storages: new Map(),
+      layouts: null,
+      pipelineLayout: null,
+      bound: null,
+      pipeline: null,
+      bindGroups: new Map(),
+      failed: false,
+    };
+    program.program = program.module;
+    if (decl.unsupported.length) {
+      warnOnce(ctx, 'unsupported-bindings', 'the surface binds no storage texture or external resource, and this program declares ' + decl.unsupported.join(', ') + '.');
+    }
+    if (decl.bindings.some((binding) => binding.group !== 0)) {
+      warnOnce(ctx, 'bind-groups', 'the composite verbs bind group 0 only; this program declares a resource in another group.');
+    }
+    try {
+      const { layouts, pipelineLayout, bound } = layoutsOf(decl, { compute: { entryPoint: entry } }, o.label);
+      program.layouts = layouts;
+      program.pipelineLayout = pipelineLayout;
+      program.bound = bound;
+      program.pipeline = device.createComputePipeline({
+        layout: pipelineLayout,
+        compute: { module: program.module, entryPoint: entry },
+        label: o.label,
+      });
+    } catch (error) {
+      console.error('[webgpu.tree] createProgram: the compute pipeline could not be made — ' + (error && error.message));
       program.failed = true;
       return program;
     }
@@ -739,6 +828,11 @@ export function createBackend(opts) {
 
     createProgram(ctx, frag, opts) {
       const o = opts || {};
+      if (o.compute) {
+        const program = buildComputeProgram(ctx, String(frag == null ? '' : frag), o);
+        if (program) resources.programs.add(program);
+        return program;
+      }
       const code = o.source || sourceOf(frag, o);
       const program = buildProgram(ctx, code, o);
       if (program) resources.programs.add(program);
@@ -767,6 +861,9 @@ export function createBackend(opts) {
       for (const name of prog.decl.samplers) {
         if (values[name] !== undefined) prog.samplers.set(name, values[name]);
       }
+      for (const name of prog.decl.storages) {
+        if (values[name] !== undefined) prog.storages.set(name, values[name]);
+      }
     },
 
     // ------------------------------------------------------------------ draws
@@ -790,6 +887,64 @@ export function createBackend(opts) {
       return drawProgram(ctx, prog, geometry, count || 1, opts);
     },
 
+    /**
+     * Dispatch the bound compute program: one compute pass on the frame's
+     * encoder, the program's pipeline and its group 0, the counts in the API's
+     * workgroups. The draws after it end the pass and begin the render pass on
+     * the recorded target; `endFrame` submits both in one command buffer.
+     */
+    dispatch(ctx, counts) {
+      const prog = ctx.prog;
+      if (!prog) {
+        console.error('[webgpu.tree] dispatch: no program bound — call bind(ctx, prog) first.');
+        return null;
+      }
+      if (prog.kind !== 'compute') {
+        console.error('[webgpu.tree] dispatch: the bound program is not a compute program — make it with program(ctx, wgsl, { compute: true }).');
+        return null;
+      }
+      if (prog.failed) return null;
+      const c = Array.isArray(counts) ? counts : [1, 1, 1];
+      const pass = ensureCompute(ctx);
+      const bindings = bindGroupFor(ctx, prog);
+      if (!bindings) return null;
+      pass.setPipeline(prog.pipeline);
+      pass.setBindGroup(0, bindings.group, bindings.offsets);
+      pass.dispatchWorkgroups(c[0] || 1, c[1] || 1, c[2] || 1);
+      return prog;
+    },
+
+    /**
+     * Read a storage buffer back: a copy into a `MAP_READ` staging buffer,
+     * recorded on the frame's encoder after the writes it must see, mapped
+     * after the frame's submit. The promise resolves with the bytes; `endFrame`
+     * is what submits them, so the call belongs in the frame, before it. A copy
+     * is not a pass's command, so the open pass ends first.
+     */
+    readBuffer(ctx, storage, opts) {
+      if (!storage || !storage.gpu) {
+        console.error('[webgpu.tree] readBuffer: `storage` must be a record from storage(ctx, data).');
+        return Promise.reject(new Error('[webgpu.tree] readBuffer: a storage record is required.'));
+      }
+      const o = opts || {};
+      const offset = Math.max(0, o.offset || 0);
+      const size = Math.min(storage.size - offset, o.size || (storage.size - offset));
+      if (size <= 0 || size % 4 !== 0) {
+        console.error('[webgpu.tree] readBuffer: the read must be a positive multiple of 4 bytes.');
+        return Promise.reject(new Error('[webgpu.tree] readBuffer: an aligned, positive size is required.'));
+      }
+      const f = frameOf(ctx);
+      endPass(ctx);
+      if (!f.encoder) f.encoder = device.createCommandEncoder({ label: 'webgpu.tree frame' });
+      const staging = device.createBuffer({
+        size,
+        usage: BUFFER_USAGE.MAP_READ | BUFFER_USAGE.COPY_DST,
+        label: 'webgpu.tree readback',
+      });
+      f.encoder.copyBufferToBuffer(storage.gpu, offset, staging, 0, size);
+      return new Promise((resolve, reject) => { f.reads.push({ staging, size, resolve, reject }); });
+    },
+
     // ---------------------------------------------------------------- buffers
 
     createBuffer(ctx, arrays, opts) {
@@ -810,6 +965,36 @@ export function createBackend(opts) {
       for (const gpu of buffer.buffers) resources.buffers.add(gpu);
       if (buffer.indexBuffer) resources.buffers.add(buffer.indexBuffer);
       return buffer;
+    },
+
+    /**
+     * A storage buffer — the record a kernel's `bind` and a vertex stage's
+     * read-only binding take. `data` is a typed array (seeded), an `ArrayBuffer`,
+     * or a byte size for a buffer the GPU alone fills. The usage is the API's;
+     * the default is storage, a seed and a readback's source.
+     */
+    createStorage(ctx, data, opts) {
+      const o = opts || {};
+      const source = data;
+      const size = typeof source === 'number' ? source
+        : (source && typeof source.byteLength === 'number' ? source.byteLength : 0);
+      if (!size) {
+        console.error('[webgpu.tree] storage: a typed array, an ArrayBuffer, or a byte size is required.');
+        return null;
+      }
+      const bytes = Math.max(4, size);
+      const gpu = device.createBuffer({
+        size: bytes,
+        usage: o.usage || (BUFFER_USAGE.STORAGE | BUFFER_USAGE.COPY_DST | BUFFER_USAGE.COPY_SRC),
+        label: o.label,
+      });
+      const record = { id: ++seq, gpu, size: bytes };
+      resources.buffers.add(gpu);
+      if (typeof source !== 'number') {
+        if (source instanceof ArrayBuffer) device.queue.writeBuffer(gpu, 0, source);
+        else if (ArrayBuffer.isView(source)) device.queue.writeBuffer(gpu, 0, source);
+      }
+      return record;
     },
 
     updateBuffer(ctx, buffer, arrays, opts) {
@@ -1133,6 +1318,7 @@ export function createBackend(opts) {
     }
 
     const bindings = bindGroupFor(ctx, prog);
+    if (!bindings) return null;
     pass.setPipeline(pipeline);
     pass.setBindGroup(0, bindings.group, bindings.offsets);
     if (geometry) {
@@ -1170,6 +1356,14 @@ export function createBackend(opts) {
         const texture = prog.textures.get(binding.name) || white();
         parts.push('t' + texture.id);
         entries.push({ binding: binding.binding, resource: textureViewOf(texture) });
+      } else if (binding.kind === 'storage') {
+        const storage = prog.storages.get(binding.name);
+        if (!storage || !storage.gpu) {
+          warnOnce(ctx, 'unbound-storage:' + binding.name, 'the program declares the storage `' + binding.name + '` and the bind bag did not name it — the bind group cannot be made.');
+          return null;
+        }
+        parts.push('b' + storage.id);
+        entries.push({ binding: binding.binding, resource: { buffer: storage.gpu } });
       } else {
         const chosen = prog.samplers.get(binding.name) || sampler();
         parts.push('s' + samplerId(chosen));

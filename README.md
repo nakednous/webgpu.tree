@@ -7,7 +7,8 @@ pipe, HUD, render targets, filter passes and the pipe chain, colour-ID picking, 
 realized where uniforms are fields of a buffer bound as a group, a program is a pipeline with baked
 state, and readback is asynchronous by construction.
 
-> **Status: the render surface is built, and it has an API site of its own.** `init` and the backend
+> **Status: the render surface and the compute surface are built, and the package has an API site of
+> its own.** `init` and the backend
 > behind `idiom`'s interface — the twenty-five members (the in-place `writeBuffer` and `drawGizmo`
 > among them) and the four conventions — with the composites over it: `renderTarget`, `SCREEN`,
 > `program`, `fullscreen`, `filter`, `image`, `pipe`, `releasePipe`, `state`, `setCamera`, `endFrame`,
@@ -18,19 +19,24 @@ state, and readback is asynchronous by construction.
 > `trackPath`, `helmRig`, `handleLocus`, `beginHUD`, `endHUD`, `cross`, `bullsEye`; `pane`, with the
 > frustum's textured faces and the helm rig's HUD form and `identify` labels; the texture shapes —
 > `cubemap`, mips, and the 3D / 2D-array sources; and the Radiance path: `decodeRGBE`, `encodeRGBE`,
-> `loadHDR`. The twin's surface is the reference's; what the reference does not have — a cube /
-> layered render target and compute — is not on it either. `twin-design.md` is the differences table
-> against `webgl.tree`.
+> `loadHDR`; and compute: `storage`, `program(…, { compute: true })`, `bind`'s storage seam,
+> `dispatch`, `readBuffer`. **The render surface is the reference's; the compute surface is the
+> paradigm's depth** — WebGL 2 has no storage buffers and no compute shaders to mirror, and
+> `twin-design.md` §6 states the surface and why it exceeds the reference's. A cube / layered render
+> target is still not on it. `twin-design.md` is the differences table against `webgl.tree`.
 >
 > Pins `@nakednous/tree` ^0.0.34, `@nakednous/host` ^0.0.12, `@nakednous/idiom` ^0.0.9;
-> `webgpu-utils` ^2.1.1 is a peer. Gates: `npm test` (121 cases, against the recording device in
+> `webgpu-utils` ^2.1.1 is a peer. Gates: `npm test` (131 cases, against the recording device in
 > `test/gpu.js`), `npm run build`, and `npm run docs` (the API site below, 0 warnings — every
 > documented name and a function's parameters checked against the build, and every example's imports
 > resolved). The browser is the maintainer's gate: the geometry path, the uploaded texture, a scene's
 > colour-id picks, the mappings, a gizmo scene with its HUD, a textured pane, the helm rig's HUD
 > composite, a mip level, a volume's slices, an array's layers and a cube map's six faces were read
-> back offscreen in this machine's Chromium (adapter `google/swiftshader`, `rgba8unorm`) — the twin's
-> `testing/` pages are the record.
+> back offscreen in this machine's Chromium (adapter `google/swiftshader`, `rgba8unorm`). The compute
+> path was run where the GPU is: the school at `testing/fish` — 3,072 fish, a kernel's dispatch, the
+> storage read by the vertex stage, the trails on `state` — through this machine's Arc and Chromium at
+> 120 fps with no uncaptured error, and the `compute` page's three examples (a storage, a dispatch, a
+> readback) are in the examples' gate. The twin's `testing/` pages are the record.
 
 ## Installation
 
@@ -117,17 +123,18 @@ Serve it locally, from the repository root:
 python3 -m http.server 8000     # then open http://127.0.0.1:8000/site/
 ```
 
-The site documents **the verbs this package declares** — nine pages: `camera`, `context`, `draw`,
-`gizmo`, `hdr`, `pick`, `space`, `texture` and the root module — **the composites it re-exports**, on three
+The site documents **the verbs this package declares** — ten pages: `camera`, `compute`, `context`,
+`draw`, `gizmo`, `hdr`, `pick`, `space`, `texture` and the root module — **the composites it re-exports**, on three
 pages of their own: `pass` (`fullscreen`, `filter`, `image`, `pipe`, `releasePipe` and the mask and
 blend constants), `target` (`renderTarget`, `SCREEN`) and `state`; and **the two namespaces it
 re-exports**, on the reference's eight: `host`, `host.handles`, `host.tracks`, `tree.camera`,
-`tree.matrices`, `tree.projection`, `tree.quaternions` and `tree.visibility` — twenty module pages
+`tree.matrices`, `tree.projection`, `tree.quaternions` and `tree.visibility` — twenty-one module pages
 beside the README, the reference's page set and anchors. The composites' and the
 namespaces' pages are `@nakednous/idiom`'s and `@nakednous/tree`'s / `@nakednous/host`'s verbs,
 documented here as the bridge re-exports them, from doc-only files in `docs/`, as `webgl.tree`
 documents the surface it re-exports — each doclet's figure the reference's own figure translated to
-the twin, so the two sites read side by side. `hdr` is the Radiance path — `decodeRGBE` and
+the twin, so the two sites read side by side, except `compute`'s, which have no reference to
+translate and are the twin's own. `hdr` is the Radiance path — `decodeRGBE` and
 `encodeRGBE` are `@nakednous/host`'s, re-exported, and `loadHDR` fetches and decodes a file, rows in
 the file's own order, which is what a texture here takes; the reference hands back GL's order instead.
 

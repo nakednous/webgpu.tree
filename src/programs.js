@@ -285,20 +285,42 @@ export const PANE_LAYOUT = createBufferLayoutsFromArrays(floats({ aPosition: 3, 
 
 const VERTEX_ENTRY = /@vertex\s+fn\s+([A-Za-z_][A-Za-z0-9_]*)/;
 const FRAGMENT_ENTRY = /@fragment\s+fn\s+([A-Za-z_][A-Za-z0-9_]*)/;
+const COMPUTE_ENTRY = /@compute\b(?:\s*@[A-Za-z_]\w*(?:\([^)]*\))?)*\s*fn\s+([A-Za-z_][A-Za-z0-9_]*)/;
+const WORKGROUP_SIZE = /@workgroup_size\s*\(\s*(\d+)\s*(?:,\s*(\d+)\s*)?(?:,\s*(\d+)\s*)?\)/;
 
 /**
- * The `@vertex` and `@fragment` entry names a WGSL source declares, each the
- * first of its stage; null where there is none.
+ * The `@vertex`, `@fragment` and `@compute` entry names a WGSL source declares,
+ * each the first of its stage; null where there is none.
  * @param {string} code  WGSL source.
- * @returns {{ vertex: string|null, fragment: string|null }}
+ * @returns {{ vertex:string|null, fragment:string|null, compute:string|null }}
  * @ignore
  * @example
- * entriesOf(PASS_VERT)   // { vertex: 'vs', fragment: null }
+ * entriesOf(PASS_VERT)   // { vertex: 'vs', fragment: null, compute: null }
  */
 export function entriesOf(code) {
-  const v = VERTEX_ENTRY.exec(String(code));
-  const f = FRAGMENT_ENTRY.exec(String(code));
-  return { vertex: v ? v[1] : null, fragment: f ? f[1] : null };
+  const source = String(code);
+  const v = VERTEX_ENTRY.exec(source);
+  const f = FRAGMENT_ENTRY.exec(source);
+  const c = COMPUTE_ENTRY.exec(source);
+  return { vertex: v ? v[1] : null, fragment: f ? f[1] : null, compute: c ? c[1] : null };
+}
+
+/**
+ * The workgroup size a compute source's `@workgroup_size(...)` states, in the
+ * API's three dimensions — the size the caller divides its invocation count by.
+ * The attribute's arguments that are absent default to 1, as WGSL defines them;
+ * a size written as an override constant is not read here (the source's literal
+ * is the surface's statement).
+ * @param {string} code  WGSL source.
+ * @returns {number[]|null} `[x, y, z]`, or null where the attribute is absent.
+ * @ignore
+ * @example
+ * workgroupOf('@compute @workgroup_size(64)\nfn main() {}')   // [64, 1, 1]
+ */
+export function workgroupOf(code) {
+  const m = WORKGROUP_SIZE.exec(String(code));
+  if (!m) return null;
+  return [Number(m[1]), Number(m[2] || 1), Number(m[3] || 1)];
 }
 
 /**

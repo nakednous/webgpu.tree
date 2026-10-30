@@ -26,6 +26,12 @@
  * frame's end closes. That is what a GL clear of a bound framebuffer does: the
  * attachment starts over, at once.
  *
+ * The frame also carries a **compute pass** beside the render pass: a dispatch
+ * opens one, the next render call ends it, and the two are one command encoder,
+ * submitted once. And it carries the frame's pending **reads** — a buffer
+ * readback records its copy on the encoder and is mapped after the submit, so
+ * its promise resolves a submission later, never inside the frame.
+ *
  * `endFrame` submits the frame's encoder and resets the uniform arena. The host
  * calls it from `afterFrame`, after `pointer.flush()`, so a pointer
  * handler's draws are in the frame; without a host the application calls it
@@ -34,14 +40,16 @@
 
 'use strict';
 
+import { MAP_MODE } from './flags.js';
+
 const ZERO = [0, 0, 0, 0];
 
 /**
  * The frame state of a context record, created on first use.
  * @param {object} ctx  The context record.
- * @returns {{ encoder:object|null, pass:object|null, target:object|null,
- *             viewport:number[]|null, loadOp:string|null, clear:number[]|null,
- *             submissions:number }}
+ * @returns {{ encoder:object|null, pass:object|null, computePass:object|null,
+ *             target:object|null, viewport:number[]|null, loadOp:string|null,
+ *             clear:number[]|null, reads:object[], submissions:number }}
  * @ignore
  * @example
  * frameOf(ctx).target   // the target the frame is drawing into, null for the canvas
@@ -51,10 +59,12 @@ export function frameOf(ctx) {
   ctx.frame = {
     encoder: null,
     pass: null,
+    computePass: null,
     target: null,
     viewport: null,
     loadOp: null,
     clear: null,
+    reads: [],
     submissions: 0,
   };
   return ctx.frame;
@@ -151,6 +161,7 @@ export function passDescriptor(ctx, f) {
 export function ensurePass(ctx) {
   const f = frameOf(ctx);
   if (f.pass) return f.pass;
+  if (f.computePass) endCompute(ctx);              // one pass at a time: a draw closes a dispatch's pass
   if (!f.encoder) f.encoder = ctx.device.createCommandEncoder({ label: 'webgpu.tree frame' });
   f.pass = f.encoder.beginRenderPass(passDescriptor(ctx, f));
   const vp = f.viewport || [0, 0, ...targetSize(ctx, f.target)];
@@ -159,12 +170,36 @@ export function ensurePass(ctx) {
   return f.pass;
 }
 
-/** End the open pass, if any. A no-op otherwise. */
+/** End the open pass — the compute pass first, then the render pass. A no-op otherwise. */
 export function endPass(ctx) {
   const f = frameOf(ctx);
+  if (f.computePass) endCompute(ctx);
   if (!f.pass) return;
   f.pass.end();
   f.pass = null;
+}
+
+/**
+ * The frame's open compute pass, begun here if it is not yet — the render pass,
+ * if one is open, is ended first: the encoder carries one pass at a time.
+ * @param {object} ctx  The context record.
+ * @returns {GPUComputePassEncoder}
+ */
+export function ensureCompute(ctx) {
+  const f = frameOf(ctx);
+  if (f.computePass) return f.computePass;
+  if (f.pass) endPass(ctx);
+  if (!f.encoder) f.encoder = ctx.device.createCommandEncoder({ label: 'webgpu.tree frame' });
+  f.computePass = f.encoder.beginComputePass({ label: 'webgpu.tree compute' });
+  return f.computePass;
+}
+
+/** End the open compute pass, if any. A no-op otherwise. */
+export function endCompute(ctx) {
+  const f = frameOf(ctx);
+  if (!f.computePass) return;
+  f.computePass.end();
+  f.computePass = null;
 }
 
 /**
@@ -185,7 +220,38 @@ export function endFrame(ctx) {
   f.encoder = null;
   f.submissions += 1;
   if (ctx.arena) ctx.arena.reset();
+  resolveReads(ctx, f);
   return true;
+}
+
+/**
+ * Map the frame's pending readbacks, after its submit — the copy is ordered by
+ * the encoder, the map by the queue, so a read answers the frame it was taken
+ * in. Each staging buffer is unmap-then-destroyed once its bytes are copied out;
+ * a read that fails rejects its promise and frees the staging anyway.
+ * @param {object} ctx  The context record.
+ * @param {object} f  The frame state.
+ * @ignore
+ */
+function resolveReads(ctx, f) {
+  if (!f.reads.length) return;
+  const reads = f.reads;
+  f.reads = [];
+  for (const read of reads) {
+    const { staging, size, resolve, reject } = read;
+    staging
+      .mapAsync(MAP_MODE.READ)
+      .then(() => {
+        const bytes = new Uint8Array(staging.getMappedRange(0, size)).slice();
+        staging.unmap();
+        staging.destroy();
+        resolve(bytes);
+      })
+      .catch((error) => {
+        staging.destroy();
+        reject(error);
+      });
+  }
 }
 
 /**
