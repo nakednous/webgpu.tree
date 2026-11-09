@@ -53,8 +53,8 @@
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^16.0.3",
     "comment-parser": "^1.4.9",
-    "marked": "^18.1.1",
-    "rollup": "^4.63.1",
+    "marked": "^18.1.3",
+    "rollup": "^4.68.2",
     "webgpu-utils": "^2.1.1"
   }
 }
