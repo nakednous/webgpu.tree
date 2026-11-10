@@ -21,7 +21,7 @@ async function setup() {
 const settle = async () => { await Promise.resolve(); await Promise.resolve(); };
 
 test('query: reads true until a count arrives, then the count; the ring bounds the questions', async () => {
-  const { ctx, world } = await setup();
+  const { ctx, world, calls } = await setup();
   let drawn = 0;
   const draw = () => { drawn++; };
   const slot = query(ctx, { pool: 2 });
@@ -37,6 +37,9 @@ test('query: reads true until a count arrives, then the count; the ring bounds t
   await settle();
   assert.equal(slot.value, false, 'the count that arrived is read');
   assert.equal(slot.pending, 0, 'the object came back to the ring');
+
+  const asked = calls.filter((c) => c[0] === 'beginRenderPass' && c[1] && c[1].occlusionQuerySet);
+  assert.ok(asked.length >= 1, 'the question pass declares its query set');
 
   const full = query(ctx, { pool: 1 });
   assert.ok(full.ask(draw));

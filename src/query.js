@@ -36,7 +36,7 @@
 'use strict';
 
 import { BUFFER_USAGE } from './flags.js';
-import { ensurePass, frameOf } from './frame.js';
+import { endPass, ensurePass, frameOf } from './frame.js';
 
 /** The bytes a resolved occlusion count occupies, and the offset's own alignment. */
 const RESULT_BYTES = 8;
@@ -56,7 +56,7 @@ const RESULT_OFFSET_ALIGNMENT = 256;
  *          one does, the conservative default). latency: how many asks the last
  *          verdict took. pending: how many questions are in flight.
  * @example
- * <caption>Ask whether the bound survives, and draw on the answer the frame before left.</caption>
+ * <caption>A cube slides behind a wall; the verdict is asked against the wall's depth, and the cube draws on the frame before's answer.</caption>
  * import { init, endFrame, bind, buffer, draw, program, query, setCamera, tree } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
@@ -64,7 +64,7 @@ const RESULT_OFFSET_ALIGNMENT = 256;
  * canvas.style.height = '300px'
  * const ctx = await init(canvas, { width: 400, height: 300 })
  *
- * const solid = buffer(ctx, tree.platonic(tree.HEXAHEDRON, { radius: 70 }))
+ * const unit = buffer(ctx, tree.platonic(tree.HEXAHEDRON, { radius: 1 }))
  * const WGSL = `
  * ```wgsl
  * struct U {
@@ -84,17 +84,21 @@ const RESULT_OFFSET_ALIGNMENT = 256;
  * }
  * ```
  * `
- * const prog = program(ctx, WGSL, { buffers: solid.bufferLayouts })
- * setCamera(ctx, tree.createCamera({ eye: [0, 120, 320] }))
+ * const prog = program(ctx, WGSL, { buffers: unit.bufferLayouts })
+ * setCamera(ctx, tree.createCamera({ eye: [0, 120, 420] }))
+ * const wall = tree.mat4FromTRS(tree.mat4(), 0, 0, -260, 0, 0, 0, 1, 260, 200, 4)
  * const M = tree.mat4()
  * const verdict = query(ctx, { pool: 4 })
  *
- * function frame() {
+ * function frame(ms) {
+ *   tree.mat4FromTRS(M, 0, 0, -260 + 180 * Math.cos(ms / 1400), 0, 0, 0, 1, 70, 70, 70)
  *   ctx.backend.bindTarget(ctx, null)
  *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   bind(ctx, prog, { uColor: [0.5, 0.55, 0.6] })
+ *   draw(ctx, unit, wall)                                   // the occluder, before the question
  *   bind(ctx, prog, { uColor: [1, 0.82, 0.4] })
- *   if (verdict.value) draw(ctx, solid, M)                    // an earlier frame's answer
- *   verdict.ask(() => draw(ctx, solid, M))                    // this frame's question
+ *   if (verdict.value) draw(ctx, unit, M)                   // the answer an earlier frame left
+ *   verdict.ask(() => draw(ctx, unit, M))                   // this frame's question
  *   endFrame(ctx)
  *   requestAnimationFrame(frame)
  * }
@@ -112,7 +116,7 @@ export function query(ctx, opts) {
     const set = device.createQuerySet({ type: 'occlusion', count: 1, label: 'query' });
     const buffer = device.createBuffer({
       size: RESULT_OFFSET_ALIGNMENT,                          // the resolve offset's alignment, one count's worth
-      usage: BUFFER_USAGE.MAP_READ | BUFFER_USAGE.COPY_DST,
+      usage: BUFFER_USAGE.QUERY_RESOLVE | BUFFER_USAGE.MAP_READ,
       label: 'query result',
     });
     return { set, buffer };
@@ -124,13 +128,17 @@ export function query(ctx, opts) {
       slot.asks += 1;
       if (live.length >= pool) return false;                  // the ring is full: no question this frame
       const s = free.pop() || make();
-      ensurePass(ctx);                                        // a question is recorded inside the frame's pass
-      ctx.frame.pass.beginOcclusionQuery(0);
+      const f = frameOf(ctx);
+      endPass(ctx);                                           // a pass declares the set it will be asked in
+      f.querySet = s.set;
+      ensurePass(ctx);                                        // the question's own pass, same attachments
+      f.pass.beginOcclusionQuery(0);
       draw();
-      ctx.frame.pass.endOcclusionQuery();
+      f.pass.endOcclusionQuery();
+      f.querySet = null;
       const issued = slot.asks;
       live.push(s);
-      frameOf(ctx).resolves.push({
+      f.resolves.push({
         set: s.set,
         buffer: s.buffer,
         done: (count) => {

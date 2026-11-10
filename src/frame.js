@@ -66,6 +66,7 @@ export function frameOf(ctx) {
     clear: null,
     reads: [],
     resolves: [],
+    querySet: null,
     submissions: 0,
   };
   return ctx.frame;
@@ -142,6 +143,7 @@ export function passDescriptor(ctx, f) {
     }
   }
   const descriptor = { colorAttachments, label: 'webgpu.tree pass' };
+  if (f.querySet) descriptor.occlusionQuerySet = f.querySet;   // a question is asked inside this pass
   if (f.target && f.target.depthView) {
     descriptor.depthStencilAttachment = {
       view: f.target.depthView,
