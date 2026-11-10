@@ -300,6 +300,8 @@ export function endFrame(ctx) {
  *
  */
 export function dispose(ctx) {
+  for (const slot of ctx.queries || []) slot.dispose();
+  ctx.queries = null;
   if (!ctx || ctx.disposed) return;
   const device = ctx.device;
   const owned = ctx.deviceOwned;

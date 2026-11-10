@@ -65,6 +65,7 @@ export function frameOf(ctx) {
     loadOp: null,
     clear: null,
     reads: [],
+    resolves: [],
     submissions: 0,
   };
   return ctx.frame;
@@ -216,12 +217,36 @@ export function endFrame(ctx) {
   const f = frameOf(ctx);
   endPass(ctx);
   if (!f.encoder) return false;
+  const resolves = f.resolves;                 // the frame's questions, resolved after its last pass
+  f.resolves = [];
+  for (const r of resolves) f.encoder.resolveQuerySet(r.set, 0, 1, r.buffer, 0);
   ctx.device.queue.submit([f.encoder.finish()]);
   f.encoder = null;
   f.submissions += 1;
   if (ctx.arena) ctx.arena.reset();
   resolveReads(ctx, f);
+  resolveQueries(resolves);
   return true;
+}
+
+/**
+ * Map the frame's resolved queries, after its submit — the resolve is ordered by
+ * the encoder, the map by the queue, so a verdict answers the frame it was asked
+ * in. A count that never maps leaves the slot's last verdict in place.
+ * @param {object[]} resolves  The frame's `{ set, buffer, done }` records.
+ * @ignore
+ */
+function resolveQueries(resolves) {
+  for (const r of resolves) {
+    r.buffer
+      .mapAsync(MAP_MODE.READ)
+      .then(() => {
+        const count = new BigUint64Array(r.buffer.getMappedRange(0, 8))[0];
+        r.buffer.unmap();
+        r.done(Number(count));
+      })
+      .catch(() => { /* the last verdict stands */ });
+  }
 }
 
 /**

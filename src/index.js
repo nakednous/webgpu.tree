@@ -57,6 +57,7 @@ export { storage, dispatch, readBuffer } from './compute.js';
 export { texture, upload, cubemap } from './texture.js';
 export { decodeRGBE, encodeRGBE, loadHDR } from './hdr.js';
 export { readPixel, pick } from './pick.js';
+export { query } from './query.js';
 export { mapLocation, mapDirection, unproject, fragCoord, pixelRatio, mat4Viewport } from './space.js';
 export {
   axes, grid, hermite, lines, pane, viewFrustum, trackPath, helmRig, handleLocus,

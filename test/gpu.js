@@ -96,6 +96,8 @@ export function createDevice(opts) {
         if (!buffer.mapped) buffer.mapped = new ArrayBuffer(buffer.size);
         // a readback's answer, where a test states one: the mapped range's first bytes
         if (world.picked) new Uint8Array(buffer.mapped).set(world.picked.slice(0, buffer.size));
+        // a query's count, the eight bytes a resolve writes
+        if (world.queryResult !== undefined) new DataView(buffer.mapped).setBigUint64(0, BigInt(world.queryResult), true);
         return Promise.resolve();
       },
       getMappedRange() {
@@ -112,6 +114,18 @@ export function createDevice(opts) {
     };
     record('createBuffer', buffer.id, { size: descriptor.size, usage: descriptor.usage, mappedAtCreation: !!descriptor.mappedAtCreation });
     return buffer;
+  };
+
+  const createQuerySet = (descriptor) => {
+    const set = {
+      id: ++seq,
+      type: descriptor && descriptor.type,
+      count: descriptor && descriptor.count,
+      destroyed: false,
+      destroy() { set.destroyed = true; record('querySet.destroy', set.id); },
+    };
+    record('createQuerySet', { type: set.type, count: set.count });
+    return set;
   };
 
   const createTexture = (descriptor) => {
@@ -210,6 +224,12 @@ export function createDevice(opts) {
     };
     const pass = {
       id: ++seq,
+      beginOcclusionQuery(index) {
+        record('pass.beginOcclusionQuery', index);
+      },
+      endOcclusionQuery() {
+        record('pass.endOcclusionQuery');
+      },
       setPipeline(pipeline) {
         record('pass.setPipeline', pipeline && pipeline.id);
       },
@@ -238,6 +258,9 @@ export function createDevice(opts) {
     };
     return {
       id: state.id,
+      resolveQuerySet(querySet, firstQuery, queryCount, destination, destinationOffset) {
+        record('resolveQuerySet', querySet && querySet.id, firstQuery, queryCount, destination && destination.id, destinationOffset);
+      },
       beginRenderPass(descriptor) {
         world.pass = descriptor;
         record('beginRenderPass', descriptor);
@@ -275,6 +298,7 @@ export function createDevice(opts) {
     features: new Set(),
     queue,
     createBuffer,
+    createQuerySet,
     createTexture,
     createSampler(descriptor) {
       const sampler = { id: ++seq, descriptor };

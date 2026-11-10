@@ -14,6 +14,7 @@ state, and readback is asynchronous by construction.
 > `program`, `fullscreen`, `filter`, `image`, `pipe`, `releasePipe`, `state`, `setCamera`, `endFrame`,
 > `viewOf`, `dispose`; the figure's own path: `bind`, `buffer`, `updateBuffer`, `draw`,
 > `drawInstanced` with the six declared transforms, `texture`, `upload`; picking: `readPixel`, `pick`;
+> occlusion: `query`, the verdict a resolve and a map bring back a frame or more later;
 > the space mappings: `mapLocation`, `mapDirection`, `unproject`, `fragCoord`, `pixelRatio`,
 > `mat4Viewport`; and the line pipe with the HUD: `axes`, `grid`, `hermite`, `viewFrustum`,
 > `trackPath`, `helmRig`, `handleLocus`, `beginHUD`, `endHUD`, `cross`, `bullsEye`; `pane`, with the
