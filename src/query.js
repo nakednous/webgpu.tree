@@ -57,12 +57,13 @@ const RESULT_OFFSET_ALIGNMENT = 256;
  *          verdict took. pending: how many questions are in flight.
  * @example
  * <caption>A cube slides behind a wall; the verdict is asked against the wall's depth, and the cube draws on the frame before's answer.</caption>
- * import { init, endFrame, bind, buffer, draw, program, query, setCamera, tree } from 'webgpu.tree'
+ * import { init, endFrame, bind, buffer, draw, image, program, query, renderTarget, setCamera, tree } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
  * canvas.style.width = '400px'
  * canvas.style.height = '300px'
  * const ctx = await init(canvas, { width: 400, height: 300 })
+ * const scene = renderTarget(ctx)                             // the canvas pass carries no depth; a target does
  *
  * const unit = buffer(ctx, tree.platonic(tree.HEXAHEDRON, { radius: 1 }))
  * const WGSL = `
@@ -92,13 +93,15 @@ const RESULT_OFFSET_ALIGNMENT = 256;
  *
  * function frame(ms) {
  *   tree.mat4FromTRS(M, 0, 0, -260 + 180 * Math.cos(ms / 1400), 0, 0, 0, 1, 70, 70, 70)
- *   ctx.backend.bindTarget(ctx, null)
+ *   ctx.backend.bindTarget(ctx, scene)
  *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
  *   bind(ctx, prog, { uColor: [0.5, 0.55, 0.6] })
- *   draw(ctx, unit, wall)                                   // the occluder, before the question
+ *   draw(ctx, unit, wall)                                     // the occluder, before the question
  *   bind(ctx, prog, { uColor: [1, 0.82, 0.4] })
- *   if (verdict.value) draw(ctx, unit, M)                   // the answer an earlier frame left
- *   verdict.ask(() => draw(ctx, unit, M))                   // this frame's question
+ *   if (verdict.value) draw(ctx, unit, M)                     // the answer an earlier frame left
+ *   verdict.ask(() => draw(ctx, unit, M))                     // this frame's question
+ *   ctx.backend.bindTarget(ctx, null)
+ *   image(ctx, scene.color)
  *   endFrame(ctx)
  *   requestAnimationFrame(frame)
  * }
