@@ -223,6 +223,35 @@ function ownerSection(owner, list, table, module) {
 
 // ── Page shell ──────────────────────────────────────────────────────────────
 
+// ── The theme switch ────────────────────────────────────────────────────────
+
+/** The stored choice, applied before the first paint so no page flashes. */
+const boot = `(function(){try{
+  var d=document.documentElement,s=localStorage.getItem('docs-theme')||'system',
+      m=window.matchMedia('(prefers-color-scheme: dark)').matches,
+      n=window.matchMedia('(max-width: 900px)').matches,
+      r=localStorage.getItem(n?'docs-nav':'docs-rail');
+  d.dataset.themeChoice=(s==='light'||s==='dark')?s:'system';
+  d.dataset.theme=(s==='light'||s==='dark')?s:(m?'dark':'light');
+  if(r==='collapsed'||r==='expanded')d.dataset.rail=r;
+}catch(e){}})();`;
+
+/** The picker: a button, and the three choices it opens. */
+const themeControl = (extra = '') => `
+      <div class="theme-switch${extra ? ' ' + extra : ''}">
+        <button class="theme-toggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Change theme">
+          <svg class="i i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+          <svg class="i i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg>
+          <svg class="i i-auto" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg>
+          <span class="theme-label">System</span>
+        </button>
+        <div class="theme-menu" role="menu" hidden>
+          <button type="button" role="menuitemradio" data-theme-choice="light" aria-checked="false"><span>Light</span><span class="tick" aria-hidden="true">✓</span></button>
+          <button type="button" role="menuitemradio" data-theme-choice="dark" aria-checked="false"><span>Dark</span><span class="tick" aria-hidden="true">✓</span></button>
+          <button type="button" role="menuitemradio" data-theme-choice="system" aria-checked="true"><span>System</span><span class="tick" aria-hidden="true">✓</span></button>
+        </div>
+      </div>`;
+
 function shell({ title, active, body, nav, pkg, examples, imports }) {
   const cm = examples ? `
   <link rel="stylesheet" href="${codemirror.css}">
@@ -233,6 +262,7 @@ function shell({ title, active, body, nav, pkg, examples, imports }) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>${boot}</script>
   <title>${esc(title)} — ${esc(pkg.name)}</title>
   <link rel="icon" sizes="32x32" href="${site.favicon32}">
   <link rel="icon" sizes="128x128" href="${site.favicon128}">
@@ -240,15 +270,26 @@ function shell({ title, active, body, nav, pkg, examples, imports }) {
   <script>window.webgpuTreeDocs = ${JSON.stringify(cfg)};</script>
   <script src="${site.runner}" defer></script>
   <script src="${site.search}" defer></script>
+  <script src="${site.chrome}" defer></script>
 </head>
 <body>
-  <nav class="sidebar">
-    <a class="brand" href="index.html">${esc(pkg.name)}</a>
+  <button class="rail-reopen" type="button" data-rail-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Show the navigation">☰</button>
+  <nav class="sidebar" id="site-sidebar" aria-label="Documentation">
+    <div class="side-head">
+      <a class="brand" href="index.html">${esc(pkg.name)}</a>
+      <span class="version">v${esc(pkg.version)}</span>
+      ${themeControl('head-theme')}
+      <button class="rail-toggle" type="button" data-rail-toggle aria-controls="site-sidebar" aria-expanded="true" aria-label="Hide the navigation">«</button>
+    </div>
     <input class="search" type="search" placeholder="Search…" aria-label="Search the API" autocomplete="off">
-    <ul class="modules">${nav.map((n) => `
-      <li><a href="${n.href}"${n.href === active ? ' aria-current="page"' : ''}>${esc(n.label)}</a></li>`).join('')}
-    </ul>
-    <ul class="results" hidden></ul>
+    <div class="side-nav" id="site-nav">
+      <ul class="modules">${nav.map((n) => `
+        <li><a href="${n.href}"${n.href === active ? ' aria-current="page"' : ''}>${esc(n.label)}</a></li>`).join('')}
+      </ul>
+      <ul class="results" hidden></ul>
+    </div>
+    <div class="side-foot">${themeControl()}
+    </div>
   </nav>
   <main>
 ${body}

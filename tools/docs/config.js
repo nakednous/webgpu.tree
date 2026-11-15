@@ -108,6 +108,7 @@ export const site = {
   favicon128: 'favicon-128.png',
   runner: 'assets/runner.js',
   search: 'assets/search.js',
+  chrome: 'assets/chrome.js',    // theme picker and collapsible navigation
   index:  'search.json',
 };
 
