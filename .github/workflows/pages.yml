@@ -1,22 +1,21 @@
-# The API site: built from the tagged commit and deployed to GitHub Pages, so
+# The API site: built from the release's code and deployed to GitHub Pages, so
 # the site and the published package never skew. Pages source: GitHub Actions.
 # No lockfile is committed (this repo ignores package-lock.json), so the install
 # is `npm install`, and no `cache: npm` — both `npm ci` and the setup-node cache
 # require a committed lockfile.
 #
-# A push to main without a release tag builds nothing. A documentation-only main
-# may publish ahead of the release: when the tree since the tag has not touched
-# `src/`, the version or the build config, the resolve job checks out main
-# instead, and the served bundle is still the release's code. A dispatch
-# resolves the same way; a tag push deploys the tag, which the github-pages
-# environment admits only once a tag rule matching v* is added (a main push is
-# admitted by its branch).
+# Publishing is from main. The resolve job names the release tag
+# (v<package.json version>) and publishes its code; when the tree since that tag
+# has touched nothing but documentation it publishes main instead, so a doc
+# change ships without waiting for a release while the served bundle stays the
+# release's. A tag pushed alone does not deploy — the release's own push to main
+# does — and a dispatch resolves the same way. The github-pages environment
+# admits main, so every run that deploys here starts from a branch push.
 name: pages
 
 on:
   push:
     branches: [main]
-    tags: ['v*']
   workflow_dispatch:
 
 permissions:
