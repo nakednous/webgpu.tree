@@ -1,43 +1,18 @@
 # `webgpu.tree`
 
-The WebGPU twin of `webgl.tree`: `@nakednous/tree` and `@nakednous/host` on raw WebGPU through
+The WebGPU twin of [`webgl.tree`](https://jpcharalambosh.co/webgl.tree/): `@nakednous/tree` and
+`@nakednous/host` on raw WebGPU through
 [webgpu-utils](https://github.com/greggman/webgpu-utils), its composites on
 [`@nakednous/idiom`](https://www.npmjs.com/package/@nakednous/idiom). The same bridge surface — gizmo
 pipe, HUD, render targets, filter passes and the pipe chain, colour-ID picking, camera install —
 realized where uniforms are fields of a buffer bound as a group, a program is a pipeline with baked
 state, and readback is asynchronous by construction.
 
-> **Status: the render surface and the compute surface are built, and the package has an API site of
-> its own.** `init` and the backend
-> behind `idiom`'s interface — the twenty-five members (the in-place `writeBuffer` and `drawGizmo`
-> among them) and the four conventions — with the composites over it: `renderTarget`, `SCREEN`,
-> `program`, `fullscreen`, `filter`, `image`, `pipe`, `releasePipe`, `state`, `setCamera`, `endFrame`,
-> `viewOf`, `dispose`; the figure's own path: `bind`, `buffer`, `updateBuffer`, `draw`,
-> `drawInstanced` with the six declared transforms, `texture`, `upload`; picking: `readPixel`, `pick`;
-> occlusion: `query`, the verdict a resolve and a map bring back a frame or more later;
-> the space mappings: `mapLocation`, `mapDirection`, `unproject`, `fragCoord`, `pixelRatio`,
-> `mat4Viewport`; and the line pipe with the HUD: `axes`, `grid`, `hermite`, `viewFrustum`,
-> `trackPath`, `helmRig`, `handleLocus`, `beginHUD`, `endHUD`, `cross`, `bullsEye`; `pane`, with the
-> frustum's textured faces and the helm rig's HUD form and `identify` labels; the texture shapes —
-> `cubemap`, mips, and the 3D / 2D-array sources; and the Radiance path: `decodeRGBE`, `encodeRGBE`,
-> `loadHDR`; and compute: `storage`, `program(…, { compute: true })`, `bind`'s storage seam,
-> `dispatch`, `readBuffer`. **The render surface is the reference's; the compute surface is the
-> paradigm's depth** — WebGL 2 has no storage buffers and no compute shaders to mirror, and
-> `twin-design.md` §6 states the surface and why it exceeds the reference's. A cube / layered render
-> target is still not on it. `twin-design.md` is the differences table against `webgl.tree`.
->
-> Pins `@nakednous/tree` ^0.0.34, `@nakednous/host` ^0.0.12, `@nakednous/idiom` ^0.0.9;
-> `webgpu-utils` ^2.1.1 is a peer. Gates: `npm test` (131 cases, against the recording device in
-> `test/gpu.js`), `npm run build`, and `npm run docs` (the API site below, 0 warnings — every
-> documented name and a function's parameters checked against the build, and every example's imports
-> resolved). The browser is the maintainer's gate: the geometry path, the uploaded texture, a scene's
-> colour-id picks, the mappings, a gizmo scene with its HUD, a textured pane, the helm rig's HUD
-> composite, a mip level, a volume's slices, an array's layers and a cube map's six faces were read
-> back offscreen in this machine's Chromium (adapter `google/swiftshader`, `rgba8unorm`). The compute
-> path was run where the GPU is: the school at `testing/fish` — 3,072 fish, a kernel's dispatch, the
-> storage read by the vertex stage, the trails on `state` — through this machine's Arc and Chromium at
-> 120 fps with no uncaptured error, and the `compute` page's three examples (a storage, a dispatch, a
-> readback) are in the examples' gate. The twin's `testing/` pages are the record.
+> **Status: 0.0.x.** The render surface is `webgl.tree`'s; the compute surface goes beyond it —
+> WebGL 2 has no storage buffers or compute shaders to mirror. It is tested: the API site's figures
+> and the notebook's WebGPU figures run in Chromium on this machine's Arc, and the site warns a
+> reader whose browser has no WebGPU. A cube / layered render target is still missing;
+> `twin-design.md` is the differences table against the reference.
 
 ## Installation
 
@@ -92,8 +67,8 @@ it is what the host's `afterFrame` calls when a host is attached —
 `host.createHost(canvas, { afterFrame: () => endFrame(ctx) })` — after `pointer.flush()`, so a pointer
 handler's draw lands in the frame.
 
-> **Status: 0.0.x, experimental.** The twin's surface is `webgl.tree`'s. Not every browser offers an
-> adapter — this Chromium needs `--enable-unsafe-webgpu` — so a figure's API stays an authoring choice.
+> **When the browser has no WebGPU.** The site checks `navigator.gpu`, asks for an adapter when it
+> exists, and puts a warning above the page if the figures cannot run. The reference still reads.
 
 ## The API site
 
@@ -141,15 +116,16 @@ the file's own order, which is what a texture here takes; the reference hands ba
 
 Its gate is two halves. `npm run docs` is the structural one — every documented name and a function's
 parameters against the build, every example's imports resolved, every fence's language — and it fails
-on an error. The other half mounts **every figure** in this machine's Chromium with
-`--enable-unsafe-webgpu`, at device scale factors **1 and 2**: the headless compositor drops its WebGPU
+on an error. The other half mounts **every figure** in this machine's Chromium on the Arc, at device scale
+factors **1 and 2**: the headless compositor drops its WebGPU
 instance when a canvas is first presented, so a page carries one figure per load, a figure that reads
 back reads before it presents, and a figure passes when it acquires a device, draws, logs nothing, and
 its canvas is its page size times the density (the reference's gate states the rule; the twin's
 `init` sets the density, so the figures take it). The browser's look is the maintainer's gate.
 
-It is **deployed** from a `v*` tag: `pages.yml` builds the site on the runner from the tag's gates and
-publishes it to GitHub Pages — https://jpcharalambosh.co/webgpu.tree/; a `workflow_dispatch` redeploys.
+It is **deployed** from `main`: `pages.yml` resolves the release tag and publishes its code, or
+main's when only the documentation moved — https://jpcharalambosh.co/webgpu.tree/; a tag pushed alone
+does not deploy, and a dispatch resolves the same way.
 
 ---
 

@@ -168,4 +168,19 @@
     else delete root.dataset.rail;
     syncRail();
   });
+
+  // ── WebGPU availability ──────────────────────────────────────────────────
+
+  // The figures need it; the reference does not. A browser with no API, or
+  // one that offers no adapter, is told once above the page.
+  var warning = document.querySelector('.gpu-warning');
+  if (warning) {
+    if (!('gpu' in navigator)) {
+      warning.hidden = false;
+    } else {
+      navigator.gpu.requestAdapter().then(function (adapter) {
+        if (!adapter) warning.hidden = false;
+      }).catch(function () { warning.hidden = false; });
+    }
+  }
 })();

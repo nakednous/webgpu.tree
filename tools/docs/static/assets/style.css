@@ -286,6 +286,21 @@ footer {
   color: var(--muted);
 }
 
+/* ── WebGPU availability ────────────────────────────────────────────────── */
+
+.gpu-warning {
+  margin: 0 0 1.5rem;
+  padding: .7rem .9rem;
+  border: 1px solid color-mix(in srgb, #d97706 45%, var(--border));
+  border-left: 3px solid #d97706;
+  border-radius: 6px;
+  background: color-mix(in srgb, #d97706 8%, var(--bg));
+  font-size: .875rem;
+  line-height: 1.5;
+}
+.gpu-warning[hidden] { display: none; }
+.gpu-warning a { color: var(--accent); }
+
 /* ── Examples ───────────────────────────────────────────────────────────── */
 
 /* A fragment: the call's shape, no stage — nothing would run it. */

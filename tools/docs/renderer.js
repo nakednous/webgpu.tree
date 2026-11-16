@@ -292,6 +292,10 @@ function shell({ title, active, body, nav, pkg, examples, imports, pager = '' })
     </div>
   </nav>
   <main>
+    <aside class="gpu-warning" role="status" hidden>
+      <strong>WebGPU is not available in this browser.</strong> The figures on this site will not
+      run here; the reference still reads. <a href="https://caniuse.com/webgpu">Browser support</a>.
+    </aside>
 ${body}${pager}
     <footer>${esc(pkg.name)} v${esc(pkg.version)} · ${esc(pkg.license ?? '')}</footer>
   </main>
