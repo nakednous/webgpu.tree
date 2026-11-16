@@ -266,8 +266,20 @@ tr.depth-1 td:first-child { padding-left: 1.6rem; }
 tr.depth-2 td:first-child { padding-left: 2.6rem; }
 .returns { margin: .5rem 0 1rem; }
 
-footer {
+.pager {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
   margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  font-size: .875rem;
+}
+.pager a { text-decoration: none; }
+.pager a:hover { text-decoration: underline; }
+
+footer {
+  margin-top: 2rem;
   padding-top: 1rem;
   border-top: 1px solid var(--border);
   font-size: .8125rem;
