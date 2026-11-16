@@ -1,18 +1,15 @@
 # `webgpu.tree`
 
-The WebGPU twin of [`webgl.tree`](https://jpcharalambosh.co/webgl.tree/): `@nakednous/tree` and
-`@nakednous/host` on raw WebGPU through
-[webgpu-utils](https://github.com/greggman/webgpu-utils), its composites on
-[`@nakednous/idiom`](https://www.npmjs.com/package/@nakednous/idiom). The same bridge surface — gizmo
-pipe, HUD, render targets, filter passes and the pipe chain, colour-ID picking, camera install —
-realized where uniforms are fields of a buffer bound as a group, a program is a pipeline with baked
-state, and readback is asynchronous by construction.
-
-> **Status: 0.0.x.** The render surface is `webgl.tree`'s; the compute surface goes beyond it —
-> WebGL 2 has no storage buffers or compute shaders to mirror. It is tested: the API site's figures
-> and the notebook's WebGPU figures run in Chromium on this machine's Arc, and the site warns a
-> reader whose browser has no WebGPU. A cube / layered render target is still missing;
-> `twin-design.md` is the differences table against the reference.
+[`@nakednous/tree`](https://github.com/nakednous/tree) and
+[`@nakednous/host`](https://github.com/nakednous/host) on raw WebGPU through
+[webgpu-utils](https://github.com/greggman/webgpu-utils), with the composites on
+[`@nakednous/idiom`](https://www.npmjs.com/package/@nakednous/idiom). The same bridge surface as its
+WebGL2 twin, [`webgl.tree`](https://jpcharalambosh.co/webgl.tree/): a camera install that uploads only
+the transforms a program declares, render targets in every shape, fullscreen filter passes and the
+ping-pong pipe, a line pipe and HUD, asynchronous colour-ID picking, and textures under one
+orientation — plus compute, which WebGL 2 does not have. Realized where uniforms are fields of a
+buffer bound as a group, a program is a pipeline with baked state, and readback is asynchronous by
+construction. No engine, no scene graph — the WebGPU calls are yours.
 
 ## Installation
 
