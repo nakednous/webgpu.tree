@@ -1,16 +1,21 @@
 # The API site: built from the tagged commit and deployed to GitHub Pages, so
 # the site and the published package never skew. Pages source: GitHub Actions.
-# No lockfile is committed (this repo ignores package-lock.json, as the
-# reference does), so the install is `npm install`, and no `cache: npm` — both
-# `npm ci` and the setup-node cache require a committed lockfile.
-# A tag push is rejected until the github-pages environment allows it: Pages
-# defaults that environment's deployment rule to the default branch, so add a
-# Tag rule matching v* (Settings -> Environments -> github-pages), or dispatch
-# this workflow from main for a doc-only redeploy.
+# No lockfile is committed (this repo ignores package-lock.json), so the install
+# is `npm install`, and no `cache: npm` — both `npm ci` and the setup-node cache
+# require a committed lockfile.
+#
+# A push to main without a release tag builds nothing. A documentation-only main
+# may publish ahead of the release: when the tree since the tag has not touched
+# `src/`, the version or the build config, the resolve job checks out main
+# instead, and the served bundle is still the release's code. A dispatch
+# resolves the same way; a tag push deploys the tag, which the github-pages
+# environment admits only once a tag rule matching v* is added (a main push is
+# admitted by its branch).
 name: pages
 
 on:
   push:
+    branches: [main]
     tags: ['v*']
   workflow_dispatch:
 
@@ -24,13 +29,42 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.resolve.outputs.ref }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - id: resolve
+        name: Resolve the tree to publish
+        run: |
+          tag="v$(node -p "require('./package.json').version")"
+          if ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "No $tag in this clone — a push without a release tag publishes nothing."
+            exit 0
+          fi
+          ref="$tag"
+          if [ "$GITHUB_SHA" != "$(git rev-parse "$tag")" ] &&
+             git diff --quiet "$tag" HEAD -- src package.json rollup.config.js; then
+            ref="$GITHUB_SHA"
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "publishing $ref ($tag is the release)"
+
   deploy:
+    needs: resolve
+    if: needs.resolve.outputs.ref != ''
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.ref }}
       - uses: actions/setup-node@v7
         with:
           node-version: 26
