@@ -2,37 +2,49 @@
  * @file Sidebar search — filters the API index as you type.
  * @license AGPL-3.0-only
  *
- * Classic deferred script on every page. Loads the generator's index
- * (`window.webgpuTreeDocs.index`, one entry per function and constant: name,
- * owner, page#anchor, first sentence) once, on the first keystroke, and
- * matches the typed text against name and owner as a plain substring. The
- * results replace the module list while the field is non-empty; Enter opens
- * the first result, Esc clears.
+ * ES module on every page. The page's configuration is the
+ * `application/json` block `#docs-config`; its `index` is the generator's
+ * search index (one entry per function and constant: name, owner,
+ * page#anchor, first sentence). The index is fetched once, on the first
+ * keystroke, and the typed text is matched against name and owner as a plain
+ * substring. The results replace the module list while the field is
+ * non-empty; Enter opens the first result, Esc clears.
  */
-(function () {
-  'use strict';
-  var field   = document.querySelector('.sidebar .search');
-  var modules = document.querySelector('.sidebar .modules');
-  var results = document.querySelector('.sidebar .results');
+
+/** The page's configuration: read once from the JSON block, or null. */
+function readConfig() {
+  const block = document.getElementById('docs-config');
+  if (!block) return null;
+  try {
+    return JSON.parse(block.textContent);
+  } catch (_) {
+    return null;
+  }
+}
+
+function start(config) {
+  const field   = document.querySelector('.sidebar .search');
+  const modules = document.querySelector('.sidebar .modules');
+  const results = document.querySelector('.sidebar .results');
   if (!field || !modules || !results) return;
 
-  var index = null, loading = null;
+  let index = null, loading = null;
   function load() {
     if (index) return Promise.resolve(index);
-    loading = loading || fetch(window.webgpuTreeDocs.index).then(function (r) { return r.json(); })
-      .then(function (list) { index = list; return list; });
+    loading = loading || fetch(config.index).then((r) => r.json())
+      .then((list) => { index = list; return list; });
     return loading;
   }
 
   function show(list, q) {
-    var hits = list.filter(function (e) {
-      return e.n.toLowerCase().indexOf(q) >= 0 || (e.o + '.' + e.n).toLowerCase().indexOf(q) >= 0;
-    }).slice(0, 40);
-    results.innerHTML = hits.length ? hits.map(function (e) {
-      return '<li><a href="' + e.h + '"><span class="name">' + e.n + '</span>' +
+    const hits = list.filter((e) =>
+      e.n.toLowerCase().indexOf(q) >= 0 || (e.o + '.' + e.n).toLowerCase().indexOf(q) >= 0,
+    ).slice(0, 40);
+    results.innerHTML = hits.length ? hits.map((e) =>
+      '<li><a href="' + e.h + '"><span class="name">' + e.n + '</span>' +
         '<span class="owner">' + e.o + '</span>' +
-        (e.s ? '<span class="hint">' + e.s.replace(/</g, '&lt;') + '</span>' : '') + '</a></li>';
-    }).join('') : '<li class="none">No match</li>';
+        (e.s ? '<span class="hint">' + e.s.replace(/</g, '&lt;') + '</span>' : '') + '</a></li>',
+    ).join('') : '<li class="none">No match</li>';
     results.hidden = false;
     modules.hidden = true;
   }
@@ -43,16 +55,19 @@
     modules.hidden = false;
   }
 
-  field.addEventListener('input', function () {
-    var q = field.value.trim().toLowerCase();
+  field.addEventListener('input', () => {
+    const q = field.value.trim().toLowerCase();
     if (!q) return clear();
-    load().then(function (list) { if (field.value.trim().toLowerCase() === q) show(list, q); });
+    load().then((list) => { if (field.value.trim().toLowerCase() === q) show(list, q); });
   });
-  field.addEventListener('keydown', function (e) {
+  field.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { field.value = ''; clear(); }
     if (e.key === 'Enter') {
-      var first = results.querySelector('a');
+      const first = results.querySelector('a');
       if (first) window.location.href = first.getAttribute('href');
     }
   });
-})();
+}
+
+const config = readConfig();
+if (config) start(config);

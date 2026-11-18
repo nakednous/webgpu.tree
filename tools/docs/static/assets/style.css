@@ -26,11 +26,45 @@
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   --sidebar: 15rem;
   --stage-w: 400px;
+  /* The editor's token roles, from the page's own palette: the violet the types
+     already use for keywords, the accent's deep tone for definitions and
+     strings, the ink for variables and operators, the muted grey for numbers
+     and comments. Every role clears 4.5:1 on --bg-2, in both themes. */
+  --cm-keyword:   #7a3fc8;   /* --accent-2 */
+  --cm-atom:      #7a3fc8;
+  --cm-builtin:   #7a3fc8;
+  --cm-tag:       #7a3fc8;
+  --cm-def:       #b3245f;   /* a deep tone of --accent */
+  --cm-type:      #b3245f;
+  --cm-string:    #b3245f;
+  --cm-string-2:  #b3245f;
+  --cm-variable-2: #1c1e22;  /* --fg */
+  --cm-property:  #1c1e22;
+  --cm-operator:  #1c1e22;
+  --cm-number:    #646870;   /* --muted */
+  --cm-comment:   #646870;
+  --cm-invalid:   #9f1d20;
 }
 
 /* The resolved theme, and the reader's choice; both are written by the head script. */
 :root[data-theme="light"] { color-scheme: light; }
-:root[data-theme="dark"]  { color-scheme: dark; }
+:root[data-theme="dark"]  {
+  color-scheme: dark;
+  --cm-keyword:   #c4a2f7;   /* --accent-2 */
+  --cm-atom:      #c4a2f7;
+  --cm-builtin:   #c4a2f7;
+  --cm-tag:       #c4a2f7;
+  --cm-def:       #f072a8;   /* a light tone of --accent */
+  --cm-type:      #f072a8;
+  --cm-string:    #f072a8;
+  --cm-string-2:  #f072a8;
+  --cm-variable-2: #e4e6ea;  /* --fg */
+  --cm-property:  #e4e6ea;
+  --cm-operator:  #e4e6ea;
+  --cm-number:    #9a9ea7;   /* --muted */
+  --cm-comment:   #9a9ea7;
+  --cm-invalid:   #ff7676;
+}
 
 /* ── Base ───────────────────────────────────────────────────────────────── */
 
@@ -368,35 +402,18 @@ footer {
   .stage { position: sticky; top: 1rem; align-self: start; }
 }
 
-/* ── CodeMirror ─────────────────────────────────────────────────────────── */
+/* ── Editor ─────────────────────────────────────────────────────────────── */
 
-.editor .CodeMirror {
-  height: auto;                      /* with viewportMargin: Infinity — grows to fit */
+/* The editor's surface and insets: the package's theme states the colours, this
+   file states the box, so an example and a fence read as the same object. */
+.editor .cm-editor {
   border: 1px solid var(--border);
   border-radius: 6px;
-  font: .8125rem/1.5 var(--mono);
   color: var(--fg);
   background: var(--bg-2);
 }
-.editor .CodeMirror-gutters { border-right: 1px solid var(--border); background: var(--bg-2); }
-.editor .CodeMirror-linenumber { color: var(--muted); }
-.editor .CodeMirror-cursor { border-left-color: var(--fg); }
-
-.editor .CodeMirror-selected { background: light-dark(#d9d9d9, #2b3340); }
-.editor .CodeMirror-focused .CodeMirror-selected { background: light-dark(#d7d4f0, #2b3340); }
-.editor .cm-s-default .cm-keyword    { color: light-dark(#708, #c792ea); }
-.editor .cm-s-default .cm-atom       { color: light-dark(#219, #f78c6c); }
-.editor .cm-s-default .cm-number     { color: light-dark(#164, #f78c6c); }
-.editor .cm-s-default .cm-def        { color: light-dark(#00f, #82aaff); }
-.editor .cm-s-default .cm-variable-2 { color: light-dark(#05a, #addb67); }
-.editor .cm-s-default .cm-property   { color: light-dark(#1c1e22, #80cbc4); }
-.editor .cm-s-default .cm-operator   { color: light-dark(#1c1e22, #89ddff); }
-.editor .cm-s-default .cm-string     { color: light-dark(#a11, #c3e88d); }
-.editor .cm-s-default .cm-string-2   { color: light-dark(#f50, #c3e88d); }
-.editor .cm-s-default .cm-comment    { color: light-dark(#a50, #7f8c98); }
-.editor .cm-s-default .cm-builtin    { color: light-dark(#30a, #ffcb6b); }
-:root[data-theme="dark"] .editor .cm-s-default .cm-comment { font-style: italic; }
-.editor .CodeMirror-matchingbracket { color: light-dark(#0b0, #fff) !important; text-decoration: none; }
+.editor .cm-content { padding: 8px 0; }
+.editor .cm-line { padding: 0 16px 0 8px; }
 
 /* ── Collapsed rail (wide screens) ──────────────────────────────────────── */
 
