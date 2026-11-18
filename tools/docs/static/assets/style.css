@@ -1,18 +1,20 @@
 /*
- * style.css — site chrome for the webgpu.tree API reference.
+ * style.css — the site's colour, over the package's base stylesheet.
+ *
+ * `assets/base.css` is the package's: the shell markup's structure — the grid,
+ * the rail, the picker, the search box, the doclet tables, the example figure,
+ * the editor's surface — stated once for every site that takes it, and loaded
+ * before this file. This file states what is this site's: the palette, the
+ * editor's token roles, and the two rules for markup the base does not write —
+ * the WGSL callout and the WebGPU availability notice.
  *
  * The palette is one accent per theme, at one hue: the deep tone carries a
  * white page, the bright tone carries #131417. `light-dark()` resolves every
  * pair against `color-scheme`, which is the only thing the theme picker
  * changes; the sketch stage is a fixed dark box either way.
- *
- * The rail is a flex column: head, search, a scrolling navigation and the
- * theme switch at its foot. It hides as a whole on a wide screen and folds its
- * navigation on a narrow one — `data-rail` on <html> is that one state.
  */
 
 :root {
-  color-scheme: light dark;
   --bg:       light-dark(#ffffff, #131417);
   --bg-2:     light-dark(#f5f6f8, #1b1d22);   /* sidebar, code, editor */
   --fg:       light-dark(#1c1e22, #e4e6ea);
@@ -22,10 +24,6 @@
   --accent-ink: light-dark(#ffffff, #0a0b0d);   /* the label on an accent fill */
   --accent-2:   light-dark(#7a3fc8, #c4a2f7);   /* types */
   --stage:    #0a0a0e;                          /* fixed — not themed */
-  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-  --sidebar: 15rem;
-  --stage-w: 400px;
   /* The editor's token roles, from the page's own palette: the violet the types
      already use for keywords, the accent's deep tone for definitions and
      strings, the ink for variables and operators, the muted grey for numbers
@@ -66,262 +64,18 @@
   --cm-invalid:   #ff7676;
 }
 
-/* ── Base ───────────────────────────────────────────────────────────────── */
+/* ── This site's own markup ─────────────────────────────────────────────── */
 
-* { box-sizing: border-box; }
-
-body {
-  margin: 0;
-  display: grid;
-  grid-template-columns: var(--sidebar) minmax(0, 1fr);
-  min-height: 100vh;
-  font: 16px/1.55 var(--sans);
-  color: var(--fg);
-  background: var(--bg);
-}
-
-a { color: var(--accent); }
-a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-img { max-width: 100%; height: auto; }
-
-code, pre, textarea { font-family: var(--mono); }
-code { font-size: .92em; padding: .1em .35em; border-radius: 4px; background: var(--bg-2); }
-pre {
-  padding: .9rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-2);
-  line-height: 1.45;
-  overflow-x: auto;
-}
-pre code { padding: 0; background: none; font-size: .85rem; }
+/* A shader is the twin's one new kind of code on a page: a WGSL fence is
+   marked, so a reader sees where a snippet is shading rather than scripting. */
 pre:has(> code.language-wgsl) {
   border-left: 3px solid var(--accent-2);
   background: color-mix(in srgb, var(--accent-2) 5%, var(--bg-2));
 }
 pre > code.language-wgsl { color: var(--fg); }
 
-blockquote { margin: 0; padding-left: 1rem; border-left: 3px solid var(--border); color: var(--muted); }
-hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
-
-table { width: 100%; margin: .75rem 0 1.25rem; border-collapse: collapse; font-size: .9375rem; }
-th, td { padding: .45rem .6rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border); }
-th { font-size: .8125rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
-td > :first-child { margin-top: 0; }
-td > :last-child  { margin-bottom: 0; }
-
-/* ── Sidebar ────────────────────────────────────────────────────────────── */
-
-.sidebar {
-  position: sticky;
-  top: 0;
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
-  padding: 1.25rem 1rem;
-  background: var(--bg-2);
-  border-right: 1px solid var(--border);
-}
-
-.side-head { display: flex; align-items: baseline; gap: .4rem; margin-bottom: .9rem; }
-.brand {
-  font-weight: 700;
-  font-size: 1.1rem;
-  color: var(--fg);
-  text-decoration: none;
-}
-.version { font-size: .75rem; color: var(--muted); }
-
-.rail-toggle, .head-theme { align-self: center; }
-.rail-toggle {
-  display: grid;
-  place-items: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  margin-left: auto;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  background: var(--bg);
-  color: var(--muted);
-  font: inherit;
-  font-size: .8125rem;
-  line-height: 1;
-  cursor: pointer;
-}
-.rail-toggle:hover { color: var(--fg); border-color: var(--muted); }
-
-.rail-reopen {
-  display: none;
-  position: fixed;
-  top: .75rem;
-  left: .75rem;
-  z-index: 20;
-  width: 2rem;
-  height: 2rem;
-  place-items: center;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-2);
-  color: var(--fg);
-  font: inherit;
-  font-size: 1rem;
-  line-height: 1;
-  cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
-}
-.rail-reopen:hover { border-color: var(--muted); }
-
-.sidebar .search {
-  width: 100%;
-  margin: 0 0 .75rem;
-  padding: .35rem .5rem;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  font: .875rem/1.5 var(--sans);
-  color: var(--fg);
-  background: var(--bg);
-}
-
-/* The navigation scrolls; the head and the theme switch stay put. */
-.side-nav { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
-
-.sidebar ul { margin: 0; padding: 0; list-style: none; }
-.sidebar li a {
-  display: block;
-  padding: .3rem .5rem;
-  border-radius: 4px;
-  font: .875rem/1.5 var(--mono);
-  color: var(--fg);
-  text-decoration: none;
-}
-.sidebar li a:hover { background: var(--border); }
-.sidebar li a[aria-current="page"] { background: var(--accent); color: var(--accent-ink); }
-
-/* Search — the field above the module list; results replace the list while typing. */
-.sidebar .results li a { display: grid; grid-template-columns: 1fr auto; gap: 0 .5rem; }
-.sidebar .results .owner { font-size: .75rem; color: var(--muted); }
-.sidebar .results .hint {
-  grid-column: 1 / -1;
-  font: .75rem/1.4 var(--sans);
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.sidebar .results .none { padding: .3rem .5rem; font: .875rem/1.5 var(--sans); color: var(--muted); }
-
-/* ── Theme switch ───────────────────────────────────────────────────────── */
-
-.side-foot { margin-top: auto; padding-top: .7rem; border-top: 1px solid var(--border); }
-
-.theme-switch { position: relative; }
-.head-theme { display: none; }
-.theme-toggle {
-  display: flex;
-  align-items: center;
-  gap: .45rem;
-  width: 100%;
-  padding: .3rem .45rem;
-  border: 1px solid transparent;
-  border-radius: 5px;
-  background: none;
-  color: var(--muted);
-  font: inherit;
-  font-size: .8125rem;
-  text-align: left;
-  cursor: pointer;
-}
-.theme-toggle:hover { background: var(--border); color: var(--fg); }
-.theme-toggle svg { width: .95rem; height: .95rem; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.theme-toggle .i-sun, .theme-toggle .i-moon { display: none; }
-:root[data-theme-choice="light"] .theme-toggle .i-sun { display: block; }
-:root[data-theme-choice="dark"]  .theme-toggle .i-moon { display: block; }
-:root[data-theme-choice="light"] .theme-toggle .i-auto,
-:root[data-theme-choice="dark"]  .theme-toggle .i-auto { display: none; }
-
-.theme-menu {
-  position: absolute;
-  left: 0;
-  bottom: calc(100% + .35rem);
-  z-index: 40;
-  min-width: 8.5rem;
-  padding: .25rem;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--bg);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
-}
-.theme-menu[hidden] { display: none; }
-.theme-menu button {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  width: 100%;
-  padding: .35rem .5rem;
-  border: 0;
-  border-radius: 5px;
-  background: none;
-  color: var(--fg);
-  font: inherit;
-  font-size: .8125rem;
-  text-align: left;
-  cursor: pointer;
-}
-.theme-menu button:hover { background: var(--bg-2); }
-.theme-menu .tick { opacity: 0; color: var(--accent); }
-.theme-menu button[aria-checked="true"] .tick { opacity: 1; }
-
-/* ── Main ───────────────────────────────────────────────────────────────── */
-
-main { min-width: 0; max-width: 76rem; padding: 2rem 2.5rem 3rem; }
-
-h1, h2, h3 { line-height: 1.25; }
-h1 { margin: 0 0 .5rem; font-size: 1.9rem; }
-h2 { margin: 2.5rem 0 1rem; padding-bottom: .3rem; font-size: 1.4rem; border-bottom: 1px solid var(--border); }
-h3 { margin: 2rem 0 .5rem; font-size: 1.05rem; }
-h3 code { padding: 0; font-size: 1em; background: none; }
-
-.lead { margin: 0 0 1rem; font-size: 1.15rem; color: var(--muted); }
-.description > :first-child { margin-top: 0; }
-
-.anchor { color: inherit; text-decoration: none; }
-.anchor:hover { text-decoration: underline; text-decoration-color: var(--accent); }
-
-.doclet, tr[id] { scroll-margin-top: 1rem; }
-.doclet:target > h3 { margin-left: -.85rem; padding-left: .6rem; border-left: 3px solid var(--accent); }
-tr:target td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
-
-.type { padding: 0; background: none; color: var(--accent-2); }
-.opt { font-size: .75rem; color: var(--muted); }
-tr.depth-1 td:first-child { padding-left: 1.6rem; }
-tr.depth-2 td:first-child { padding-left: 2.6rem; }
-.returns { margin: .5rem 0 1rem; }
-
-.pager {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-top: 3rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border);
-  font-size: .875rem;
-}
-.pager a { text-decoration: none; }
-.pager a:hover { text-decoration: underline; }
-
-footer {
-  margin-top: 2rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border);
-  font-size: .8125rem;
-  color: var(--muted);
-}
-
-/* ── WebGPU availability ────────────────────────────────────────────────── */
-
+/* The figures need WebGPU; the reference does not. The chrome script inserts
+   the notice and shows it when the browser offers no adapter. */
 .gpu-warning {
   margin: 0 0 1.5rem;
   padding: .7rem .9rem;
@@ -334,125 +88,3 @@ footer {
 }
 .gpu-warning[hidden] { display: none; }
 .gpu-warning a { color: var(--accent); }
-
-/* ── Examples ───────────────────────────────────────────────────────────── */
-
-/* A fragment: the call's shape, no stage — nothing would run it. */
-.example.fragment pre { margin: 0; }
-.example.fragment::before {
-  content: "fragment";
-  font: .6875rem/1 var(--sans);
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.examples { margin-top: 1rem; }
-
-.example {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: .75rem;
-  margin: 1.25rem 0 2rem;
-}
-.example figcaption { font-size: .9375rem; color: var(--muted); }
-
-.editor { min-width: 0; }
-.editor textarea.source {            /* fallback when CodeMirror is absent */
-  display: block;
-  width: 100%;
-  min-height: 14rem;
-  padding: .6rem .8rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: .8125rem;
-  line-height: 1.5;
-  color: var(--fg);
-  background: var(--bg-2);
-  resize: vertical;
-}
-
-.stage {
-  width: min(var(--stage-w), 100%);
-  aspect-ratio: 4 / 3;
-  border-radius: 6px;
-  background: var(--stage);
-  overflow: hidden;
-}
-.stage iframe { display: block; width: 100%; height: 100%; border: 0; }
-
-.toolbar { display: flex; gap: .5rem; }
-.toolbar button {
-  padding: .3rem .9rem;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  font: inherit;
-  font-size: .875rem;
-  color: var(--fg);
-  background: var(--bg-2);
-  cursor: pointer;
-}
-.toolbar button:hover { border-color: var(--muted); }
-.toolbar button[data-run] { border-color: transparent; color: var(--accent-ink); background: var(--accent); }
-.toolbar button[data-run]:hover { filter: brightness(1.08); }
-
-@media (min-width: 1200px) {
-  .example { grid-template-columns: minmax(0, 1fr) var(--stage-w); }
-  .example figcaption, .toolbar { grid-column: 1 / -1; }
-  .stage { position: sticky; top: 1rem; align-self: start; }
-}
-
-/* ── Editor ─────────────────────────────────────────────────────────────── */
-
-/* The editor's surface and insets: the package's theme states the colours, this
-   file states the box, so an example and a fence read as the same object. */
-.editor .cm-editor {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--fg);
-  background: var(--bg-2);
-}
-.editor .cm-content { padding: 8px 0; }
-.editor .cm-line { padding: 0 16px 0 8px; }
-
-/* ── Collapsed rail (wide screens) ──────────────────────────────────────── */
-
-@media (min-width: 901px) {
-  :root[data-rail="collapsed"] body { grid-template-columns: minmax(0, 1fr); }
-  :root[data-rail="collapsed"] .sidebar { display: none; }
-  :root[data-rail="collapsed"] main { margin-inline: auto; }
-  :root[data-rail="collapsed"] .rail-reopen { display: grid; }
-}
-
-/* ── Narrow ─────────────────────────────────────────────────────────────── */
-/* A tablet or a phone: one column, the rail a header, the navigation folded
-   until asked for, and the theme switch in the header. */
-
-@media (max-width: 900px) {
-  body { grid-template-columns: minmax(0, 1fr); }
-  .sidebar {
-    position: static;
-    height: auto;
-    overflow: visible;
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
-  }
-  .side-head { margin-bottom: 0; }
-  .side-nav { display: none; overflow: visible; flex: none; }
-  :root[data-rail="expanded"] .side-nav { display: block; }
-  :root[data-rail="expanded"] .side-head { margin-bottom: .75rem; }
-  :root:not([data-rail="expanded"]) .search { display: none; }
-  .side-foot { display: none; }
-  .head-theme { display: block; margin-left: auto; }
-  .head-theme .theme-toggle {
-    width: auto;
-    padding: .3rem;
-    border-color: var(--border);
-    background: var(--bg);
-  }
-  .head-theme .theme-label { display: none; }
-  .head-theme .theme-menu { top: calc(100% + .35rem); right: 0; bottom: auto; left: auto; }
-  main { padding: 1.25rem 1rem 2rem; }
-  /* Wide generated tables scroll instead of pushing the page sideways. */
-  main table { display: block; overflow-x: auto; }
-}

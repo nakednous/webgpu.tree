@@ -144,6 +144,7 @@ export default {
   mode: 'esm',
 
   shell: {
+    base: 'assets/base.css',       // the package's structure, loaded before this site's file
     stylesheet: 'assets/style.css',
     favicon: [
       { sizes: '32x32', href: 'favicon-32.png' },      // the family's cube, cropped square
