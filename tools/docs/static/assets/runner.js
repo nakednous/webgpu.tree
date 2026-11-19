@@ -165,14 +165,16 @@ function start(cfg) {
       editor: null,
       frame:  null,
     };
-    const run   = () => run(r);
+    // `run` is the frame's own rebuild below; the click handlers are named apart
+    // from it, or the arrow would call itself instead of rebuilding the frame.
+    const onRun = () => run(r);
     const reset = () => (r.editor ? r.editor.reset() : (textarea.value = r.source));
 
     runners.set(figure, r);
     near.observe(figure);
     far.observe(figure);
 
-    figure.querySelector('[data-run]')?.addEventListener('click', run);
+    figure.querySelector('[data-run]')?.addEventListener('click', onRun);
     figure.querySelector('[data-reset]')?.addEventListener('click', reset);
   }
 

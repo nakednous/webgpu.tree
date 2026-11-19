@@ -1,5 +1,7 @@
 # `webgpu.tree`
 
+[![npm](https://img.shields.io/badge/dynamic/json?url=https://registry.npmjs.org/webgpu.tree&query=$.dist-tags.latest&label=npm&color=d02d74&logo=npm&logoColor=white)](https://www.npmjs.com/package/webgpu.tree)
+
 [`@nakednous/tree`](https://github.com/nakednous/tree) and
 [`@nakednous/host`](https://github.com/nakednous/host) on raw WebGPU through
 [webgpu-utils](https://github.com/greggman/webgpu-utils), with the composites on
@@ -69,62 +71,16 @@ handler's draw lands in the frame.
 
 ## The API site
 
-The package has a reference site of its own, generated from this source by its own `tools/docs`
-(`npm run docs`, after `npm run build`):
+[`jpcharalambosh.co/webgpu.tree`](https://jpcharalambosh.co/webgpu.tree/) — the reference, generated from
+this source; one page per module, the reference's own page set and anchors, each figure the reference's
+figure translated to the twin, and every example a module script under the page's import map.
 
-```
-site/                index.html, one page per module, search.json
-                     assets/{runner.js,search.js,style.css}, favicons
-                     models/torus.obj  ← the mesh `buffer`'s figure loads
-                     webgpu.tree.js  ← dist/index.js, the ESM build of the same commit
-                     tree.js · host.js · idiom.js  ← the builds it was made against
-```
-
-It is **ESM-only**, as the package is: an example imports from `webgpu.tree`, runs under the page's
-import map (`webgpu-utils` to the pinned CDN module, the stack's packages to the site's own copies of
-the same commit) and awaits `init`; a shader is a WGSL fence. **Every doclet's example is a whole
-figure**, and each is the reference's figure of the same doclet translated to the twin — the same
-camera, the same scene, the same caption — so the two sites can be read side by side. A figure mounts
-once as it nears the viewport and is hidden when it leaves it; a hidden iframe's animation is
-throttled, and the WebGPU device stays, because a device made after an earlier one was destroyed
-renders nothing in this Chromium. A figure that draws geometry binds its target with
-`ctx.backend.bindTarget` and clears it with `ctx.backend.clear` — the layer's member, the twin's flat
-bind, where the reference calls twgl's `bindFramebufferInfo` and `gl.clear`.
-Serve it locally, from the repository root:
-
-```
-python3 -m http.server 8000     # then open http://127.0.0.1:8000/site/
-```
-
-The site documents **the verbs this package declares** — ten pages: `camera`, `compute`, `context`,
-`draw`, `gizmo`, `hdr`, `pick`, `space`, `texture` and the root module — **the composites it re-exports**, on three
-pages of their own: `pass` (`fullscreen`, `filter`, `image`, `pipe`, `releasePipe` and the mask and
-blend constants), `target` (`renderTarget`, `SCREEN`) and `state`; and **the two namespaces it
-re-exports**, on the reference's eight: `host`, `host.handles`, `host.tracks`, `tree.camera`,
-`tree.matrices`, `tree.projection`, `tree.quaternions` and `tree.visibility` — twenty-one module pages
-beside the README, the reference's page set and anchors. The composites' and the
-namespaces' pages are `@nakednous/idiom`'s and `@nakednous/tree`'s / `@nakednous/host`'s verbs,
-documented here as the bridge re-exports them, from doc-only files in `docs/`, as `webgl.tree`
-documents the surface it re-exports — each doclet's figure the reference's own figure translated to
-the twin, so the two sites read side by side, except `compute`'s, which have no reference to
-translate and are the twin's own. `hdr` is the Radiance path — `decodeRGBE` and
-`encodeRGBE` are `@nakednous/host`'s, re-exported, and `loadHDR` fetches and decodes a file, rows in
-the file's own order, which is what a texture here takes; the reference hands back GL's order instead.
-
-Its gate is two halves. `npm run docs` is the structural one — every documented name and a function's
-parameters against the build, every example's imports resolved, every fence's language — and it fails
-on an error. The other half mounts **every figure** in this machine's Chromium on the Arc, at device scale
-factors **1 and 2**: the headless compositor drops its WebGPU
-instance when a canvas is first presented, so a page carries one figure per load, a figure that reads
-back reads before it presents, and a figure passes when it acquires a device, draws, logs nothing, and
-its canvas is its page size times the density (the reference's gate states the rule; the twin's
-`init` sets the density, so the figures take it). The browser's look is the maintainer's gate.
-
-It is **deployed** from `main`: `pages.yml` resolves the release tag and publishes its code, or
-main's when only the documentation moved — https://jpcharalambosh.co/webgpu.tree/; a tag pushed alone
-does not deploy, and a dispatch resolves the same way.
-
----
+| | |
+|---|---|
+| build | `npm run docs`, after `npm run build`, into `site/` |
+| pages | ten for the modules this package declares, three for the composites it re-exports, eight for the namespaces it re-exports |
+| gate | the docs build against the ES build — every name, signature, example import and fence — and every figure on the Arc at density 1 and 2 |
+| deploy | `pages.yml` on `main`: the release tag's code, or `main`'s when only documentation moved |
 
 ## Architecture
 
@@ -272,7 +228,7 @@ row: `fragCoord` scales and does not flip, its answer is what `readPixel` takes,
 `uResolution` (`filter`'s viewport) counts the same pixels. On `webgl.tree` window space is
 bottom-left and `fragCoord` flips y.
 
-The viewport these verbs describe is the **canvas's**, `[0, h, w, −h]` logical — the signed rectangle
+The viewport these examples describe is the **canvas's**, `[0, h, w, −h]` logical — the signed rectangle
 the screen mapping and `mat4Pick` take, so a sub-viewport composes. A target's own viewport is the
 frame's, WebGPU's `[x, y, w, h]` from the top: that is the pass's, not the pointer's. `from` / `to`
 name a space (`tree.WORLD` · `EYE` · `NDC` · `SCREEN`) or take a column-major frame matrix — a camera,
@@ -328,7 +284,7 @@ programs and the vertex-layout statement a WebGPU pipeline needs.
 ## Conventions
 
 - **The context record.** `init(canvas, opts)` answers one record — `{ device, context, format }` and
-  the layer's own bookkeeping — and every verb takes it first, as `gl` is taken first in `webgl.tree`.
+  the layer's own bookkeeping — and every call takes it first, as `gl` is taken first in `webgl.tree`.
   Per-device state lives in a registry keyed by the device.
 - **`ndcZMin` is 0.** Every `tree` call that writes a depth range is bound to `WEBGPU` in the `tree`
   namespace, so no call names it.
