@@ -11,6 +11,10 @@
 # release's. A tag pushed alone does not deploy — the release's own push to main
 # does — and a dispatch resolves the same way. The github-pages environment
 # admits main, so every run that deploys here starts from a branch push.
+#
+# The docs toolchain is the published package, `@nakednous/scholion`, installed
+# by the nested project under `tools/docs`; its lock is committed, so the step is
+# `npm ci --prefix tools/docs`.
 name: pages
 
 on:
@@ -68,6 +72,7 @@ jobs:
         with:
           node-version: 26
       - run: npm install --no-audit --no-fund
+      - run: npm ci --prefix tools/docs
       - run: npm test
       - run: npm run build
       - run: npm run docs
