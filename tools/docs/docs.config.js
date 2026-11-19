@@ -144,6 +144,12 @@ export default {
   mode: 'esm',
 
   shell: {
+    // The rail's badge in place of the version line: on every page, and the
+    // landing page keeps its space.
+    badge: {
+      src: 'https://img.shields.io/badge/dynamic/json?url=https://registry.npmjs.org/webgpu.tree&query=$.dist-tags.latest&label=npm&color=d02d74',
+      href: 'https://www.npmjs.com/package/webgpu.tree',
+    },
     base: 'assets/base.css',       // the package's structure, loaded before this site's file
     stylesheet: 'assets/style.css',
     favicon: [

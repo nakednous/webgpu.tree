@@ -1,7 +1,5 @@
 # `webgpu.tree`
 
-[![npm](https://img.shields.io/badge/dynamic/json?url=https://registry.npmjs.org/webgpu.tree&query=$.dist-tags.latest&label=npm&color=d02d74)](https://www.npmjs.com/package/webgpu.tree)
-
 [`@nakednous/tree`](https://github.com/nakednous/tree) and
 [`@nakednous/host`](https://github.com/nakednous/host) on raw WebGPU through
 [webgpu-utils](https://github.com/greggman/webgpu-utils), with the composites on
