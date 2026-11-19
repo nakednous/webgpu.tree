@@ -159,6 +159,14 @@ export default {
   },
 
   /**
+   * Every site-local asset URL carries the build stamp: a rebuild has to
+   * invalidate what the browser cached, or the new pages run the old client —
+   * the sheet, the scripts and the index the page fetches, and the builds the
+   * frames import. A CDN pin is someone else's file and carries none.
+   */
+  stamp: true,
+
+  /**
    * The runner's contract: the page's config block, its `{tokens}` resolved by
    * the build — `{module}`, `{index}`, `{editor}`, `{dep:<name>}`,
    * `{pin:<name>:<field>}`. The import map is what every example's frame runs
@@ -170,13 +178,13 @@ export default {
     chrome: 'assets/chrome.js',    // theme picker, collapsible navigation, the GPU notice
     config: {
       imports: {
-        'webgpu.tree': './{module}',
+        'webgpu.tree': './{module}?v={stamp}',
         'webgpu-utils': '{pin:webgpu-utils:module}',
-        '@nakednous/tree': './{dep:@nakednous/tree}',
-        '@nakednous/host': './{dep:@nakednous/host}',
-        '@nakednous/idiom': './{dep:@nakednous/idiom}',
+        '@nakednous/tree': './{dep:@nakednous/tree}?v={stamp}',
+        '@nakednous/host': './{dep:@nakednous/host}?v={stamp}',
+        '@nakednous/idiom': './{dep:@nakednous/idiom}?v={stamp}',
       },
-      index: '{index}',
+      index: '{index}?v={stamp}',
       editor: '{editor}',
     },
   },
