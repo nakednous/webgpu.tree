@@ -1,6 +1,6 @@
 # `webgpu.tree`
 
-[![npm](https://img.shields.io/badge/dynamic/json?url=https://registry.npmjs.org/webgpu.tree&query=$.dist-tags.latest&label=npm&color=d02d74&logo=npm&logoColor=white)](https://www.npmjs.com/package/webgpu.tree)
+[![npm](https://img.shields.io/badge/dynamic/json?url=https://registry.npmjs.org/webgpu.tree&query=$.dist-tags.latest&label=npm&color=d02d74)](https://www.npmjs.com/package/webgpu.tree)
 
 [`@nakednous/tree`](https://github.com/nakednous/tree) and
 [`@nakednous/host`](https://github.com/nakednous/host) on raw WebGPU through
@@ -68,19 +68,6 @@ handler's draw lands in the frame.
 
 > **When the browser has no WebGPU.** The site checks `navigator.gpu`, asks for an adapter when it
 > exists, and puts a warning above the page if the figures cannot run. The reference still reads.
-
-## The API site
-
-[`jpcharalambosh.co/webgpu.tree`](https://jpcharalambosh.co/webgpu.tree/) — the reference, generated from
-this source; one page per module, the reference's own page set and anchors, each figure the reference's
-figure translated to the twin, and every example a module script under the page's import map.
-
-| | |
-|---|---|
-| build | `npm run docs`, after `npm run build`, into `site/` |
-| pages | ten for the modules this package declares, three for the composites it re-exports, eight for the namespaces it re-exports |
-| gate | the docs build against the ES build — every name, signature, example import and fence — and every figure on the Arc at density 1 and 2 |
-| deploy | `pages.yml` on `main`: the release tag's code, or `main`'s when only documentation moved |
 
 ## Architecture
 
@@ -324,6 +311,21 @@ shape's keys, renamed; a key of its own keeps its name); the six declared transf
 declares them; a pass's input, bound to every texture the stage declares and the bag leaves unset;
 `uResolution` and `uTexelSize`, only where declared. `image`'s flat program names
 `uModelViewProjectionMatrix`, `uColor`, `uUseTexture` and `uTexture`.
+
+---
+
+## The API site
+
+[`jpcharalambosh.co/webgpu.tree`](https://jpcharalambosh.co/webgpu.tree/) — the reference, generated from
+this source; one page per module, the reference's own page set and anchors, each figure the reference's
+figure translated to the twin, and every example a module script under the page's import map.
+
+| | |
+|---|---|
+| build | `npm run docs`, after `npm run build`, into `site/` |
+| pages | ten for the modules this package declares, three for the composites it re-exports, eight for the namespaces it re-exports |
+| gate | the docs build against the ES build — every name, signature, example import and fence — and every figure on the Arc at density 1 and 2 |
+| deploy | `pages.yml` on `main`: the release tag's code, or `main`'s when only documentation moved |
 
 ---
 
