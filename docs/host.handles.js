@@ -86,7 +86,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   const grabbed = h.update()
  *   grid(ctx, { M: ground, size: 120, subdivisions: 12, color: grabbed ? [1, 0.82, 0.4, 1] : [1, 1, 1, 1] })
@@ -122,7 +122,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   if (h.update() && Math.hypot(...h.value(v)) > 100) h.cancel()
  *   grid(ctx, { M: ground, size: 100, subdivisions: 10, color: [1, 0.82, 0.4, 1] })
@@ -161,7 +161,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   h.update()
  *   h.value(world)
@@ -204,7 +204,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   h.update()
  *   grid(ctx, { M: ground, size: 100, subdivisions: 10, color: [1, 1, 1, 1] })
@@ -249,7 +249,7 @@
  *     center = [target[0] - 60 * Math.cos(a), 0, target[2] - 60 * Math.sin(a)]
  *   }
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   h.update()
  *   grid(ctx, { M: ground, size: 120, subdivisions: 12, color: [1, 1, 1, 1] })
@@ -284,7 +284,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   h.update()
  *   tree.mat4FromTRS(M, 0, 40, 0, ...tree.qFromAxisAngle(q, 0, 1, 0, h.scalar()), 1, 1, 1)
@@ -321,7 +321,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   h.update()
  *   h.azEl(ae)
@@ -361,7 +361,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   h.update()
  *   axes(ctx, { size: 60 })
@@ -396,7 +396,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   h.update()
  *   grid(ctx, { M: ground, size: 100, subdivisions: 10, color: [1, 1, 1, 1] })
@@ -435,7 +435,7 @@
  *   c[0] = 70 * Math.cos(t); c[2] = 70 * Math.sin(t)
  *   h.anchor(c)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   h.update()
  *   axes(ctx, { M: tree.mat4FromTranslation(M, c[0], c[1], c[2]), size: 20 })
@@ -473,7 +473,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   if (h) h.update()
  *   grid(ctx, { M: ground, size: 100, subdivisions: 10, color: [1, 1, 1, 1] })

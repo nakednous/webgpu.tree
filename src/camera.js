@@ -56,7 +56,7 @@ const _isMat4 = (m) => m != null && typeof m === 'object' && typeof m.length ===
  * const P = tree.cameraProj(tree.mat4(), cam, 400 / 300)
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ * ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  * setCamera(ctx, V, P)
  * axes(ctx, { size: 100 })
  * ctx.backend.bindTarget(ctx, SCREEN)
@@ -79,7 +79,7 @@ const _isMat4 = (m) => m != null && typeof m === 'object' && typeof m.length ===
  *   cam.eye[0] = 215 * Math.sin(t)
  *   cam.eye[2] = 215 * Math.cos(t)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   axes(ctx, { size: 100 })
  *   ctx.backend.bindTarget(ctx, SCREEN)

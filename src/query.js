@@ -94,7 +94,7 @@ const RESULT_OFFSET_ALIGNMENT = 256;
  * function frame(ms) {
  *   tree.mat4FromTRS(M, 0, 0, -260 + 180 * Math.cos(ms / 1400), 0, 0, 0, 1, 70, 70, 70)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   bind(ctx, prog, { uColor: [0.5, 0.55, 0.6] })
  *   draw(ctx, unit, wall)                                     // the occluder, before the question
  *   bind(ctx, prog, { uColor: [1, 0.82, 0.4] })

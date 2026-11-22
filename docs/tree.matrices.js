@@ -31,7 +31,7 @@
  * function frame(ms) {
  *   tree.mat4FromTRS(M, 0, 0, 0, ...tree.qFromAxisAngle(q, 0, 1, 0, ms / 1000), 1, 1, 1)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   axes(ctx, { M, size: 80 })
  *   ctx.backend.bindTarget(ctx, SCREEN)
@@ -66,7 +66,7 @@
  *   const k = 100 / Math.hypot(N[6], N[7], N[8])
  *   n[0] = N[6] * k; n[1] = N[7] * k; n[2] = N[8] * k
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   pane(ctx, [-40, 40, 0], [40, 40, 0], [40, -40, 0], [-40, -40, 0], { M, color: [1, 0.31, 0.85, 1] })
  *   hermite(ctx, [0, 0, 0], n, n, n, { color: [1, 0.82, 0.4, 1] })
@@ -100,7 +100,7 @@
  *   tree.mat4MulPoint(tip, M, 80, 0, 0)
  *   tree.mat4FromTranslation(T, tip[0], tip[1], tip[2])
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   axes(ctx, { M, size: 80 })
  *   axes(ctx, { M: T, size: 20 })
@@ -137,7 +137,7 @@
  * @fragment
  * fn fs(@builtin(position) fragCoord: vec4f) -> @location(0) vec4f {
  *   let d = distance(fragCoord.xy, u.uMouse);
- *   return vec4f(mix(vec3f(1.0, 0.82, 0.4), vec3f(0.325, 0.102, 0.2), smoothstep(38.0, 42.0, d)), 1.0);
+ *   return vec4f(mix(vec3f(1.0, 0.82, 0.4), vec3f(0.404, 0.047, 0.188), smoothstep(38.0, 42.0, d)), 1.0);
  * }
  * ```
  * `)
@@ -180,7 +180,7 @@
  *   tree.mat4Mul(TR, T, R)
  *   tree.mat4Mul(RT, R, T)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   axes(ctx, { M: TR, size: 40 })
  *   axes(ctx, { M: RT, size: 40, semantic: false, color: [1, 0.82, 0.4, 1] })
@@ -214,7 +214,7 @@
  * const E = tree.mat4Invert(tree.mat4(), V)
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ * ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  * setCamera(ctx, cam)
  * viewFrustum(ctx, { camera: other, aspect: 4 / 3, color: [1, 1, 1, 1] })
  * axes(ctx, { M: E, size: 40 })
@@ -256,7 +256,7 @@
  *   tree.qFromAxisAngle(q, 0, 1, 0, ms / 1000)
  *   tree.mat4FromTRS(M, 0, 60, 0, q[0], q[1], q[2], q[3], 2, 1, 1)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   grid(ctx, { M: ground, size: 100, subdivisions: 10, color: [1, 1, 1, 1] })
  *   axes(ctx, { M, size: 50 })
@@ -290,7 +290,7 @@
  * const M = tree.mat4FromTranslation(tree.mat4(), 80, 40, 0)
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ * ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  * setCamera(ctx, cam)
  * axes(ctx, { size: 100, semantic: false, color: [1, 1, 1, 1] })
  * axes(ctx, { M, size: 40 })
@@ -321,7 +321,7 @@
  * const M = tree.mat4FromScale(tree.mat4(), 2, 1, 0.5)
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ * ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  * setCamera(ctx, cam)
  * axes(ctx, { size: 60, semantic: false, color: [1, 1, 1, 1] })
  * axes(ctx, { M, size: 60, depth: false })
@@ -361,7 +361,7 @@
  * const M = tree.mat4FromBasis(tree.mat4(), 0, 1, 0, -1, 0, 0, 0, 0, 1, 80, 0, 0)
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ * ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  * setCamera(ctx, cam)
  * axes(ctx, { size: 60, semantic: false, color: [1, 1, 1, 1] })
  * axes(ctx, { M, size: 50 })
@@ -403,7 +403,7 @@
  *   const t = ms / 1000
  *   tree.mat4View(V, 300 * Math.sin(t), 150, 300 * Math.cos(t), 0, 0, 0, 0, 1, 0)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, V, P)
  *   grid(ctx, { M: ground, size: 100, subdivisions: 10, color: [1, 1, 1, 1] })
  *   axes(ctx, { size: 60 })
@@ -444,7 +444,7 @@
  * const sight = [-100, -60, -80]
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ * ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  * setCamera(ctx, cam)
  * axes(ctx, { size: 40, semantic: false, color: [1, 1, 1, 1] })
  * hermite(ctx, [100, 60, 80], sight, [0, 0, 0], sight, { color: [1, 0.82, 0.4, 1] })
@@ -480,7 +480,7 @@
  * const P = tree.mat4Persp(tree.mat4(), -30, 50, -30, 30, 100, 1000)
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ * ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  * setCamera(ctx, V, P)
  * axes(ctx, { size: 60 })
  * beginHUD(ctx)
@@ -518,7 +518,7 @@
  * const P = tree.mat4Ortho(tree.mat4(), -200, 200, -150, 150, 1, 1000)
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ * ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  * setCamera(ctx, V, P)
  * grid(ctx, { M: ground, size: 100, subdivisions: 10, color: [1, 1, 1, 1] })
  * ctx.backend.bindTarget(ctx, SCREEN)
@@ -552,7 +552,7 @@
  *   tree.mat4PV(PV, P, tree.cameraView(V, cam))
  *   tree.mat4MulPoint(tip, tree.mat4Mul(PV, mat4Viewport(ctx, W), PV), 100, 0, 0)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, V, P)
  *   axes(ctx, { size: 100 })
  *   beginHUD(ctx)
@@ -595,7 +595,7 @@
  *   tree.mat4MV(MV, tree.mat4FromTRS(M, 0, 30, 0, q[0], q[1], q[2], q[3], 1, 1, 1), V)
  *   tree.mat4MV(GV, ground, V)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, I, P)
  *   grid(ctx, { M: GV, size: 100, subdivisions: 10, color: [1, 1, 1, 1] })
  *   axes(ctx, { M: MV, size: 60 })
@@ -636,7 +636,7 @@
  *   along(good, N[6], N[7], N[8])     // N · (0, 0, 1)
  *   along(bad, M[8], M[9], M[10])     // M's own 3×3 · (0, 0, 1)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   grid(ctx, { M: ground, size: 100, subdivisions: 10, color: [1, 1, 1, 1] })
  *   pane(ctx, [-40, 40, 0], [40, 40, 0], [40, -40, 0], [-40, -40, 0], { M, color: [1, 0.31, 0.85, 1] })
@@ -678,7 +678,7 @@
  *   tree.mat4MulPoint(p, M, 80, 0, 0)
  *   tree.mat4FromTranslation(T, p[0], p[1], p[2])
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   axes(ctx, { M, size: 80 })
  *   axes(ctx, { M: T, size: 25 })
@@ -717,7 +717,7 @@
  *   tree.mat4FromTRS(M, 60, 40, 0, q[0], q[1], q[2], q[3], 1, 1, 1)
  *   tree.mat4MulDir(d, M, 80, 0, 0)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   axes(ctx, { M, size: 80 })
  *   hermite(ctx, [0, 0, 0], d, d, d, { color: [1, 0.82, 0.4, 1] })
@@ -759,7 +759,7 @@
  *   tree.mat4MulPoint(world, B, inB[0], inB[1], inB[2])      // drawn through B
  *   tree.mat4FromTranslation(T, world[0], world[1], world[2])
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   axes(ctx, { M: A, size: 50 })
  *   axes(ctx, { M: B, size: 50 })
@@ -799,7 +799,7 @@
  *   tree.mat3Direction(D, A, B)
  *   tree.mat4MulDir(line, B, 70 * D[0], 70 * D[1], 70 * D[2])   // D · (1, 0, 0), drawn through B
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   axes(ctx, { M: A, size: 50 })
  *   axes(ctx, { M: B, size: 50 })
@@ -838,7 +838,7 @@
  *   tree.mat4ToTranslation(t3, M)
  *   tree.mat4FromTranslation(T, t3[0], t3[1], t3[2])
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   axes(ctx, { M, size: 40 })
  *   axes(ctx, { M: T, size: 25, semantic: false, color: [1, 1, 1, 1] })
@@ -876,7 +876,7 @@
  *   tree.mat4ToScale(s3, M)
  *   tree.mat4FromTRS(S, 80, 0, 0, 0, 0, 0, 1, s3[0], s3[1], s3[2])
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   axes(ctx, { M, size: 50 })
  *   axes(ctx, { M: S, size: 50, semantic: false, color: [1, 1, 1, 1] })
@@ -913,7 +913,7 @@
  *   tree.mat4ToRotation(r, A)
  *   tree.mat4FromTRS(B, 80, 0, 0, r[0], r[1], r[2], r[3], 1, 1, 1)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   axes(ctx, { M: A, size: 50 })
  *   axes(ctx, { M: B, size: 50 })
@@ -954,7 +954,7 @@
  *   tree.mat4FromTRS(A, -80, 0, 0, q[0], q[1], q[2], q[3], 1, 1, 1)
  *   tree.mat4Mul(RA, R, A)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   grid(ctx, { M: mirror, size: 70, subdivisions: 7, color: [1, 1, 1, 1] })
  *   axes(ctx, { M: A, size: 50 })
@@ -1009,7 +1009,7 @@
  *   setCamera(ctx, above, { aspect: 1 })
  *   contents()
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
+ *   ctx.backend.clear(ctx, [0.404, 0.047, 0.188, 1])
  *   setCamera(ctx, cam)
  *   pane(ctx, ...corners, { texture: picture.color, uvs })
  *   contents()
