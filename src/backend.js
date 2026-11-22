@@ -234,6 +234,9 @@ function _writeSlices(ctx, tex, pixels) {
   }
 }
 
+/** The usage every texture gets unless a caller states one: sample, fill, render, copy. @ignore */
+const DEFAULT_TEXTURE_USAGE = TEXTURE_USAGE.TEXTURE_BINDING | TEXTURE_USAGE.COPY_DST | TEXTURE_USAGE.RENDER_ATTACHMENT | TEXTURE_USAGE.COPY_SRC;
+
 export function createBackend(opts) {
   const { device, context, format } = opts;
   const arena = opts.arena || createArena(device);
@@ -1211,24 +1214,56 @@ export function createBackend(opts) {
         size,
         dimension,
         format: textureFormat,
-        usage: d.usage || (TEXTURE_USAGE.TEXTURE_BINDING | TEXTURE_USAGE.COPY_DST | TEXTURE_USAGE.RENDER_ATTACHMENT | TEXTURE_USAGE.COPY_SRC),
+        usage: d.usage || DEFAULT_TEXTURE_USAGE,
         mipLevelCount: d.mips || 1,
         label: d.label,
       });
       // the mip chain's generator reads the platform's own textureBindingViewDimension
       const view = d.viewDimension ? gpu.createView({ dimension: d.viewDimension }) : gpu.createView();
-      const texture = { id: ++seq, gpu, view, width, height, layers, dimension, format: textureFormat };
+      const texture = { id: ++seq, gpu, view, width, height, layers, dimension, format: textureFormat,
+                        usage: d.usage || DEFAULT_TEXTURE_USAGE, mips: d.mips || 1,
+                        viewDimension: d.viewDimension, label: d.label };
       resources.textures.add(gpu);
+      return texture;
+    },
+
+    /** Re-allocate a texture at a new size, repeating its format, usage, mip count and view — the path an upload of another size takes (§7 #179). @ignore */
+    reallocateTexture(ctx, texture, size) {
+      const layers = size[2] || 1;
+      const gpu = device.createTexture({
+        size: texture.dimension === '3d' || layers > 1 ? [size[0], size[1], layers] : [size[0], size[1]],
+        dimension: texture.dimension,
+        format: texture.format,
+        usage: texture.usage,
+        mipLevelCount: texture.mips,
+        label: texture.label,
+      });
+      const view = texture.viewDimension ? gpu.createView({ dimension: texture.viewDimension }) : gpu.createView();
+      texture.gpu.destroy();
+      resources.textures.delete(texture.gpu);
+      texture.gpu = gpu;
+      texture.view = view;
+      texture.width = size[0];
+      texture.height = size[1];
+      texture.layers = layers;
+      ctx.sizes.set(texture, [size[0], size[1]]);
       return texture;
     },
 
     uploadTexture(ctx, texture, source, origin) {
       if (!texture || !texture.gpu) return;
-      if (!origin && _isPixels(source)) return _writeSlices(ctx, texture, source);   // a volume or an array, slice by slice
+      if (!origin && _isPixels(source)) {          // a volume or an array, slice by slice
+        const layers = _layersOf(source);
+        if (source.width !== texture.width || source.height !== texture.height || layers !== texture.layers) {
+          backend.reallocateTexture(ctx, texture, [source.width, source.height, layers]);
+        }
+        return _writeSlices(ctx, texture, source);
+      }
       const z = origin && origin.z ? origin.z : 0;
       const mipLevel = origin && origin.mipLevel ? origin.mipLevel : 0;
       if (source && (ArrayBuffer.isView(source) || source instanceof ArrayBuffer)) {
-        // rows padded to 256 like a read's, row 0 to row 0 — no flip
+        // rows padded to 256 like a read's, row 0 to row 0 — no flip. A raw slice at
+        // `origin` addresses the texture's frame: resizing is a whole-source upload's business
         const layout = paddedRows(source, texture.width, texture.height, bytesPerPixel(texture.format));
         device.queue.writeTexture(
           { texture: texture.gpu, mipLevel, origin: { x: 0, y: 0, z } },
@@ -1237,6 +1272,11 @@ export function createBackend(opts) {
           [texture.width, texture.height, 1],
         );
       } else {
+        // an element's own size sizes the texture, as a decoded image's rows do
+        const size = _sizeOf(source);
+        if (size && (size[0] !== texture.width || size[1] !== texture.height)) {
+          backend.reallocateTexture(ctx, texture, [size[0], size[1], texture.layers]);
+        }
         // no flip: WebGPU's texture space is top-down, as a decoded image's rows are
         device.queue.copyExternalImageToTexture(
           { source },

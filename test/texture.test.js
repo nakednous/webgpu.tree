@@ -127,3 +127,19 @@ test('the row helpers are the readback\'s, at any pixel width', () => {
   assert.deepEqual(paddedRows(new Uint8Array(8), 2, 1).data.length, 256);
   assert.deepEqual(paddedRows(new Uint8Array(512), 64, 2).data.length, 512);
 });
+
+test('upload: a source of another size reallocates, and textureSize follows', async () => {
+  const { ctx, calls } = await setup();
+  const tex = texture(ctx, PIXELS);                       // 2 x 2
+  upload(ctx, tex, { data: new Uint8Array(4 * 2 * 4), width: 4, height: 2 });
+  const made = make(calls).at(-1);
+  assert.deepEqual([made.width, made.height], [4, 2], 'the storage reallocated at the source\'s size');
+  assert.deepEqual([tex.width, tex.height], [4, 2]);
+  assert.deepEqual(ctx.sizes.get(tex), [4, 2], 'the layer records what the GPU holds');
+  assert.equal(allOf(calls, 'texture.destroy').length, 1, 'the old storage is released');
+
+  // the same size keeps its storage: no second allocation
+  const before = make(calls).length;
+  upload(ctx, tex, { data: new Uint8Array(4 * 2 * 4), width: 4, height: 2 });
+  assert.equal(make(calls).length, before, 'a same-size upload writes in place');
+});
