@@ -70,7 +70,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   setCamera(ctx, cam)
  *   grid(ctx, { M: ground, size: 100, subdivisions: 10, color: [1, 1, 1, 1] })
  *   trackPath(ctx, track, { bits: tree.PATH, color: [1, 0.82, 0.4, 1] })
@@ -108,7 +108,7 @@
  * function frame(ms) {
  *   track.set(1, { pos: [0, 80 * Math.sin(ms / 1000), 0] })
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   setCamera(ctx, cam)
  *   grid(ctx, { M: ground, size: 100, subdivisions: 10, color: [1, 1, 1, 1] })
  *   trackPath(ctx, track, { bits: tree.PATH, color: [1, 0.82, 0.4, 1] })
@@ -148,7 +148,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   setCamera(ctx, cam)
  *   grid(ctx, { M: ground, size: 100, subdivisions: 10, color: [1, 1, 1, 1] })
  *   trackPath(ctx, track, { bits: tree.PATH, color: [1, 0.82, 0.4, 1] })
@@ -188,7 +188,7 @@
  *     track.add({ pos: [90 * Math.cos(a), 0, 90 * Math.sin(a)] })
  *   }
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   setCamera(ctx, cam)
  *   grid(ctx, { M: ground, size: 100, subdivisions: 10, color: [1, 1, 1, 1] })
  *   trackPath(ctx, track, { bits: tree.PATH, color: [1, 0.82, 0.4, 1] })
@@ -237,7 +237,7 @@
  *   track.eval(pose)
  *   tree.mat4FromTRS(M, ...pose.pos, ...pose.rot, ...pose.scl)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   setCamera(ctx, cam)
  *   trackPath(ctx, track, { bits: tree.PATH, color: [1, 0.82, 0.4, 1] })
  *   axes(ctx, { M, size: 40 })
@@ -276,7 +276,7 @@
  * function frame() {
  *   canvasHost.tick(1 / 60)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   setCamera(ctx, cam)
  *   trackPath(ctx, track, { bits: tree.PATH, color: [1, 0.82, 0.4, 1] })
  *   axes(ctx, { M: track.mat4Model(M), size: 40 })
@@ -314,7 +314,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   setCamera(ctx, cam)
  *   trackPath(ctx, track, { bits: tree.PATH, color: [1, 0.82, 0.4, 1] })
  *   axes(ctx, { M: track.mat4Model(M), size: 40 })
@@ -351,7 +351,7 @@
  * function frame() {
  *   canvasHost.tick(1 / 60)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   setCamera(ctx, cam)
  *   trackPath(ctx, track, { bits: tree.PATH, color: [1, 0.82, 0.4, 1] })
  *   axes(ctx, { M: track.mat4Model(M), size: 40 })
@@ -393,7 +393,7 @@
  *   canvasHost.tick(1 / 60)
  *   const playing = track.info().playing
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   setCamera(ctx, cam)
  *   trackPath(ctx, track, { bits: tree.PATH, color: playing ? [1, 0.82, 0.4, 1] : [1, 1, 1, 1] })
  *   axes(ctx, { M: track.mat4Model(M), size: 40 })
@@ -436,7 +436,7 @@
  *   track.eval(pose)
  *   tree.mat4FromTRS(M, ...pose.pos, ...pose.rot, ...pose.scl)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   setCamera(ctx, cam)
  *   trackPath(ctx, track, { bits: tree.PATH, color: [1, 0.82, 0.4, 1] })
  *   axes(ctx, { M, size: 30 })
@@ -480,7 +480,7 @@
  * function frame() {
  *   canvasHost.tick(1 / 60)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   setCamera(ctx, cam)
  *   trackPath(ctx, track, { bits: tree.PATH, color: [1, 0.82, 0.4, 1] })
  *   for (let seg = 0; seg < 2; seg++) axes(ctx, { M: track.mat4Model(H, seg, 0.5), size: 25, semantic: false, color: [1, 1, 1, 1] })
@@ -519,7 +519,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   setCamera(ctx, cam)
  *   trackPath(ctx, track, { bits: tree.PATH, color: [1, 0.82, 0.4, 1] })
  *   for (let seg = 0; seg < 2; seg++) for (const t of [0, 0.25, 0.5, 0.75]) {
@@ -561,7 +561,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   setCamera(ctx, cam)
  *   trackPath(ctx, track, { bits: tree.PATH, color: [1, 0.82, 0.4, 1] })
  *   track.keyframes.forEach((kf, i) => {
@@ -608,7 +608,7 @@
  * function frame() {
  *   canvasHost.tick(1 / 60)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   setCamera(ctx, cam)
  *   axes(ctx, { size: 50 })
  *   trackPath(ctx, track, { bits: tree.PATH, color: [1, 1, 1, 1] })
@@ -647,7 +647,7 @@
  * function frame(ms) {
  *   track.set(1, key([0, 60 + 50 * Math.sin(ms / 1000), 130]))
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   setCamera(ctx, cam)
  *   axes(ctx, { size: 50 })
  *   trackPath(ctx, track, { bits: tree.PATH, color: [1, 1, 1, 1] })
@@ -690,7 +690,7 @@
  *   canvasHost.tick(1 / 60)
  *   track.eval(seen)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   setCamera(ctx, through ? seen : outside)
  *   grid(ctx, { M: ground, size: 100, subdivisions: 10, color: [1, 1, 1, 1] })
  *   axes(ctx, { size: 50 })
@@ -735,7 +735,7 @@
  * function frame() {
  *   canvasHost.tick(1 / 60)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   setCamera(ctx, cam)
  *   trackPath(ctx, track, { bits: tree.PATH, marker: null, color: [1, 1, 1, 1] })
  *   axes(ctx, { M: track.mat4Eye(E), size: 30 })
@@ -774,7 +774,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   setCamera(ctx, cam)
  *   trackPath(ctx, track, { bits: tree.PATH, marker: null, color: [1, 1, 1, 1] })
  *   for (let seg = 0; seg < 2; seg++) for (const t of [0, 0.25, 0.5, 0.75]) {
@@ -816,7 +816,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   setCamera(ctx, cam)
  *   trackPath(ctx, track, { bits: tree.PATH | tree.CENTER, marker: null, color: [1, 1, 1, 1] })
  *   for (let seg = 0; seg < 2; seg++) for (const t of [0, 0.25, 0.5, 0.75]) {

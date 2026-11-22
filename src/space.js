@@ -153,7 +153,7 @@ function _dispatch(view, from, to) {
  *
  * function frame(ms) {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   tree.qFromAxisAngle(q, 0, 1, 0, ms / 1000)
  *   tree.mat4FromTRS(M, 0, 0, 0, q[0], q[1], q[2], q[3], 1, 1, 1)
  *   tree.mat4MulPoint(tip, M, 100, 0, 0)
@@ -184,7 +184,7 @@ function _dispatch(view, from, to) {
  *
  * function frame(ms) {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   tree.qFromAxisAngle(q, 0, 1, 0, ms / 1000)
  *   tree.mat4FromTRS(M, 0, 0, 0, q[0], q[1], q[2], q[3], 1, 1, 1)
  *   setCamera(ctx, cam)
@@ -232,7 +232,7 @@ export function mapLocation(ctx, out, x, y, z, from, to) {
  *
  * function frame(ms) {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   tree.qFromAxisAngle(q, 0, 1, 0, ms / 1000)
  *   tree.mat4FromTRS(M, 0, 0, 0, q[0], q[1], q[2], q[3], 1, 1, 1)
  *   tree.mat4MulDir(d, M, 1, 0, 0)
@@ -283,7 +283,7 @@ export function mapDirection(ctx, out, dx, dy, dz, from, to) {
  *
  * function frame(ms) {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   setCamera(ctx, cam)
  *   grid(ctx, { M: ground, size: 150, subdivisions: 15, color: [1, 1, 1, 1] })
  *   if (unproject(ctx, origin, dir, px, py) && dir[1] < 0) {
@@ -332,7 +332,7 @@ export function unproject(ctx, outO, outD, sx, sy) {
  * @fragment
  * fn fs(@builtin(position) p: vec4f) -> @location(0) vec4f {
  *   let d = distance(p.xy, u.uMouse);
- *   return vec4f(mix(vec3f(1.0, 0.82, 0.4), vec3f(0.357, 0.059, 0.188), smoothstep(38.0, 42.0, d)), 1.0);
+ *   return vec4f(mix(vec3f(1.0, 0.82, 0.4), vec3f(0.325, 0.102, 0.2), smoothstep(38.0, 42.0, d)), 1.0);
  * }
  * ```
  * `)
@@ -374,7 +374,7 @@ export function fragCoord(ctx, out, x, y) {
  *
  * function frame(ms) {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   const d = 400 + 200 * Math.sin(ms / 1000)
  *   cam.eye[2] = d
  *   setCamera(ctx, cam)
@@ -415,7 +415,7 @@ export function pixelRatio(ctx, eyeZ) {
  *
  * function frame(ms) {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   tree.qFromAxisAngle(q, 0, 1, 0, ms / 1000)
  *   tree.mat4FromTRS(M, 0, 0, 0, q[0], q[1], q[2], q[3], 1, 1, 1)
  *   setCamera(ctx, cam)

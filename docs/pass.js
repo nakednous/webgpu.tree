@@ -85,7 +85,7 @@
  * @fragment
  * fn fs(@location(0) vTexCoord: vec2f) -> @location(0) vec4f {
  *   let cell = (floor(vTexCoord.x * 8.0) + floor(vTexCoord.y * 6.0)) % 2.0;
- *   return vec4f(mix(vec3f(0.357, 0.059, 0.188), vec3f(1.0, 0.82, 0.4), cell), 1.0);
+ *   return vec4f(mix(vec3f(0.325, 0.102, 0.2), vec3f(1.0, 0.82, 0.4), cell), 1.0);
  * }
  * ```
  * `)
@@ -134,7 +134,7 @@
  * `)
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ * ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  * setCamera(ctx, tree.createCamera({ eye: [129, 107, 172] }))
  * axes(ctx, { size: 100 })
  *
@@ -168,7 +168,7 @@
  * const yellow = texture(ctx, { data: new Uint8Array([255, 209, 102, 255]), width: 1, height: 1 })
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ * ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  * setCamera(ctx, tree.createCamera({ eye: [129, 107, 172] }))
  * axes(ctx, { size: 100 })
  *
@@ -231,7 +231,7 @@
  * `)
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ * ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  * setCamera(ctx, tree.createCamera({ eye: [0, 0, 170] }))
  * pane(ctx, [-110, 70, 0], [30, 70, 0], [30, -70, 0], [-110, -70, 0], { color: [1, 0.31, 0.85, 1] })
  * pane(ctx, [-30, 70, 1], [110, 70, 1], [110, -70, 1], [-30, -70, 1], { color: [1, 0.82, 0.4, 1] })
@@ -289,7 +289,7 @@
  * function frame(ms) {
  *   const a = ms / 2000
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   setCamera(ctx, cam)
  *   pane(ctx, ...square(-40, a, 0), { color: [1, 0.31, 0.85, 1] })
  *   pane(ctx, ...square(40, -a, 1), { color: [1, 0.82, 0.4, 1] })

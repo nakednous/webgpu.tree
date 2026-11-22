@@ -42,7 +42,7 @@
  *
  * const small = renderTarget(ctx, { width: 100, height: 75 })
  * ctx.backend.bindTarget(ctx, small)
- * ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ * ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  * setCamera(ctx, tree.createCamera({ eye: [129, 107, 172] }))
  * axes(ctx, { size: 100 })
  *
@@ -63,7 +63,7 @@
  * const smooth = renderTarget(ctx, { width: 100, height: 150, samples: 4 })
  * for (const target of [plain, smooth]) {
  *   ctx.backend.bindTarget(ctx, target)
- *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
+ *   ctx.backend.clear(ctx, [0.325, 0.102, 0.2, 1])
  *   setCamera(ctx, cam, { aspect: 100 / 150 })
  *   axes(ctx, { size: 100, width: 2 })
  * }

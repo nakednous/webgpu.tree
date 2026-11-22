@@ -24,11 +24,13 @@
   --accent:     light-dark(#d02d74, #e93d83);   /* links, the current page's marker, Run */
   --accent-ink: light-dark(#ffffff, #0a0b0d);   /* the label on an accent fill */
   --accent-2:   light-dark(#7a3fc8, #c4a2f7);   /* types */
-  /* The sketch stage: the accent's own hue, deep enough that every mark an
-     example draws clears 3:1 on it — the white grid, the amber marks, the
-     axes' red, lime and dodger blue. Every example clears to this colour, and
-     the runner paints its frame with it; fixed — never themed. */
-  --stage:    #5b0f30;
+  /* The sketch stage: the hue of the code fences' own ink — #cf6392 — deepened to
+     one relative luminance (0.028), so every mark an example draws clears 3:1 on
+     it: white 13.5:1, the amber marks 9.3, magenta 4.7, the axes' red
+     3.4, lime 9.8 and dodger blue 4.2. Every example clears to this colour,
+     and the runner paints its frame with it. Fixed — never themed: a theme switch
+     restates no fence and no mark. */
+  --stage:    #531a33;
   /* The editor's token roles, from the page's own palette: the violet the types
      already use for keywords, the accent's deep tone for definitions and
      strings, the ink for variables and operators, the muted grey for numbers
