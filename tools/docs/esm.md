@@ -43,7 +43,7 @@ function frame(ms) {
   cam.eye[0] = 215 * Math.sin(t)
   cam.eye[2] = 215 * Math.cos(t)
   ctx.backend.bindTarget(ctx, scene)
-  ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+  ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
   setCamera(ctx, cam)
   axes(ctx, { size: 100 })
   ctx.backend.bindTarget(ctx, SCREEN)

@@ -133,7 +133,7 @@ export function texture(ctx, source, opts) {
  *
  * function frame(ms) {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   g.fillStyle = '#222'
  *   g.fillRect(0, 0, 256, 256)
  *   g.fillStyle = '#ff4fd8'
@@ -217,7 +217,7 @@ export function upload(ctx, tex, source) {
  * setCamera(ctx, tree.createCamera({ eye: [126, 105, 168] }))   // off-axis: three faces
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ * ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  * bind(ctx, prog, { uModelViewProjectionMatrix: ctx.PV, uCube: cube })
  * draw(ctx, box)
  * ctx.backend.bindTarget(ctx, SCREEN)

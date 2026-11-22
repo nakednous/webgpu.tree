@@ -37,9 +37,19 @@
 
 const NEAR     = '300px 0px';   // mount when the figure is within this margin of the viewport
 const FAR      = '1500px 0px';  // hide once it is beyond this margin
-const STAGE_BG = '#0a0a0e';     // fixed stage — never the page theme
 
 const attr = (s) => String(s).replace(/"/g, '&quot;');
+
+/**
+ * The stage's colour, read from the page's own `--stage`: the sheet states it
+ * once, for the box the figure shows and for the frame's backdrop, so the
+ * frame never flashes a colour the sketch is not about to paint. It is fixed —
+ * never the page theme — and it is the colour every example clears to.
+ */
+function stageColor() {
+  const value = getComputedStyle(document.documentElement).getPropertyValue('--stage').trim();
+  return value || '#0a0a0e';
+}
 
 /** The page's configuration: read once from the JSON block, or null. */
 function readConfig() {
@@ -53,11 +63,11 @@ function readConfig() {
 }
 
 /** The iframe document: the import map, the error sink, then the example. */
-function srcdoc(cfg, code) {
+function srcdoc(cfg, code, stage) {
   return `<!doctype html>
 <html><head><meta charset="utf-8">
 <style>
-html,body{margin:0;overflow:hidden;background:${STAGE_BG};color:#d8dee9;font:12px/1.45 ui-monospace,monospace}
+html,body{margin:0;overflow:hidden;background:${stage};color:#d8dee9;font:12px/1.45 ui-monospace,monospace}
 canvas{display:block;max-width:100%}
 pre{margin:0;padding:.6rem;white-space:pre-wrap}
 pre.error{color:#e06c75}
@@ -95,7 +105,7 @@ function start(cfg) {
     const f = document.createElement('iframe');
     f.className = 'sketch';
     f.title     = r.title;
-    f.srcdoc = srcdoc(cfg, code(r));
+    f.srcdoc = srcdoc(cfg, code(r), stageColor());
     r.stage.replaceChildren(f);
     r.frame = f;
   }

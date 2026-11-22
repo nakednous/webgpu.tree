@@ -80,7 +80,7 @@ const _identity = (m) => {
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   h.update()
  *   axes(ctx, { size: 100 })
@@ -184,7 +184,7 @@ export async function init(canvas, opts) {
  *   cam.eye[0] = 215 * Math.sin(ms / 1000)
  *   cam.eye[2] = 215 * Math.cos(ms / 1000)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   axes(ctx, { size: 100 })
  *   // the bag viewOf answers: W · P · V, world to logical pixels
@@ -226,7 +226,7 @@ export function viewOf(ctx) {
  *
  * function frame(ms) {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   axes(ctx, { size: 100 })
  *   cross(ctx, { x: 40 + 320 * Math.abs(Math.sin(ms / 1200)), y: 150, size: 40, color: [1, 0.31, 0.85, 1] })
@@ -271,7 +271,7 @@ export function endFrame(ctx) {
  *     cam.eye[0] = 215 * Math.sin(ms / 1000)
  *     cam.eye[2] = 215 * Math.cos(ms / 1000)
  *     ctx.backend.bindTarget(ctx, scene)
- *     ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *     ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *     setCamera(ctx, cam)
  *     axes(ctx, { size: 100 })
  *     ctx.backend.bindTarget(ctx, SCREEN)

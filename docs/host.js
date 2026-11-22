@@ -34,7 +34,7 @@
  *   onFrame: () => {
  *     if (!h) return                        // the first frames run before init's promise settles
  *     ctx.backend.bindTarget(ctx, scene)
- *     ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *     ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *     setCamera(ctx, cam)
  *     h.update()
  *     axes(ctx, { size: 50 })
@@ -76,7 +76,7 @@
  * function frame() {
  *   tree.mat4FromTRS(M, 0, 0, 0, ...tree.qFromAxisAngle(q, 0, 1, 0, canvasHost.clock()), 1, 1, 1)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   axes(ctx, { M, size: 80 })
  *   canvasHost.pointer.flush()
@@ -112,7 +112,7 @@
  * function frame() {
  *   if (Math.floor(canvasHost.clock()) % 2 === 0) canvasHost.tick(1 / 60)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   trackPath(ctx, track, { bits: tree.PATH, color: [1, 0.82, 0.4, 1] })
  *   axes(ctx, { M: track.mat4Model(M), size: 40 })
@@ -160,7 +160,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   h.update()
  *   grid(ctx, { M: ground, size: 100, subdivisions: 10, color: [1, 1, 1, 1] })
@@ -200,7 +200,7 @@
  * function frame() {
  *   canvasHost.tick(1 / 60)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   track.handles.update()
  *   trackPath(ctx, track, { bits: tree.PATH | tree.HANDLES, color: [1, 0.82, 0.4, 1] })
@@ -242,7 +242,7 @@
  * function frame() {
  *   canvasHost.tick(1 / 60)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   grid(ctx, { M: ground, size: 100, subdivisions: 10, color: [1, 1, 1, 1] })
  *   axes(ctx, { size: 60 })
@@ -286,7 +286,7 @@
  *   canvasHost.tick(1 / 60)
  *   tree.mat4FromTRS(M, ...pose.pos, ...pose.rot, 1, 1, 1)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   axes(ctx, { M, size: 50 })
  *   canvasHost.pointer.flush()
@@ -327,7 +327,7 @@
  *   helm.feed(lin, ang)
  *   canvasHost.tick(1 / 60)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   grid(ctx, { M: ground, size: 100, subdivisions: 10, color: [1, 1, 1, 1] })
  *   axes(ctx, { size: 60 })
@@ -375,7 +375,7 @@
  * function frame() {
  *   canvasHost.tick(1 / 60)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   grid(ctx, { M: ground, size: 100, subdivisions: 10, color: [1, 1, 1, 1] })
  *   axes(ctx, { size: 60 })
@@ -415,7 +415,7 @@
  * function frame() {
  *   canvasHost.tick(1 / 60)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   grid(ctx, { M: ground, size: 100, subdivisions: 10, color: [1, 1, 1, 1] })
  *   axes(ctx, { size: 60 })
@@ -458,7 +458,7 @@
  * function frame() {
  *   tree.mat4FromTRS(M, 0, 0, 0, ...tree.qFromAxisAngle(q, 0, 1, 0, 0.6 * Math.sin(canvasHost.clock())), 1, 1, 1)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   if (tex) pane(ctx, [-100, 100, 0], [100, 100, 0], [100, -100, 0], [-100, -100, 0], { M, texture: tex })
  *   canvasHost.pointer.flush()
@@ -496,7 +496,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   if (tex) {
  *     upload(ctx, tex, video.el)
@@ -539,7 +539,7 @@
  * const tex = texture(ctx, source)
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ * ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  * setCamera(ctx, cam)
  * pane(ctx, [-160, 48, 0], [160, 48, 0], [160, -48, 0], [-160, -48, 0], { texture: tex })
  * ctx.backend.bindTarget(ctx, SCREEN)
@@ -601,7 +601,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   if (torus) {
  *     bind(ctx, prog, { uColor: [1, 0.82, 0.4] })
@@ -672,7 +672,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   tree.cameraOrbit(cam, 0.01, 0)
  *   setCamera(ctx, cam)
  *   for (const part of parts) {
@@ -721,7 +721,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   orbit.update()
  *   grid(ctx, { M: ground, size: 100, subdivisions: 10, color: [1, 1, 1, 1] })
@@ -750,7 +750,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   if (!h.update()) orbit.update()
  *   grid(ctx, { M: ground, size: 100, subdivisions: 10, color: [1, 1, 1, 1] })
@@ -790,7 +790,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   if (alive) orbit.update()
  *   grid(ctx, { M: ground, size: 100, subdivisions: 10, color: alive ? [1, 1, 1, 1] : [1, 0.31, 0.85, 1] })
@@ -826,7 +826,7 @@
  * function frame() {
  *   const moved = orbit.update()
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   grid(ctx, { M: ground, size: 100, subdivisions: 10, color: moved ? [1, 0.82, 0.4, 1] : [1, 1, 1, 1] })
  *   axes(ctx, { size: 50 })
@@ -861,7 +861,7 @@
  * function frame() {
  *   orbit.update()
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   grid(ctx, { M: ground, size: 100, subdivisions: 10, color: [1, 1, 1, 1] })
  *   axes(ctx, { size: 50 })
@@ -900,7 +900,7 @@
  * function frame() {
  *   if (orbit) orbit.update()
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   grid(ctx, { M: ground, size: 100, subdivisions: 10, color: [1, 1, 1, 1] })
  *   axes(ctx, { M: tree.mat4FromTRS(M, 0, 0, 0, ...tree.qFromAxisAngle(q, 0, 1, 0, canvasHost.clock()), 1, 1, 1), size: 50 })
@@ -943,7 +943,7 @@
  * function frame() {
  *   tree.mat4FromTRS(M, 0, 0, 0, ...tree.qFromAxisAngle(q, 0, 1, 0, canvasHost.clock()), 1, 1, 1)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   axes(ctx, { M, size: 80, bits: tree.X | tree.Y | tree.Z })
  *   ;[[110, 0, 0, 'x'], [0, 110, 0, 'y'], [0, 0, 110, 'z']].forEach(([x, y, z, name]) => {
@@ -989,7 +989,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   grid(ctx, { size: 100, subdivisions: 10, color: [1, 1, 1, 1] })
  *   canvasHost.labels.tick()
@@ -1026,7 +1026,7 @@
  * function frame() {
  *   tree.mat4FromTRS(M, 0, 0, 0, ...tree.qFromAxisAngle(q, 0, 1, 0, canvasHost.clock()), 1, 1, 1)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   axes(ctx, { M, size: 80, bits: tree.X | tree.Y | tree.Z })
  *   shown.forEach(([x, y, z, name]) => {
@@ -1066,7 +1066,7 @@
  * function frame() {
  *   tree.mat4FromTRS(M, 0, 0, 0, ...tree.qFromAxisAngle(q, 0, 1, 0, canvasHost.clock()), 1, 1, 1)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   axes(ctx, { M, size: 80, bits: tree.X | tree.Y | tree.Z })
  *   if (labelled) [[110, 0, 0, 'x'], [0, 110, 0, 'y'], [0, 0, 110, 'z']].forEach(([x, y, z, name]) => {
@@ -1107,7 +1107,7 @@
  * function frame() {
  *   tree.cameraOrbit(cam, 0.01, 0)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   axes(ctx, { size: 100, bits: tree.X | tree.Y | tree.Z })
  *   if (ticking) canvasHost.labels.tick()
@@ -1143,7 +1143,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   if (tex) {
  *     upload(ctx, tex, video.el)
@@ -1179,7 +1179,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   if (tex) {
  *     const wanted = Math.floor((canvasHost.clock() - readyAt) / 2) % 2 === 1
@@ -1218,7 +1218,7 @@
  *
  * function frame() {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   if (tex) {
  *     if (live) upload(ctx, tex, video.el)
@@ -1260,7 +1260,7 @@
  *   canvasHost.tick(1 / 60)
  *   tree.mat4FromTRS(M, ...pose.pos, ...pose.rot, 1, 1, 1)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   axes(ctx, { size: 30, semantic: false, color: [1, 1, 1, 1] })
  *   axes(ctx, { M, size: 40 })
@@ -1303,7 +1303,7 @@
  *   tree.mat4FromTRS(M, ...pose.pos, ...pose.rot, 1, 1, 1)
  *   tree.mat4FromTRS(R, read.pos[0], read.pos[1] + 60, read.pos[2], ...read.rot, 1, 1, 1)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   axes(ctx, { M, size: 40 })
  *   axes(ctx, { M: R, size: 40, semantic: false, color: [1, 0.82, 0.4, 1] })
@@ -1343,7 +1343,7 @@
  *   canvasHost.tick(1 / 60)
  *   helm.activity(rates)
  *   const peak = Math.max(1, ...rates.map(Math.abs))
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   beginHUD(ctx)
  *   rates.forEach((r, i) => cross(ctx, { x: 75 + 50 * i, y: 250 - 150 * Math.abs(r) / peak, size: 16, color: [1, 1, 1, 1] }))

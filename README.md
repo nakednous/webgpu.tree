@@ -50,7 +50,7 @@ const cam = tree.createCamera({ eye: [129, 107, 172] })
 
 function frame() {
   ctx.backend.bindTarget(ctx, scene)                          // the layer's flat bind, the twin's pass
-  ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+  ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
   setCamera(ctx, cam)
   axes(ctx, { size: 100 })
   ctx.backend.bindTarget(ctx, SCREEN)

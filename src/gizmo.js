@@ -225,7 +225,7 @@ function _disc(a, cx, cy, cz, r, u, v) {
  * setCamera(ctx, tree.createCamera({ eye: [97, 143, 229], center: [-75, 0, 0] }))
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ * ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  * axes(ctx, { size: 100 })
  * axes(ctx, { M, size: 60 })
  * ctx.backend.bindTarget(ctx, SCREEN)
@@ -260,7 +260,7 @@ export function axes(ctx, opts) {
  * setCamera(ctx, tree.createCamera({ eye: [164, 136, 218] }))
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ * ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  * grid(ctx, { M: ground, size: 120, subdivisions: 10 })
  * axes(ctx, { size: 100 })
  * ctx.backend.bindTarget(ctx, SCREEN)
@@ -296,7 +296,7 @@ export function grid(ctx, opts) {
  * setCamera(ctx, tree.createCamera({ eye: [0, 89, 220], center: [0, 40, 0] }))
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ * ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  * axes(ctx, { size: 100 })
  * hermite(ctx, [-150, 0, 0], [0, 400, 0], [150, 0, 0], [0, -400, 0], { color: [1, 0.31, 0.85, 1] })
  * ctx.backend.bindTarget(ctx, SCREEN)
@@ -334,7 +334,7 @@ export function hermite(ctx, p0, t0, p1, t1, opts) {
  * setCamera(ctx, tree.createCamera({ eye: [255, 212, 340] }))
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ * ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  * axes(ctx, { size: 60 })
  * viewFrustum(ctx, { camera: other })
  * ctx.backend.bindTarget(ctx, SCREEN)
@@ -420,7 +420,7 @@ function _cameraMarker(ctx, kf, i, track, o) {
  * setCamera(ctx, tree.createCamera({ eye: [164, 186, 243], center: [0, 50, 25] }))
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ * ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  * trackPath(ctx, track, { bits: tree.PATH | tree.CONTROLS, color: [1, 0.82, 0.4, 1] })
  * ctx.backend.bindTarget(ctx, SCREEN)
  * image(ctx, scene.color)
@@ -481,7 +481,7 @@ export function trackPath(ctx, track, opts) {
  *
  * function frame(ms) {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   const s = Math.sin(ms / 1000)
  *   lin[0] = 250 * Math.max(0, s)
  *   ang[1] = 250 * Math.max(0, -s)
@@ -600,7 +600,7 @@ function _rigHud(ctx, helm, o) {
  *
  * function frame(ms) {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   h.update()
  *   grid(ctx, { M: ground, size: 120, subdivisions: 10 })
@@ -676,7 +676,7 @@ const PANE_UVS = [0, 0, 1, 0, 1, 1, 0, 1];
  * setCamera(ctx, tree.createCamera({ eye: [0, 0, 205] }))
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ * ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  * pane(ctx, [-100, 100, 0], [100, 100, 0], [100, -100, 0], [-100, -100, 0], { texture: tex })
  * ctx.backend.bindTarget(ctx, SCREEN)
  * image(ctx, scene.color)
@@ -749,7 +749,7 @@ function _writeSegments(a, segments, n) {
  *     batch[o + 6] = 1; batch[o + 7] = 0.82; batch[o + 8] = 0.4; batch[o + 9] = 1
  *   }
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   lines(ctx, batch, { width: 3 })
  *   ctx.backend.bindTarget(ctx, SCREEN)
@@ -795,7 +795,7 @@ export function lines(ctx, segments, opts) {
  * setCamera(ctx, tree.createCamera({ eye: [129, 107, 172] }))
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ * ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  * axes(ctx, { size: 100 })
  * beginHUD(ctx)
  * cross(ctx, { x: 40, y: 40, size: 30, color: [1, 0.31, 0.85, 1] })
@@ -826,7 +826,7 @@ export function beginHUD(ctx) {
  * setCamera(ctx, tree.createCamera({ eye: [129, 107, 172] }))
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ * ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  * beginHUD(ctx)
  * bullsEye(ctx, { x: 200, y: 150, size: 120, color: [1, 0.82, 0.4, 1] })
  * endHUD(ctx)
@@ -862,7 +862,7 @@ function _inHud(ctx, drawFn) {
  * setCamera(ctx, tree.createCamera({ eye: [129, 107, 172] }))
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ * ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  * axes(ctx, { size: 100 })
  * cross(ctx, { x: 200, y: 150, size: 40, color: [1, 0.31, 0.85, 1] })
  * ctx.backend.bindTarget(ctx, SCREEN)
@@ -894,7 +894,7 @@ export function cross(ctx, opts) {
  * const scene = renderTarget(ctx)
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ * ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  * bullsEye(ctx, { x: 120, y: 150, size: 100, shape: tree.CIRCLE, color: [1, 0.31, 0.85, 1] })
  * bullsEye(ctx, { x: 280, y: 150, size: 100, shape: tree.SQUARE, color: [1, 0.82, 0.4, 1] })
  * ctx.backend.bindTarget(ctx, SCREEN)

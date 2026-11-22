@@ -72,7 +72,7 @@ import { canvasViewport } from './space.js';
  * @param {number} y  Pixel row in the target, from the top.
  * @returns {Promise<Uint8Array>} The four bytes, RGBA, a frame or more late.
  * @example
- * <caption>The centre pixel read back: 255 79 216 while the magenta square passes over it, 19 141 117 otherwise.</caption>
+ * <caption>The centre pixel read back: 255 79 216 while the magenta square passes over it, 91 15 48 otherwise.</caption>
  * import { init, endFrame, image, pane, readPixel, renderTarget, SCREEN, setCamera, tree } from 'webgpu.tree'
  *
  * const canvas = document.body.appendChild(document.createElement('canvas'))
@@ -90,7 +90,7 @@ import { canvasViewport } from './space.js';
  * function frame(ms) {
  *   const x = 150 * Math.sin(ms / 1000)
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   pane(ctx, [x - 30, 30, 0], [x + 30, 30, 0], [x + 30, -30, 0], [x - 30, -30, 0], { color: [1, 79 / 255, 216 / 255, 1] })
  *   if (!pending) {
@@ -215,7 +215,7 @@ export function readPixel(ctx, target, x, y) {
  * function frame() {
  *   if (mx >= 0) ask()
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   for (const c of cubes) {
  *     bind(ctx, prog, { uColor: c.id === picked ? [1, 0.31, 0.85] : [1, 0.82, 0.4] })

@@ -11,7 +11,8 @@
  * The palette is one accent per theme, at one hue: the deep tone carries a
  * white page, the bright tone carries #131417. `light-dark()` resolves every
  * pair against `color-scheme`, which is the only thing the theme picker
- * changes; the sketch stage is a fixed dark box either way.
+ * changes; the sketch stage is a fixed dark box either way, and it is the
+ * accent's own hue, so a sketch reads as this site's.
  */
 
 :root {
@@ -23,7 +24,11 @@
   --accent:     light-dark(#d02d74, #e93d83);   /* links, the current page's marker, Run */
   --accent-ink: light-dark(#ffffff, #0a0b0d);   /* the label on an accent fill */
   --accent-2:   light-dark(#7a3fc8, #c4a2f7);   /* types */
-  --stage:    #0a0a0e;                          /* fixed — not themed */
+  /* The sketch stage: the accent's own hue, deep enough that every mark an
+     example draws clears 3:1 on it — the white grid, the amber marks, the
+     axes' red, lime and dodger blue. Every example clears to this colour, and
+     the runner paints its frame with it; fixed — never themed. */
+  --stage:    #5b0f30;
   /* The editor's token roles, from the page's own palette: the violet the types
      already use for keywords, the accent's deep tone for definitions and
      strings, the ink for variables and operators, the muted grey for numbers

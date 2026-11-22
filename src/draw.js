@@ -132,7 +132,7 @@ export function uploadTransforms(ctx, prog, M) {
  * setCamera(ctx, tree.createCamera({ eye: [76, 102, 204] }))
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ * ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  * bind(ctx, prog, { uColor: [1, 0.31, 0.85] })
  * draw(ctx, solid, tree.mat4FromTRS(tree.mat4(), -80, 0, 0, 0, 0, 0, 1, 1, 1, 1))
  * bind(ctx, prog, { uColor: [1, 0.82, 0.4] })
@@ -243,7 +243,7 @@ const _isAttribute = (a) => a != null && (_isNumbers(a) || _isNumbers(a.data));
  *
  * function frame(ms) {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   tree.qFromAxisAngle(q, 1, 0, 0, ms / 1400)
  *   tree.mat4FromTRS(M, 0, 0, 0, q[0], q[1], q[2], q[3], 1, 1, 1)
@@ -328,7 +328,7 @@ export function buffer(ctx, arrays) {
  *   }
  *   updateBuffer(ctx, mesh, { position: { numComponents: 3, data: position }, indices: { numComponents: 3, data: indices } })
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   bind(ctx, prog, { uColor: [1, 0.82, 0.4, 1] })
  *   draw(ctx, mesh)
  *   ctx.backend.bindTarget(ctx, SCREEN)
@@ -418,7 +418,7 @@ function _named(arrays) {
  *
  * function frame(ms) {
  *   ctx.backend.bindTarget(ctx, scene)
- *   ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ *   ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  *   setCamera(ctx, cam)
  *   tree.qFromAxisAngle(q, 0, 1, 0, ms / 1000)
  *   tree.mat4FromTRS(M, 0, 0, 0, q[0], q[1], q[2], q[3], 1, 1, 1)
@@ -506,7 +506,7 @@ export function draw(ctx, obj, M, opts) {
  * const M = tree.mat4()
  *
  * ctx.backend.bindTarget(ctx, scene)
- * ctx.backend.clear(ctx, [0.075, 0.553, 0.459, 1])
+ * ctx.backend.clear(ctx, [0.357, 0.059, 0.188, 1])
  * setCamera(ctx, tree.createCamera({ eye: [99, 131, 263] }))
  * bind(ctx, prog, { uColor: [1, 0.82, 0.4], uSpread: 1 })
  * drawInstanced(ctx, solid, 10)                                  // the field: one install, one call
