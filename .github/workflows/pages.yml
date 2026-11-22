@@ -50,9 +50,22 @@ jobs:
             exit 0
           fi
           ref="$tag"
-          if [ "$GITHUB_SHA" != "$(git rev-parse "$tag")" ] &&
-             git diff --quiet "$tag" HEAD -- src package.json rollup.config.js; then
-            ref="$GITHUB_SHA"
+          if [ "$GITHUB_SHA" != "$(git rev-parse "$tag")" ]; then
+            # The push may carry its own documentation. The pages are generated
+            # from `src`, whose doc blocks are documentation, and so are the
+            # examples inside them. A src change is documentation when every
+            # line it adds or removes lies inside a doc block — a line that
+            # begins `*`, the way a `/** … */` block is written here — and the
+            # manifest and the build config are untouched: the bundle such a
+            # push builds differs from the release's in its comments alone.
+            # Anything else publishes the tag, whose tree is the release.
+            if git diff --quiet "$tag" HEAD -- package.json rollup.config.js; then
+              outside=$(git diff -U0 "$tag" HEAD -- src |
+                sed -n 's/^[+-]\([^+-].*\)$/\1/p' | grep -cvE '^[[:space:]]*\*' || true)
+              if [ "$outside" = "0" ]; then
+                ref="$GITHUB_SHA"
+              fi
+            fi
           fi
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
           echo "publishing $ref ($tag is the release)"
