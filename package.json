@@ -46,7 +46,7 @@
     "webgpu-utils": "^2.1.1"
   },
   "dependencies": {
-    "@nakednous/host": "^0.0.13",
+    "@nakednous/host": "^0.0.15",
     "@nakednous/idiom": "^0.0.14",
     "@nakednous/tree": "^0.0.36"
   },
